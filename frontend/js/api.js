@@ -4,20 +4,21 @@
  * Nota teknikal ringkas: Apps Script tidak menyokong permintaan "preflight" CORS, jadi kita hantar
  * JSON sebagai `text/plain`. Pelayan tetap membacanya sebagai JSON. Ini corak biasa untuk Apps Script.
  *
- * Token disimpan dalam sessionStorage (hilang bila tab ditutup), bukan localStorage.
+ * Token disimpan dalam localStorage supaya guru kekal log masuk pada peranti sendiri walaupun tab ditutup.
+ * Server tetap menyemak dan boleh membatalkan token pada bila-bila masa (log keluar, reset, nyahaktif).
  */
 (function () {
   'use strict';
   var cfg = window.APP_CONFIG;
 
   function getSession() {
-    try { return JSON.parse(sessionStorage.getItem(cfg.SESSION_KEY) || 'null'); } catch (e) { return null; }
+    try { return JSON.parse(localStorage.getItem(cfg.SESSION_KEY) || 'null'); } catch (e) { return null; }
   }
   function setSession(s) {
-    try { sessionStorage.setItem(cfg.SESSION_KEY, JSON.stringify(s)); } catch (e) { /* abaikan */ }
+    try { localStorage.setItem(cfg.SESSION_KEY, JSON.stringify(s)); } catch (e) { /* abaikan */ }
   }
   function clearSession() {
-    try { sessionStorage.removeItem(cfg.SESSION_KEY); } catch (e) { /* abaikan */ }
+    try { localStorage.removeItem(cfg.SESSION_KEY); } catch (e) { /* abaikan */ }
   }
 
   /** Panggil satu aksi. Berjaya -> pulangkan `data`. Gagal -> lontar Error dengan `.code` dan mesej Bahasa Melayu. */

@@ -44,13 +44,18 @@
     var pending = s.sesi.perlu_persetujuan_pdpa || s.sesi.wajib_tukar_password;
     if (pending && !opt.pendingPage) { location.replace(nextPage(s.sesi)); return null; }
     if (opt.roles && opt.roles.indexOf(s.sesi.role) === -1) { location.replace('utama.html'); return null; }
+    // Sahkan dengan server di latar (token mungkin dibatalkan) dan dapatkan tarikh luput terkini.
+    if (!opt.pendingPage) Api.call('SESI_SAYA').then(updateSesi).catch(function () {});
     return s.sesi;
   }
 
   /** Simpan ringkasan sesi baharu (selepas SETUJU_PDPA / TUKAR_PASSWORD). */
   function updateSesi(sesi) {
     var s = Api.getSession();
-    if (s) { s.sesi = sesi; Api.setSession(s); }
+    if (s) {
+      if (sesi.expiry) { s.expiry = sesi.expiry; delete sesi.expiry; }
+      s.sesi = sesi; Api.setSession(s);
+    }
   }
 
   function logout() {

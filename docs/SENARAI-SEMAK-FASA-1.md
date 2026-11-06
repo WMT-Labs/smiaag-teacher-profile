@@ -36,6 +36,7 @@ Ikut mengikut urutan. Jika ada yang gagal, catat apa yang anda nampak dan berita
 - [ ] Di Urus akaun, baris UJI01 menunjukkan **Dikunci**. Tekan **Buka kunci**, kemudian log masuk berjaya.
 
 ## 5. Sesi
+- [ ] Tutup tab dan buka semula laman: anda masih log masuk (terus ke Laman utama).
 - [ ] Tekan **Log keluar**. Tekan butang Back pelayar: anda tidak masuk semula ke halaman dalam.
 - [ ] Dalam tab `sessions`, token sesi tadi sudah tiada.
 - [ ] Tab `audit_log` mengandungi LOGIN_BERJAYA, LOGIN_GAGAL, AKAUN_CIPTA, SETUJU_PDPA, TUKAR_PASSWORD dan lain-lain.

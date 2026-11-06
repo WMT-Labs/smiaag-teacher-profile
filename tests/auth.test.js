@@ -43,7 +43,7 @@ test('polisi kata laluan: minimum 8, tidak sama dengan ID guru', () => {
 });
 
 // ---------------------------------------------------------------- login & sesi
-test('log masuk berjaya memulangkan token dan menyimpan sesi dengan tempoh luput 8 jam', () => {
+test('log masuk berjaya memulangkan token dan menyimpan sesi dengan tempoh luput 30 hari', () => {
   const { ctx, call, ciptaGuru } = setupWithSuperadmin();
   const g = ciptaGuru('SM100');
   const r = call('SESI_SAYA', {}, g.token);
@@ -51,7 +51,7 @@ test('log masuk berjaya memulangkan token dan menyimpan sesi dengan tempoh luput
   assert.equal(r.data.guru_kod, 'SM100');
   assert.equal(r.data.role, 'guru');
   const s = ctx.getById('sessions', g.token);
-  assert.equal(s.expiry, '2026-11-07T02:30:00+08:00');
+  assert.equal(s.expiry, '2026-12-06T18:30:00+08:00');
   assert.equal(JSON.stringify(r).includes('password_hash'), false);
   assert.equal(JSON.stringify(r).includes('salt'), false);
 });
@@ -75,13 +75,27 @@ test('ID guru tidak sensitif huruf besar/kecil', () => {
 test('token tamat tempoh ditolak dan dipadam', () => {
   const { ctx, env, call, ciptaGuru } = setupWithSuperadmin();
   const g = ciptaGuru('SM103');
-  env.advance(8 * 3600 * 1000 - 1000);
-  assert.equal(call('SESI_SAYA', {}, g.token).ok, true, 'masih sah sebelum 8 jam');
-  env.advance(2000);
+  env.advance(30 * 86400000 - 1000);
+  assert.equal(call('SESI_SAYA', {}, g.token).ok, true, 'masih sah sebelum 30 hari');
+  env.advance(30 * 86400000 + 1000);
   const r = call('SESI_SAYA', {}, g.token);
   assert.equal(r.code, 'TIDAK_LOG_MASUK');
   assert.match(r.message, /tamat/);
   assert.equal(ctx.getById('sessions', g.token), null);
+});
+
+test('sesi bergerak: guru aktif terus kekal log masuk, lanjutan paling kerap sekali sehari', () => {
+  const { ctx, env, call, ciptaGuru } = setupWithSuperadmin();
+  const g = ciptaGuru('SM120');
+  const e0 = ctx.getById('sessions', g.token).expiry;
+  env.advance(3600000);
+  call('SESI_SAYA', {}, g.token);
+  assert.equal(ctx.getById('sessions', g.token).expiry, e0, 'belum sehari: tiada tulisan');
+  for (let i = 0; i < 3; i++) { env.advance(20 * 86400000); assert.equal(call('SESI_SAYA', {}, g.token).ok, true, 'hari ke-' + (i + 1) * 20); }
+  const r = call('SESI_SAYA', {}, g.token);
+  assert.equal(r.data.expiry, ctx.getById('sessions', g.token).expiry, 'expiry baharu dipulangkan ke frontend');
+  env.advance(31 * 86400000);
+  assert.equal(call('SESI_SAYA', {}, g.token).code, 'TIDAK_LOG_MASUK', 'tidak aktif 31 hari -> tamat');
 });
 
 test('log keluar memadam token di server', () => {
@@ -95,7 +109,7 @@ test('log keluar memadam token di server', () => {
 test('sesi tamat dibersihkan semasa log masuk seterusnya', () => {
   const { ctx, env, login, ciptaGuru } = setupWithSuperadmin();
   ciptaGuru('SM105');
-  env.advance(9 * 3600 * 1000);
+  env.advance(31 * 86400000);
   const before = ctx.query('sessions', {}).length;
   assert.ok(before >= 2);
   assert.equal(login('SM105', 'KataLaluanBaru1').ok, true);

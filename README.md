@@ -120,7 +120,7 @@ Butiran penuh dalam dokumen arahan projek, Seksyen 3. Yang sudah berkuat kuasa p
 - Sheet tidak dikongsi dan tidak diterbitkan ke web.
 - Hanya `LOGIN` boleh dipanggil tanpa token. Setiap aksi lain menyemak token, tempoh luput, status akaun dan peranan di server. Senarai aksi dan peranan dalam `backend/Api.gs`.
 - Kata laluan: SHA-256 dengan salt unik setiap guru dan pepper, diulang 1000 kali. Tiada plaintext disimpan.
-- Sesi: token rawak, luput selepas 8 jam, disimpan dalam tab `sessions`. Log keluar memadam token di server. Tukar kata laluan melog keluar peranti lain.
+- Sesi: token rawak disimpan dalam tab `sessions`, kekal 30 hari dan dilanjutkan bila guru aktif. Log keluar memadam token di server. Tukar kata laluan melog keluar peranti lain.
 - Maksimum 8 percubaan gagal setiap 5 minit bagi setiap ID guru. Pentadbir boleh buka kunci.
 - Guru baharu wajib bersetuju dengan notis privasi dan tukar kata laluan sementara sebelum boleh buat apa-apa lagi.
 - Tindakan penting (log masuk, gagal log masuk, urus akaun, persetujuan PDPA) direkod dalam `audit_log`.

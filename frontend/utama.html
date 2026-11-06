@@ -23,7 +23,7 @@
 
       c.appendChild(el('section', { class: 'welcome' }, [
         el('h2', { style: 'font-size:1.375rem' }, 'Assalamualaikum, ' + sesi.nama_penuh),
-        el('p', { class: 'muted' }, sesi.guru_kod + ' · ' + App.LABEL_ROLE[sesi.role] + ' · sesi tamat ' + App.fmtDateTime((Api.getSession() || {}).expiry))
+        el('p', { class: 'muted' }, sesi.guru_kod + ' · ' + App.LABEL_ROLE[sesi.role])
       ]));
 
       function card(o) {
@@ -37,8 +37,6 @@
       links.appendChild(card({ icon: 'i-sliders', title: 'Tukar kata laluan', href: 'tukar-password.html', desc: 'Tukar kata laluan anda bila-bila masa.' }));
       c.appendChild(links);
 
-      // Sahkan sesi dengan server (token mungkin sudah dipadam di server)
-      Api.call('SESI_SAYA').then(App.updateSesi).catch(function () {});
     })();
   </script>
 </body>

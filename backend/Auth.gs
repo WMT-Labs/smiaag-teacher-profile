@@ -13,7 +13,8 @@
 
 var HASH_VERSION = 'v1';
 var HASH_ITERATIONS = 1000;      // naikkan jika mahu lebih kuat; turunkan jika log masuk terlalu lambat
-var SESSION_TTL_HOURS = 8;
+var SESSION_TTL_DAYS = 30;          // sesi kekal 30 hari; dilanjutkan automatik bila guru aktif
+var SESSION_RENEW_AFTER_HOURS = 24; // lanjutkan paling kerap sekali sehari (kurangkan tulisan ke Sheet)
 var LOGIN_MAX_CUBA = 8;
 var LOGIN_TETINGKAP_SAAT = 300;  // 5 minit
 var PASSWORD_MIN = 8;
@@ -155,11 +156,22 @@ function requireAuth(token, roles) {
   if (roles && roles.indexOf(akaun.role) === -1) {
     throw new AppError('TIADA_KEBENARAN', 'Anda tiada kebenaran untuk tindakan ini.');
   }
+  // Sesi bergerak: jika sudah lebih sehari sejak dilanjutkan, mulakan semula kiraan 30 hari.
+  var expiry = s.expiry;
+  var penuh = SESSION_TTL_DAYS * 86400000;
+  if (Date.parse(s.expiry) - Date.now() < penuh - SESSION_RENEW_AFTER_HOURS * 3600000) {
+    expiry = _expiryBaharu();
+    update('sessions', token, { expiry: expiry });
+  }
   return {
-    token: token, akaunId: akaun.id, guruId: guru.id, guruKod: guru.guru_kod, role: akaun.role,
+    token: token, expiry: expiry, akaunId: akaun.id, guruId: guru.id, guruKod: guru.guru_kod, role: akaun.role,
     pending: !!akaun.wajib_tukar_password || !akaun.persetujuan_pdpa_pada,
     akaun: akaun, guru: guru
   };
+}
+
+function _expiryBaharu() {
+  return toIso(new Date(Date.now() + SESSION_TTL_DAYS * 86400000));
 }
 
 function bersihkanSesiTamat() {
@@ -217,7 +229,7 @@ function aksiLogin(ctx, params) {
   if (akaun.percubaan_gagal) update('akaun', akaun.id, { percubaan_gagal: 0 }, { actorId: 'sistem' });
 
   var token = uuid();
-  var expiry = toIso(new Date(Date.now() + SESSION_TTL_HOURS * 3600 * 1000));
+  var expiry = _expiryBaharu();
   insert('sessions', { token: token, akaun_id: akaun.id, role: akaun.role, expiry: expiry });
   logAudit(akaun.id, 'LOGIN_BERJAYA', kod);
   return { token: token, expiry: expiry, sesi: _ringkasanSesi(akaun, guru) };
@@ -230,7 +242,9 @@ function aksiLogout(ctx) {
 }
 
 function aksiSesiSaya(ctx) {
-  return _ringkasanSesi(ctx.akaun, ctx.guru);
+  var r = _ringkasanSesi(ctx.akaun, ctx.guru);
+  r.expiry = ctx.expiry;
+  return r;
 }
 
 function aksiTukarPassword(ctx, params) {
