@@ -52,21 +52,22 @@
       function senaraiTugasan(jenis) {
         var list = K.tugasan.filter(function (t) { return t.jenis_tugasan === jenis; });
         var berjadual = jenis === 'berjadual';
+        var boleh = K.boleh.tugasan;
         var body = list.length ? el('ul', { class: 'items' }, list.map(function (t) {
           var sub = berjadual
             ? [App.labelOf(K.ref.kumpulan, t.kumpulan), t.bilangan_kelas ? t.bilangan_kelas + ' kelas' : null].filter(Boolean).join(' · ')
             : App.labelOf(K.ref.jabatan, t.jabatan);
           return el('li', {}, [
             el('div', { class: 'grow' }, [el('b', {}, t.nama_tugasan), el('div', { class: 'sub' }, sub)]),
-            el('span', { class: 'num', style: 'font-weight:700;white-space:nowrap' }, String(t.jam_kredit)),
+            el('span', { class: 'num', style: 'font-weight:700;white-space:nowrap' }, String(t.jam_kredit))
+          ].concat(boleh ? [
             iconBtn('i-edit', 'Sunting', function () { borangTugasan(jenis, t); }),
             iconBtn('i-trash', 'Padam', function () { padamTugasan(t); }, true)
-          ]);
-        })) : el('p', { class: 'empty-sm' }, berjadual ? 'Belum ada tugasan berjadual. Salin daripada surat tugasan anda.' : 'Belum ada tugasan tidak berjadual.');
-        return el('section', { class: 'card' }, [
-          head(berjadual ? 'Tugasan berjadual' : 'Tugasan tidak berjadual', berjadual ? 'i-book' : 'i-clipboard', [btn('Tambah', function () { borangTugasan(jenis, null); })]),
-          body
-        ]);
+          ] : []));
+        })) : el('p', { class: 'empty-sm' }, boleh ? 'Belum ada tugasan. Tambah satu persatu atau guna Import tugasan.' : 'Belum ada tugasan. Tugasan diisi oleh pentadbir mengikut surat tugasan.');
+        var parts = [head(berjadual ? 'Tugasan berjadual' : 'Tugasan tidak berjadual', berjadual ? 'i-book' : 'i-clipboard', boleh ? [btn('Tambah', function () { borangTugasan(jenis, null); })] : []), body];
+        if (!boleh && list.length) parts.push(el('p', { class: 'muted', style: 'font-size:.8125rem;padding:10px 24px 16px;border-top:1px solid var(--border)' }, 'Diisi oleh pentadbir. Hubungi pentadbir jika ada pembetulan.'));
+        return el('section', { class: 'card' }, parts);
       }
       function borangTugasan(jenis, t) {
         t = t || {};

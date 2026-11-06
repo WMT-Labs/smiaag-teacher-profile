@@ -171,8 +171,14 @@ function _semakRekod(jadual, row) {
   }
 }
 
+/** Tugasan guru diisi oleh pentadbir sahaja (keputusan pemilik): guru tidak perlu mengisi satu persatu. */
+function _semakPenulisTugasan(ctx, jadual) {
+  if (jadual === 'tugasan_guru' && !_isAdmin(ctx)) throw new AppError('TIADA_KEBENARAN', 'Tugasan diisi oleh pentadbir. Hubungi pentadbir jika ada pembetulan.');
+}
+
 function aksiRekodSimpan(ctx, params) {
   var jadual = _jadualRekod(params);
+  _semakPenulisTugasan(ctx, jadual);
   var data = _dataRekod(jadual, params.data);
   var hasil;
   if (params.id) {
@@ -201,6 +207,7 @@ function aksiRekodSimpan(ctx, params) {
 
 function aksiRekodPadam(ctx, params) {
   var jadual = _jadualRekod(params);
+  _semakPenulisTugasan(ctx, jadual);
   var id = pUuid(params, 'id', 'Rekod');
   var lama = getById(jadual, id);
   if (!lama) throw new AppError('TIDAK_JUMPA', 'Rekod tidak dijumpai.');

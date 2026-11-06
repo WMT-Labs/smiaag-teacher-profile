@@ -7,6 +7,8 @@
  *   insert(table, row, ctx)       -> objek yang disimpan
  *   update(table, id, patch, ctx) -> objek selepas kemas kini
  *   remove(table, id, ctx)        -> true/false
+ *   insertMany(table, rows, ctx)  -> senarai objek (satu tulisan ke Sheet; untuk import)
+ *   removeWhere(table, filter)    -> bilangan dipadam (satu tulisan ke Sheet; untuk import)
  *
  * Kenapa begini: apabila pindah ke Supabase, hanya fail ini yang diganti.
  * Modul lain tidak perlu tahu data disimpan di mana.
@@ -206,6 +208,79 @@ function remove(table, id, ctx) {
       }
     }
     return false;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Operasi pukal (import). Satu bacaan dan satu tulisan, bukan satu bagi setiap baris,
+// supaya import ratusan baris tidak melepasi had masa Apps Script.
+// ---------------------------------------------------------------------------
+
+function insertMany(table, rows, ctx) {
+  var s = getTableSchema(table);
+  ctx = ctx || {};
+  if (!Array.isArray(rows)) throw new AppError('VALIDASI', 'Data tidak sah.');
+  return _withLock(function () {
+    var data = _readAll(s);
+    var fkSets = {};
+    function fkSet(t) {
+      if (!fkSets[t]) {
+        var ts = getTableSchema(t), set = {};
+        _readAll(ts).rows.forEach(function (r) { set[r[ts.pk]] = true; });
+        fkSets[t] = set;
+      }
+      return fkSets[t];
+    }
+    var semua = data.rows.slice(), out = [], lines = [], now = nowIso();
+    rows.forEach(function (row, i) {
+      var clean;
+      try {
+        clean = _validate(s, row, true, { skipFk: true });
+        s.columns.forEach(function (c) {
+          var d = s.defs[c];
+          if (d.fk && clean[c] !== null && clean[c] !== undefined && !ctx.skipFk && !fkSet(d.fk)[clean[c]]) {
+            _bad(c, 'Rekod rujukan untuk "' + c + '" tidak wujud.');
+          }
+        });
+        if (!clean[s.pk]) clean[s.pk] = uuid();
+        if (semua.some(function (r) { return r[s.pk] === clean[s.pk]; })) throw new AppError('DUPLIKAT', 'Rekod dengan id ini sudah wujud.');
+        _checkUnique(s, clean, null, semua);
+      } catch (e) {
+        if (e && e.name === 'AppError') { e.message = 'Baris ' + (i + 1) + ': ' + e.message; e.details = { baris: i + 1, field: e.details && e.details.field }; }
+        throw e;
+      }
+      if (s.audit) { clean.created_at = now; clean.updated_at = now; clean.updated_by = ctx.actorId || null; }
+      semua.push(clean);
+      out.push(clean);
+      lines.push(s.columns.map(function (c) { return _toCell(s.defs[c], clean[c]); }));
+    });
+    if (lines.length) data.sheet.getRange(data.sheet.getLastRow() + 1, 1, lines.length, s.columns.length).setValues(lines);
+    if (s.isRef) delete _REF_CACHE[s.name];
+    return out;
+  });
+}
+
+/** Padam semua baris yang sepadan dengan penapis. filter mesti ada sekurang-kurangnya satu lajur. */
+function removeWhere(table, filter) {
+  var s = getTableSchema(table);
+  if (!filter || typeof filter !== 'object' || !Object.keys(filter).length) throw new AppError('VALIDASI', 'Penapis diperlukan untuk padam pukal.');
+  Object.keys(filter).forEach(function (k) { if (!s.defs[k]) throw new AppError('VALIDASI', 'Penapis menggunakan lajur yang tidak wujud: ' + k); });
+  return _withLock(function () {
+    var data = _readAll(s);
+    var buang = {};
+    var n = 0;
+    data.rows.forEach(function (row) {
+      if (Object.keys(filter).every(function (k) { return _matches(row[k], filter[k]); })) { buang[row.__row] = true; n++; }
+    });
+    if (!n) return 0;
+    var last = data.sheet.getLastRow();
+    var range = data.sheet.getRange(2, 1, last - 1, s.columns.length);
+    var values = range.getValues();
+    var keep = values.filter(function (v, i) { return !buang[i + 2] && v.some(function (x) { return x !== '' && x !== null; }); });
+    range.clearContent();
+    if (keep.length) data.sheet.getRange(2, 1, keep.length, s.columns.length).setValues(keep);
+    if (s.isRef) delete _REF_CACHE[s.name];
+    return n;
   });
 }
 

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Import jadual — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/asc.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard({ roles: ['pentadbir', 'superadmin'] });
+      if (!sesi) return;
+      var el = UI.el, icon = App.icon;
+      var c = App.mount({ sesi: sesi, active: 'import-jadual', title: 'Import jadual (aSc)' });
+      var tahun = String(new Date().getFullYear());
+      var R = null;          // rujukan daripada server
+      var asc = null;        // slot mentah daripada fail
+      var guruFail = [];     // guru dalam fail
+      var peta = {};         // asc_guru_id -> guru_id
+      var rows = [];         // baris untuk disemak
+      var halaman = 0, SAIZ = 60;
+      var tapis = { guru: '', masalah: false };
+
+      var stepsEl = el('div', { class: 'steps' });
+      var main = el('div', { class: 'stack' });
+      c.appendChild(stepsEl);
+      c.appendChild(main);
+      function langkah(n) {
+        stepsEl.textContent = '';
+        ['1. Pilih fail', '2. Padankan guru', '3. Semak dan sunting', '4. Simpan'].forEach(function (t, i) {
+          stepsEl.appendChild(el('span', { class: i + 1 === n ? 'on' : (i + 1 < n ? 'done' : '') }, t));
+        });
+      }
+      function opt(list, val, first) {
+        var o = first ? [el('option', { value: '' }, first)] : [];
+        return o.concat(list.map(function (x) { var e = el('option', { value: x.value }, x.label); if (String(x.value) === String(val || '')) e.selected = true; return e; }));
+      }
+      var namaGuru = function (id) { var g = R.guru.filter(function (x) { return x.id === id; })[0]; return g ? g.nama_penuh : ''; };
+      var namaKelas = function (id) { var k = R.kelas.filter(function (x) { return x.id === id; })[0]; return k ? k.nama : '?'; };
+
+      // ---------------- langkah 1 ----------------
+      function langkah1() {
+        langkah(1);
+        main.textContent = '';
+        var file = el('input', { type: 'file', accept: '.xml,text/xml', id: 'fail' });
+        var tahunSel = el('select', { class: 'select', id: 'tahun', style: 'width:auto' });
+        var y = new Date().getFullYear();
+        [y + 1, y, y - 1].forEach(function (t) { var o = el('option', { value: String(t) }, String(t)); if (String(t) === tahun) o.selected = true; tahunSel.appendChild(o); });
+        tahunSel.addEventListener('change', function () { tahun = tahunSel.value; muatRujukan(); });
+        var contoh = el('button', { class: 'btn btn-secondary', type: 'button' }, 'Guna fail contoh (data palsu)');
+        var info = el('div');
+        main.appendChild(el('section', { class: 'card' }, [
+          el('div', { class: 'card-head' }, el('h2', {}, 'Pilih fail eksport aSc Timetables')),
+          el('div', { class: 'card-pad stack' }, [
+            el('p', { class: 'muted' }, 'Dalam aSc Timetables, eksport jadual sebagai fail XML, kemudian pilih fail itu di sini. Fail dibaca dalam pelayar anda; tiada apa disimpan sehingga anda menekan "Sahkan dan simpan" pada langkah akhir.'),
+            el('div', { class: 'field', style: 'max-width:200px' }, [el('label', { for: 'tahun' }, 'Tahun akademik'), tahunSel]),
+            el('div', { class: 'drop' }, [icon('i-download', 28), el('label', { for: 'fail', class: 'btn' }, 'Pilih fail .xml'), file, el('span', { class: 'muted', style: 'font-size:.8125rem' }, 'atau'), contoh]),
+            info
+          ])
+        ]));
+        file.style.display = 'none';
+        file.addEventListener('change', function () {
+          var f = file.files[0]; if (!f) return;
+          var rd = new FileReader();
+          rd.onload = function () { proses(String(rd.result)); };
+          rd.readAsText(f);
+        });
+        contoh.addEventListener('click', function () {
+          fetch('contoh/asc-contoh.xml').then(function (r) { return r.text(); }).then(proses, function () { UI.toast('Fail contoh tidak dapat dimuat.'); });
+        });
+        muatRujukan(info);
+      }
+      function muatRujukan(info) {
+        return Api.call('IMPORT_RUJUKAN', { tahun: tahun }).then(function (d) {
+          R = d;
+          if (info) {
+            info.textContent = '';
+            var nota = [];
+            if (!d.kelas.length) nota.push('Senarai kelas ' + tahun + ' masih kosong. Kelas dalam fail tidak dapat dipadankan.');
+            if (!d.subjek.length) nota.push('Senarai subjek masih kosong.');
+            if (d.jadual_sedia_ada) nota.push('Sudah ada ' + d.jadual_sedia_ada + ' slot untuk ' + tahun + '. Jadual guru yang diimport akan DIGANTI; guru lain tidak disentuh.');
+            nota.forEach(function (n) { info.appendChild(el('div', { class: 'notice notice-info', style: 'margin-top:8px' }, el('span', {}, n))); });
+          }
+          return d;
+        }, function (e) { UI.toast(e.message); });
+      }
+      function proses(xml) {
+        try { asc = Asc.keSlot(Asc.baca(xml)); }
+        catch (e) { UI.toast(e.message); return; }
+        if (!asc.length) { UI.toast('Tiada slot dijumpai dalam fail ini.'); return; }
+        guruFail = Asc.guruDalamFail(asc);
+        peta = Asc.padanGuru(guruFail, R.guru);
+        langkah2();
+      }
+
+      // ---------------- langkah 2 ----------------
+      function langkah2() {
+        langkah(2);
+        main.textContent = '';
+        var tbody = el('tbody');
+        var dipadan = guruFail.filter(function (t) { return peta[t.asc_guru_id]; }).length;
+        guruFail.forEach(function (t) {
+          var sel = el('select', { class: 'select', 'aria-label': 'Padanan untuk ' + t.nama },
+            opt(R.guru.map(function (g) { return { value: g.id, label: g.nama_penuh + ' (' + g.guru_kod + ')' }; }), peta[t.asc_guru_id], '— Abaikan guru ini —'));
+          sel.addEventListener('change', function () { peta[t.asc_guru_id] = sel.value || null; });
+          tbody.appendChild(el('tr', {}, [
+            el('td', { 'data-label': 'Dalam fail' }, [el('b', {}, t.nama), el('div', { class: 'muted', style: 'font-size:.75rem' }, (t.short ? t.short + ' · ' : '') + t.slot + ' slot')]),
+            el('td', { 'data-label': 'Guru dalam sistem' }, sel),
+            el('td', { 'data-label': '' }, peta[t.asc_guru_id] ? el('span', { class: 'badge badge-ok' }, 'Dipadankan automatik') : el('span', { class: 'badge badge-near' }, 'Perlu dipilih'))
+          ]));
+        });
+        var next = el('button', { class: 'btn', type: 'button' }, 'Seterusnya: semak jadual');
+        next.addEventListener('click', function () { bina(); langkah3(); });
+        var back = el('button', { class: 'btn btn-secondary', type: 'button' }, 'Kembali');
+        back.addEventListener('click', langkah1);
+        main.appendChild(el('section', { class: 'card' }, [
+          el('div', { class: 'card-head' }, [el('h2', {}, 'Padankan guru'), el('span', { class: 'muted', style: 'font-size:.8125rem' }, dipadan + ' daripada ' + guruFail.length + ' dipadankan automatik')]),
+          el('p', { class: 'muted', style: 'padding:12px 24px 0;font-size:.875rem' }, 'Sistem memadankan nama penuh, atau singkatan aSc yang sama dengan ID guru. Guru yang diabaikan tidak diimport.'),
+          el('div', { class: 'table-wrap' }, el('table', { class: 'data cards' }, [el('thead', {}, el('tr', {}, [el('th', {}, 'Dalam fail aSc'), el('th', {}, 'Guru dalam sistem'), el('th', {}, '')])), tbody])),
+          el('div', { class: 'row end', style: 'padding:16px 24px' }, [back, next])
+        ]));
+      }
+
+      // ---------------- langkah 3 ----------------
+      function bina() {
+        rows = Asc.padankan(asc, { subjek: R.subjek, kelas: R.kelas }, peta).map(function (r) {
+          r.include = !!r.guru_id;
+          return r;
+        });
+      }
+      function semak() {
+        var dipilih = rows.filter(function (r) { return r.include; });
+        dipilih.forEach(function (r) { r.halang = Asc.isuMenghalang(r); r.tindih = []; });
+        rows.filter(function (r) { return !r.include; }).forEach(function (r) { r.halang = []; r.tindih = []; });
+        var byN = {}; dipilih.forEach(function (r) { byN[r.n] = r; });
+        Asc.kesanPertindihan(dipilih).forEach(function (p) {
+          var t = p.jenis === 'guru' ? 'Bertindih dengan baris ' : 'Kelas ' + namaKelas(p.kelas_id) + ' juga di baris ';
+          byN[p.a].tindih.push(t + p.b); byN[p.b].tindih.push(t + p.a);
+        });
+      }
+      function tiada(jenis) {
+        var set = {};
+        rows.forEach(function (r) {
+          if (!r.include) return;
+          r.isu.forEach(function (x) {
+            if (jenis === 'kelas' && /^Kelas tiada/.test(x)) x.replace(/^Kelas tiada dalam sistem: /, '').split(', ').forEach(function (k) { set[k] = true; });
+            if (jenis === 'subjek' && /^Subjek "/.test(x)) set[/^Subjek "([^"]+)"/.exec(x)[1]] = true;
+          });
+        });
+        return Object.keys(set);
+      }
+      function langkah3() {
+        langkah(3);
+        semak();
+        main.textContent = '';
+        var kelasTiada = tiada('kelas'), subjekTiada = tiada('subjek');
+        var nota = el('div', { class: 'stack' });
+        if (kelasTiada.length) {
+          var n1 = [el('span', { style: 'flex:1' }, 'Kelas dalam fail yang tiada dalam sistem (' + tahun + '): ' + kelasTiada.join(', ') + '. Slot tetap boleh disimpan, tetapi tanpa kelas itu.')];
+          if (sesi.role === 'superadmin') n1.push(btnAksi('Tambah kelas ini', function () {
+            return Api.call('KELAS_PUKAL', { tahun: tahun, teks: kelasTiada.join('\n') }).then(function (r) { UI.toast(r.ditambah.length + ' kelas ditambah.' + (r.ralat.length ? ' Tidak sah: ' + r.ralat.join('; ') : '')); });
+          }));
+          nota.appendChild(el('div', { class: 'notice notice-warn', style: 'align-items:center;flex-wrap:wrap' }, n1));
+        }
+        if (subjekTiada.length) {
+          var n2 = [el('span', { style: 'flex:1' }, 'Singkatan subjek yang tiada dalam senarai subjek: ' + subjekTiada.join(', ') + '. Slot ini disimpan sebagai aktiviti (contoh Perhimpunan). Jika ia sebenarnya subjek, tambah subjek dengan kod yang sama dahulu.')];
+          if (sesi.role === 'superadmin') n2.push(el('a', { class: 'btn btn-secondary btn-sm', href: 'rujukan.html', target: '_blank' }, 'Buka Data rujukan'));
+          nota.appendChild(el('div', { class: 'notice notice-info', style: 'align-items:center;flex-wrap:wrap' }, n2));
+        }
+        main.appendChild(nota);
+
+        var fGuru = el('select', { class: 'select', 'aria-label': 'Tapis guru', style: 'width:auto' }, opt(
+          Object.keys(rows.reduce(function (a, r) { if (r.guru_id) a[r.guru_id] = 1; return a; }, {})).map(function (id) { return { value: id, label: namaGuru(id) }; }), tapis.guru, 'Semua guru'));
+        var fMasalah = el('label', { class: 'check-inline' }, [el('input', { type: 'checkbox' }), 'Tunjuk yang perlu disemak sahaja']);
+        fMasalah.firstChild.checked = tapis.masalah;
+        fGuru.addEventListener('change', function () { tapis.guru = fGuru.value; halaman = 0; lukis(); });
+        fMasalah.firstChild.addEventListener('change', function () { tapis.masalah = fMasalah.firstChild.checked; halaman = 0; lukis(); });
+        var tbody = el('tbody'), pager = el('div', { class: 'pager' }), ringkas = el('span', { style: 'flex:1;font-size:.875rem' });
+        var simpan = el('button', { class: 'btn', type: 'button' }, 'Sahkan dan simpan');
+        simpan.addEventListener('click', langkah4);
+        var back = el('button', { class: 'btn btn-secondary', type: 'button' }, 'Kembali');
+        back.addEventListener('click', langkah2);
+        main.appendChild(el('section', { class: 'card' }, [
+          el('div', { class: 'card-head' }, el('h2', {}, 'Semak dan sunting')),
+          el('div', { class: 'toolbar' }, [fGuru, fMasalah, el('span', { class: 'grow' }), pager]),
+          el('div', { class: 'table-wrap' }, el('table', { class: 'data edit' }, [el('thead', {}, el('tr', {}, ['', '#', 'Guru', 'Hari', 'Mula', 'Tamat', 'Subjek', 'Aktiviti', 'Kelas', 'Semakan'].map(function (h) { return el('th', {}, h); }))), tbody])),
+          el('div', { class: 'sticky-bar' }, [ringkas, back, simpan])
+        ]));
+
+        function lukis() {
+          semak();
+          var list = rows.filter(function (r) {
+            if (tapis.guru && r.guru_id !== tapis.guru) return false;
+            if (tapis.masalah && !(r.isu.length || (r.halang && r.halang.length) || (r.tindih && r.tindih.length))) return false;
+            return true;
+          });
+          var muka = Math.max(1, Math.ceil(list.length / SAIZ));
+          if (halaman >= muka) halaman = muka - 1;
+          tbody.textContent = '';
+          list.slice(halaman * SAIZ, halaman * SAIZ + SAIZ).forEach(function (r) { tbody.appendChild(baris(r, lukis)); });
+          if (!list.length) tbody.appendChild(el('tr', {}, el('td', { colspan: '10', class: 'empty' }, 'Tiada baris.')));
+          pager.textContent = '';
+          var prev = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, '‹'), nxt = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, '›');
+          prev.disabled = halaman === 0; nxt.disabled = halaman >= muka - 1;
+          prev.addEventListener('click', function () { halaman--; lukis(); });
+          nxt.addEventListener('click', function () { halaman++; lukis(); });
+          pager.appendChild(prev); pager.appendChild(el('span', {}, 'Halaman ' + (halaman + 1) + '/' + muka + ' · ' + list.length + ' baris')); pager.appendChild(nxt);
+          var dipilih = rows.filter(function (r) { return r.include; });
+          var halang = dipilih.filter(function (r) { return r.halang.length; }).length;
+          var tindih = dipilih.filter(function (r) { return r.tindih.length; }).length;
+          var nGuru = Object.keys(dipilih.reduce(function (a, r) { if (r.guru_id) a[r.guru_id] = 1; return a; }, {})).length;
+          ringkas.textContent = dipilih.length + ' slot dipilih untuk ' + nGuru + ' guru' + (halang ? ' · ' + halang + ' perlu dibetulkan' : '') + (tindih ? ' · ' + tindih + ' amaran pertindihan' : '');
+          simpan.disabled = !dipilih.length || halang > 0;
+        }
+        lukis();
+      }
+      function btnAksi(text, fn) {
+        var b = el('button', { class: 'btn btn-sm', type: 'button' }, text);
+        b.addEventListener('click', function () {
+          b.disabled = true;
+          fn().then(function () { return muatRujukan(); }).then(function () { bina(); langkah3(); }, function (e) { UI.toast(e.message); b.disabled = false; });
+        });
+        return b;
+      }
+      function baris(r, lukis) {
+        var inc = el('input', { type: 'checkbox', 'aria-label': 'Sertakan baris ' + r.n });
+        inc.checked = r.include;
+        inc.addEventListener('change', function () { r.include = inc.checked; lukis(); });
+        var hari = el('select', { class: 'select' }, opt(R.hari.map(function (h) { return { value: h.kod, label: h.label }; }), r.hari, r.hari ? null : '—'));
+        hari.addEventListener('change', function () { r.hari = hari.value; lukis(); });
+        var a = el('input', { class: 'input', type: 'time', value: r.masa_mula || '' }), b = el('input', { class: 'input', type: 'time', value: r.masa_akhir || '' });
+        a.addEventListener('change', function () { r.masa_mula = a.value; lukis(); });
+        b.addEventListener('change', function () { r.masa_akhir = b.value; lukis(); });
+        var subj = el('select', { class: 'select' }, opt(R.subjek.map(function (s) { return { value: s.id, label: s.kod || s.nama }; }), r.subjek_id, '— Aktiviti —'));
+        subj.addEventListener('change', function () { r.subjek_id = subj.value || null; lukis(); });
+        var lab = el('input', { class: 'input', type: 'text', value: r.label || '', maxlength: '60', style: 'width:120px' });
+        lab.addEventListener('change', function () { r.label = lab.value.trim() || null; lukis(); });
+        var kb = el('button', { class: 'kelas-btn', type: 'button' }, r.kelas_ids.length ? r.kelas_ids.map(namaKelas).join(', ') : '— tiada —');
+        kb.addEventListener('click', function () {
+          App.formDialog({
+            title: 'Kelas untuk baris ' + r.n, submitText: 'Guna',
+            fields: [{ name: 'k', label: 'Kelas', type: 'multicheck', options: R.kelas.map(function (k) { return { value: k.id, label: k.nama }; }), value: r.kelas_ids,
+              hint: r.kelas_asal.length ? 'Dalam fail: ' + r.kelas_asal.join(', ') : null, emptyText: 'Tiada kelas untuk ' + tahun + '.' }],
+            onSubmit: function (v) { return v.k; }
+          }).then(function (k) { if (k) { r.kelas_ids = k; lukis(); } });
+        });
+        var msgs = [];
+        (r.halang || []).forEach(function (x) { msgs.push(el('div', {}, 'Perlu dibetulkan: ' + x)); });
+        (r.tindih || []).forEach(function (x) { msgs.push(el('div', { class: 'w' }, x)); });
+        r.isu.forEach(function (x) { if (!/belum dipadankan/.test(x)) msgs.push(el('div', { class: 'w' }, x)); });
+        var cls = !r.include ? 'off' : (r.halang && r.halang.length ? 'bad' : ((r.tindih && r.tindih.length) || r.isu.length ? 'warn' : ''));
+        return el('tr', { class: cls }, [
+          el('td', {}, inc), el('td', { class: 'num muted' }, String(r.n)),
+          el('td', { style: 'white-space:nowrap' }, r.guru_id ? namaGuru(r.guru_id) : el('span', { class: 'muted' }, r.guru_nama_asc + ' (diabaikan)')),
+          el('td', {}, hari), el('td', {}, a), el('td', {}, b), el('td', {}, subj), el('td', {}, lab), el('td', {}, kb),
+          el('td', {}, el('div', { class: 'isu' + (r.halang && r.halang.length ? '' : ' w') }, msgs.length ? msgs : [el('span', { style: 'color:var(--green-700)' }, 'OK')]))
+        ]);
+      }
+
+      // ---------------- langkah 4 ----------------
+      function langkah4() {
+        var dipilih = rows.filter(function (r) { return r.include && r.guru_id; });
+        var byGuru = {};
+        dipilih.forEach(function (r) { (byGuru[r.guru_id] = byGuru[r.guru_id] || []).push(r); });
+        var guruIds = Object.keys(byGuru);
+        App.confirm('Sahkan dan simpan?', 'Jadual ' + tahun + ' bagi ' + guruIds.length + ' guru akan DIGANTI dengan ' + dipilih.length + ' slot yang telah anda semak. Guru lain tidak disentuh.', 'Sahkan dan simpan').then(function (ok) {
+          if (!ok) return;
+          langkah(4);
+          main.textContent = '';
+          var bar = el('div', { class: 'meter' }, [el('div', { class: 'bar' }, el('i', { style: 'width:0%' })), el('div', { class: 'note' }, 'Menyimpan...')]);
+          main.appendChild(el('section', { class: 'card' }, [el('div', { class: 'card-head' }, el('h2', {}, 'Menyimpan jadual')), bar]));
+          var KUMP = 8, i = 0, jumlah = 0;
+          function seterusnya() {
+            if (i >= guruIds.length) return selesai();
+            var ids = guruIds.slice(i, i + KUMP);
+            var slot = [];
+            ids.forEach(function (id) { byGuru[id].forEach(function (r) { slot.push({ guru_id: r.guru_id, hari: r.hari, masa_mula: r.masa_mula, masa_akhir: r.masa_akhir, subjek_id: r.subjek_id, label: r.subjek_id ? null : r.label, kelas_ids: r.kelas_ids }); }); });
+            return Api.call('JADUAL_IMPORT', { tahun: tahun, guru_ids: ids, slot: slot }).then(function (d) {
+              jumlah += d.slot; i += KUMP;
+              bar.querySelector('i').style.width = Math.min(100, i / guruIds.length * 100) + '%';
+              bar.querySelector('.note').textContent = Math.min(i, guruIds.length) + ' daripada ' + guruIds.length + ' guru disimpan';
+              return seterusnya();
+            });
+          }
+          function selesai() {
+            main.appendChild(el('div', { class: 'notice notice-info' }, el('span', {}, 'Selesai. ' + jumlah + ' slot untuk ' + guruIds.length + ' guru disimpan dan disahkan. Jadual boleh disunting secara manual pada halaman Kurikulum setiap guru.')));
+            main.appendChild(el('div', { class: 'row' }, [el('a', { class: 'btn', href: 'guru.html' }, 'Ke Senarai guru'), el('a', { class: 'btn btn-secondary', href: 'import-jadual.html' }, 'Import lagi')]));
+          }
+          seterusnya().catch(function (e) {
+            main.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, 'Terhenti: ' + e.message + ' Guru yang sudah disimpan: ' + Math.min(i, guruIds.length) + '. Betulkan dan import semula; jadual guru yang sama akan diganti, bukan digandakan.')));
+          });
+        });
+      }
+
+      langkah1();
+    })();
+  </script>
+</body>
+</html>

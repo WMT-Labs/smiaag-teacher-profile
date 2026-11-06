@@ -92,10 +92,10 @@ test('setupTemplate menyediakan templat 18 waktu untuk tahun semasa', () => {
   assert.deepEqual([w[0].masa_mula, w[17].masa_akhir], ['07:30', '15:30']);
 });
 
-test('tugasan SM216 melalui API: jumlah 15.5/22 dan 7.5/10', () => {
-  const { call, A } = dunia();
+test('tugasan SM216 melalui API (dimasukkan pentadbir): jumlah 15.5/22 dan 7.5/10', () => {
+  const { call, A, ADM, gidA } = dunia();
   tugasanSM216().forEach((t) => {
-    const r = call('REKOD_SIMPAN', { jadual: 'tugasan_guru', data: { tahun_akademik: '2026', ...t } }, A.token);
+    const r = call('REKOD_SIMPAN', { jadual: 'tugasan_guru', guru_id: gidA, data: { tahun_akademik: '2026', ...t } }, ADM.token);
     assert.equal(r.ok, true, r.message);
   });
   const k = call('KURIKULUM_LIHAT', {}, A.token).data;
@@ -104,15 +104,27 @@ test('tugasan SM216 melalui API: jumlah 15.5/22 dan 7.5/10', () => {
   assert.deepEqual([k.had.had_berjadual, k.had.had_tidak_berjadual], [22, 10]);
   assert.deepEqual({ ...k.status }, { berjadual: 'dalam', tidak_berjadual: 'dalam' });
   assert.equal(k.tugasan.length, 11);
+  assert.equal(k.boleh.tugasan, false, 'guru tidak boleh menyunting tugasan');
+});
+
+test('tugasan diisi pentadbir sahaja: guru ditolak walaupun untuk diri sendiri', () => {
+  const { ctx, call, A, ADM, gidA } = dunia();
+  const data = { tahun_akademik: '2026', jenis_tugasan: 'berjadual', kumpulan: 'subjek', nama_tugasan: 'PI T2', jam_kredit: 6 };
+  assert.equal(call('REKOD_SIMPAN', { jadual: 'tugasan_guru', data }, A.token).code, 'TIADA_KEBENARAN');
+  const t = call('REKOD_SIMPAN', { jadual: 'tugasan_guru', guru_id: gidA, data }, ADM.token).data;
+  assert.equal(call('REKOD_SIMPAN', { jadual: 'tugasan_guru', id: t.id, data: { jam_kredit: 20 } }, A.token).code, 'TIADA_KEBENARAN');
+  assert.equal(call('REKOD_PADAM', { jadual: 'tugasan_guru', id: t.id }, A.token).code, 'TIADA_KEBENARAN');
+  assert.equal(ctx.getById('tugasan_guru', t.id).jam_kredit, 6);
+  assert.equal(call('KURIKULUM_LIHAT', { guru_id: gidA }, ADM.token).data.boleh.tugasan, true);
 });
 
 test('tugasan: tidak berjadual wajib jabatan dan kumpulan yang betul', () => {
-  const { call, A } = dunia();
+  const { call, ADM, gidA } = dunia();
   const base = { tahun_akademik: '2026', nama_tugasan: 'Guru UPP', jam_kredit: 1 };
-  assert.equal(call('REKOD_SIMPAN', { jadual: 'tugasan_guru', data: { ...base, jenis_tugasan: 'tidak_berjadual', kumpulan: 'tugasan_tidak_berjadual' } }, A.token).code, 'VALIDASI');
-  assert.equal(call('REKOD_SIMPAN', { jadual: 'tugasan_guru', data: { ...base, jenis_tugasan: 'tidak_berjadual', kumpulan: 'subjek', jabatan: 'KURI' } }, A.token).code, 'VALIDASI');
-  assert.equal(call('REKOD_SIMPAN', { jadual: 'tugasan_guru', data: { ...base, jenis_tugasan: 'berjadual', kumpulan: 'tugasan_tidak_berjadual' } }, A.token).code, 'VALIDASI');
-  assert.equal(call('REKOD_SIMPAN', { jadual: 'tugasan_guru', data: { ...base, jenis_tugasan: 'berjadual', kumpulan: 'subjek', jam_kredit: 41 } }, A.token).code, 'VALIDASI');
+  assert.equal(call('REKOD_SIMPAN', { jadual: 'tugasan_guru', guru_id: gidA, data: { ...base, jenis_tugasan: 'tidak_berjadual', kumpulan: 'tugasan_tidak_berjadual' } }, ADM.token).code, 'VALIDASI');
+  assert.equal(call('REKOD_SIMPAN', { jadual: 'tugasan_guru', guru_id: gidA, data: { ...base, jenis_tugasan: 'tidak_berjadual', kumpulan: 'subjek', jabatan: 'KURI' } }, ADM.token).code, 'VALIDASI');
+  assert.equal(call('REKOD_SIMPAN', { jadual: 'tugasan_guru', guru_id: gidA, data: { ...base, jenis_tugasan: 'berjadual', kumpulan: 'tugasan_tidak_berjadual' } }, ADM.token).code, 'VALIDASI');
+  assert.equal(call('REKOD_SIMPAN', { jadual: 'tugasan_guru', guru_id: gidA, data: { ...base, jenis_tugasan: 'berjadual', kumpulan: 'subjek', jam_kredit: 41 } }, ADM.token).code, 'VALIDASI');
 });
 
 test('jadual: slot manual dengan kelas gabungan, pertindihan dikesan, kemas kini dan padam', () => {
@@ -167,7 +179,7 @@ test('slot kosong untuk guru ganti: tapis opsyen dan jabatan, beban ringan didah
   const { call, A, B, ADM, gidA, gidB, subjek } = dunia();
   call('SLOT_SIMPAN', { hari: 'khamis', masa_mula: '08:10', masa_akhir: '09:00', subjek_id: subjek.PI }, A.token);
   call('REKOD_SIMPAN', { jadual: 'opsyen_guru', data: { jenis: 'major', subjek_id: subjek.PI } }, B.token);
-  call('REKOD_SIMPAN', { jadual: 'tugasan_guru', data: { tahun_akademik: '2026', jenis_tugasan: 'tidak_berjadual', kumpulan: 'tugasan_tidak_berjadual', nama_tugasan: 'Guru Tarbiah', jabatan: 'HEM', jam_kredit: 2 } }, B.token);
+  call('REKOD_SIMPAN', { jadual: 'tugasan_guru', guru_id: gidB, data: { tahun_akademik: '2026', jenis_tugasan: 'tidak_berjadual', kumpulan: 'tugasan_tidak_berjadual', nama_tugasan: 'Guru Tarbiah', jabatan: 'HEM', jam_kredit: 2 } }, ADM.token);
   const r = call('SLOT_KOSONG', { hari: 'khamis', masa_mula: '08:40', masa_akhir: '09:00' }, ADM.token).data;
   const ids = r.guru.map((g) => g.id);
   assert.ok(!ids.includes(gidA), 'A sibuk');
@@ -210,8 +222,8 @@ test('kelas yang digunakan dalam jadual tidak boleh dipadam', () => {
 });
 
 test('senarai guru (pentadbir) memaparkan jam kredit dan status beban', () => {
-  const { call, A, ADM, gidA } = dunia();
-  tugasanSM216().forEach((t) => call('REKOD_SIMPAN', { jadual: 'tugasan_guru', data: { tahun_akademik: '2026', ...t } }, A.token));
+  const { call, ADM, gidA } = dunia();
+  tugasanSM216().forEach((t) => call('REKOD_SIMPAN', { jadual: 'tugasan_guru', guru_id: gidA, data: { tahun_akademik: '2026', ...t } }, ADM.token));
   const g = call('GURU_SENARAI', {}, ADM.token).data.guru.find((x) => x.id === gidA);
   assert.deepEqual([g.jam_berjadual, g.jam_tidak_berjadual, g.status_beban], [15.5, 7.5, 'dalam']);
 });

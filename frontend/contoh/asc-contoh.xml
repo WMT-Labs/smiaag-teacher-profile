@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<timetable ascttversion="2024.0" importtype="database" options="idprefix:CONTOH" displayname="Contoh SMIAAG (data palsu)">
+ <periods columns="period,name,short,starttime,endtime">
+  <period name="1" short="1" period="1" starttime="7:30" endtime="7:40"/>
+  <period name="2" short="2" period="2" starttime="7:40" endtime="8:10"/>
+  <period name="3" short="3" period="3" starttime="8:10" endtime="8:40"/>
+  <period name="4" short="4" period="4" starttime="8:40" endtime="9:00"/>
+  <period name="5" short="5" period="5" starttime="9:00" endtime="9:40"/>
+  <period name="6" short="6" period="6" starttime="9:40" endtime="10:00"/>
+  <period name="7" short="7" period="7" starttime="10:00" endtime="10:30"/>
+  <period name="8" short="8" period="8" starttime="10:30" endtime="11:00"/>
+  <period name="9" short="9" period="9" starttime="11:00" endtime="11:30"/>
+  <period name="10" short="10" period="10" starttime="11:30" endtime="12:00"/>
+  <period name="11" short="11" period="11" starttime="12:00" endtime="12:30"/>
+  <period name="12" short="12" period="12" starttime="12:30" endtime="12:55"/>
+  <period name="13" short="13" period="13" starttime="12:55" endtime="13:20"/>
+  <period name="14" short="14" period="14" starttime="13:20" endtime="13:45"/>
+  <period name="15" short="15" period="15" starttime="13:45" endtime="14:05"/>
+  <period name="16" short="16" period="16" starttime="14:05" endtime="14:30"/>
+  <period name="17" short="17" period="17" starttime="14:30" endtime="15:00"/>
+  <period name="18" short="18" period="18" starttime="15:00" endtime="15:30"/>
+ </periods>
+ <daysdefs columns="id,name,short,days">
+  <daysdef id="D1" name="Isnin" short="ISN" days="10000"/>
+  <daysdef id="D2" name="Selasa" short="SEL" days="01000"/>
+  <daysdef id="D3" name="Rabu" short="RAB" days="00100"/>
+  <daysdef id="D4" name="Khamis" short="KHA" days="00010"/>
+  <daysdef id="D5" name="Jumaat" short="JUM" days="00001"/>
+ </daysdefs>
+ <subjects columns="id,name,short">
+  <subject id="S1" name="Pendidikan Islam" short="PI"/>
+  <subject id="S2" name="Dirasat Al-Quran Tilawah dan Tajwid" short="DQT/J"/>
+  <subject id="S3" name="Pendidikan Ilmu Wahyu" short="PIW"/>
+  <subject id="S4" name="Pendidikan Al-Quran dan As-Sunnah" short="PQS"/>
+  <subject id="S5" name="Matematik" short="MAT"/>
+  <subject id="S6" name="Sains" short="SNS"/>
+  <subject id="S7" name="Perhimpunan" short="PHM"/>
+  <subject id="S8" name="Kokurikulum" short="KOKU"/>
+  <subject id="S9" name="Usrah" short="USR"/>
+  <subject id="S10" name="Teknologi Maklumat" short="TMK"/>
+ </subjects>
+ <teachers columns="id,name,short">
+  <teacher id="T1" name="Guru Contoh Satu" short="SM901"/>
+  <teacher id="T2" name="Pentadbir Contoh" short="AD901"/>
+  <teacher id="T3" name="Guru Contoh Dua" short="SM902"/>
+  <teacher id="T4" name="Guru Rekaan Tiada Dalam Sistem" short="XX99"/>
+ </teachers>
+ <classes columns="id,name,short">
+  <class id="C1" name="1 Abu Bakar" short="1ABUB"/>
+  <class id="C2" name="1 Umar" short="1UMAR"/>
+  <class id="C3" name="2 Uthman" short="2UTHM"/>
+  <class id="C4" name="2 Ali" short="2ALI"/>
+  <class id="C5" name="3 Hamzah" short="3HAMZ"/>
+  <class id="C6" name="4 Khalid" short="4KHAL"/>
+  <class id="C7" name="5 Bilal" short="5BILA"/>
+  <class id="C8" name="6 Rekaan" short="6REKA"/>
+ </classes>
+ <lessons columns="id,subjectid,classids,teacherids,periodspercard,periodsperweek">
+  <lesson id="L1" subjectid="S7" classids="" teacherids="T1" periodspercard="3" periodsperweek="3"/>
+  <lesson id="L2" subjectid="S2" classids="C1,C2" teacherids="T1" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L3" subjectid="S1" classids="C3" teacherids="T1" periodspercard="3" periodsperweek="3"/>
+  <lesson id="L4" subjectid="S1" classids="C4" teacherids="T1" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L5" subjectid="S9" classids="" teacherids="T1" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L6" subjectid="S3" classids="C3,C4" teacherids="T1" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L7" subjectid="S8" classids="" teacherids="T1" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L8" subjectid="S1" classids="C3" teacherids="T1" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L9" subjectid="S4" classids="C7" teacherids="T1" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L10" subjectid="S2" classids="C5" teacherids="T1" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L11" subjectid="S7" classids="" teacherids="T2" periodspercard="3" periodsperweek="3"/>
+  <lesson id="L12" subjectid="S5" classids="C4" teacherids="T2" periodspercard="1" periodsperweek="1"/>
+  <lesson id="L13" subjectid="S5" classids="C6" teacherids="T2" periodspercard="3" periodsperweek="3"/>
+  <lesson id="L14" subjectid="S5" classids="C7" teacherids="T2" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L15" subjectid="S7" classids="" teacherids="T3" periodspercard="3" periodsperweek="3"/>
+  <lesson id="L16" subjectid="S6" classids="C1" teacherids="T3" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L17" subjectid="S6" classids="C2" teacherids="T3" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L18" subjectid="S6" classids="C8" teacherids="T3" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L19" subjectid="S10" classids="C5" teacherids="T3" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L20" subjectid="S6" classids="C1" teacherids="T3" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L21" subjectid="S1" classids="C6" teacherids="T4" periodspercard="2" periodsperweek="2"/>
+  <lesson id="L22" subjectid="S1" classids="C7" teacherids="T4" periodspercard="2" periodsperweek="2"/>
+ </lessons>
+ <cards columns="lessonid,period,days,weeks">
+  <card lessonid="L1" period="1" days="10000" weeks="1"/>
+  <card lessonid="L1" period="2" days="10000" weeks="1"/>
+  <card lessonid="L1" period="3" days="10000" weeks="1"/>
+  <card lessonid="L2" period="4" days="10000" weeks="1"/>
+  <card lessonid="L2" period="5" days="10000" weeks="1"/>
+  <card lessonid="L3" period="9" days="10000" weeks="1"/>
+  <card lessonid="L3" period="10" days="10000" weeks="1"/>
+  <card lessonid="L3" period="11" days="10000" weeks="1"/>
+  <card lessonid="L4" period="7" days="01000" weeks="1"/>
+  <card lessonid="L4" period="8" days="01000" weeks="1"/>
+  <card lessonid="L5" period="17" days="01000" weeks="1"/>
+  <card lessonid="L5" period="18" days="01000" weeks="1"/>
+  <card lessonid="L6" period="3" days="00100" weeks="1"/>
+  <card lessonid="L6" period="4" days="00100" weeks="1"/>
+  <card lessonid="L7" period="17" days="00100" weeks="1"/>
+  <card lessonid="L7" period="18" days="00100" weeks="1"/>
+  <card lessonid="L8" period="2" days="00010" weeks="1"/>
+  <card lessonid="L8" period="3" days="00010" weeks="1"/>
+  <card lessonid="L9" period="12" days="00010" weeks="1"/>
+  <card lessonid="L9" period="13" days="00010" weeks="1"/>
+  <card lessonid="L10" period="3" days="00001" weeks="1"/>
+  <card lessonid="L10" period="4" days="00001" weeks="1"/>
+  <card lessonid="L11" period="1" days="10000" weeks="1"/>
+  <card lessonid="L11" period="2" days="10000" weeks="1"/>
+  <card lessonid="L11" period="3" days="10000" weeks="1"/>
+  <card lessonid="L12" period="8" days="01000" weeks="1"/>
+  <card lessonid="L13" period="7" days="00100" weeks="1"/>
+  <card lessonid="L13" period="8" days="00100" weeks="1"/>
+  <card lessonid="L13" period="9" days="00100" weeks="1"/>
+  <card lessonid="L14" period="5" days="00010" weeks="1"/>
+  <card lessonid="L14" period="6" days="00010" weeks="1"/>
+  <card lessonid="L15" period="1" days="10000" weeks="1"/>
+  <card lessonid="L15" period="2" days="10000" weeks="1"/>
+  <card lessonid="L15" period="3" days="10000" weeks="1"/>
+  <card lessonid="L16" period="4" days="10000" weeks="1"/>
+  <card lessonid="L16" period="5" days="10000" weeks="1"/>
+  <card lessonid="L17" period="2" days="01000" weeks="1"/>
+  <card lessonid="L17" period="3" days="01000" weeks="1"/>
+  <card lessonid="L18" period="9" days="00100" weeks="1"/>
+  <card lessonid="L18" period="10" days="00100" weeks="1"/>
+  <card lessonid="L19" period="7" days="00010" weeks="1"/>
+  <card lessonid="L19" period="8" days="00010" weeks="1"/>
+  <card lessonid="L20" period="3" days="00001" weeks="1"/>
+  <card lessonid="L20" period="4" days="00001" weeks="1"/>
+  <card lessonid="L21" period="7" days="10000" weeks="1"/>
+  <card lessonid="L21" period="8" days="10000" weeks="1"/>
+  <card lessonid="L22" period="11" days="00100" weeks="1"/>
+  <card lessonid="L22" period="12" days="00100" weeks="1"/>
+ </cards>
+</timetable>

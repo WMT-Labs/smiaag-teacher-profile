@@ -658,7 +658,7 @@ Unik: (usrah_guru_id, guru_id, tarikh)
 - `ref_kumpulan_tugasan`: subjek, al_quran_tutorial, aktiviti_lain, tugasan_tidak_berjadual
 - `ref_jabatan`: KURI, HEM, KOKU, lain_lain
 - `ref_hari`: isnin, selasa, rabu, khamis, jumaat, sabtu, ahad
-- `ref_sumber_slot`: pdf, manual
+- `ref_sumber_slot`: asc, pdf, manual
 - `ref_jenis_unit`: badan_beruniform, kelab_persatuan, pasukan_sekolah
 - `ref_jawatan_unit`: penasihat, penyelaras, ajk, lain_lain
 - `ref_peringkat_pertandingan`: sekolah, daerah, negeri, kebangsaan

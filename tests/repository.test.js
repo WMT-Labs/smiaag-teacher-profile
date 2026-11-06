@@ -149,3 +149,27 @@ test('tajuk lajur yang salah menghentikan bacaan dengan mesej jelas', () => {
   env.ss.getSheetByName('guru').grid[0][1] = 'kod_guru';
   assert.throws(() => ctx.query('guru', {}), (e) => e.code === 'SKEMA_TIDAK_SEPADAN');
 });
+
+test('insertMany dan removeWhere: satu tulisan, pengesahan setiap baris, FK, unik', () => {
+  const { ctx } = loadReady();
+  const g = ctx.insert('guru', GURU);
+  const subj = ctx.insert('subjek', { nama: 'Fiqh' });
+  const rows = Array.from({ length: 50 }, (_, i) => ({ guru_id: g.id, tahun_akademik: '2026', hari: 'isnin', masa_mula: '08:00', masa_akhir: '08:30', subjek_id: subj.id, label: '=X' + i }));
+  const out = ctx.insertMany('jadual_slot', rows, { actorId: 'imp' });
+  assert.equal(out.length, 50);
+  assert.equal(ctx.query('jadual_slot', {}).length, 50);
+  assert.equal(ctx.query('jadual_slot', {})[0].label, '=X0', 'sanitasi tetap berlaku');
+  assert.throws(() => ctx.insertMany('jadual_slot', [rows[0], { ...rows[0], subjek_id: '11111111-1111-4111-8111-111111111111' }]), /Baris 2: .*rujukan/);
+  assert.equal(ctx.query('jadual_slot', {}).length, 50, 'tiada separa simpan jika satu baris gagal');
+  assert.throws(() => ctx.insertMany('kelas', [{ nama: '1 A', tingkatan: 1, tahun_akademik: '2026' }, { nama: '1 A', tingkatan: 1, tahun_akademik: '2026' }]), (e) => e.code === 'DUPLIKAT');
+  const g2 = ctx.insert('guru', { ...GURU, guru_kod: 'SM2' });
+  ctx.insertMany('jadual_slot', [{ ...rows[0], guru_id: g2.id }]);
+  assert.equal(ctx.removeWhere('jadual_slot', { guru_id: g.id }), 50);
+  const sisa = ctx.query('jadual_slot', {});
+  assert.equal(sisa.length, 1);
+  assert.equal(sisa[0].guru_id, g2.id);
+  assert.equal(ctx.removeWhere('jadual_slot', { guru_id: g.id }), 0);
+  assert.throws(() => ctx.removeWhere('jadual_slot', {}), /Penapis diperlukan/);
+  ctx.insert('jadual_slot', { ...rows[0] });
+  assert.equal(ctx.query('jadual_slot', {}).length, 2, 'insert selepas removeWhere menulis pada baris betul');
+});

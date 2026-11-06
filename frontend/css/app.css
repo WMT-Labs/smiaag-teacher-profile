@@ -345,3 +345,29 @@ textarea.input { min-height: 96px; padding: 12px 14px; resize: vertical; }
 .pill-group { display: flex; flex-wrap: wrap; gap: 6px; }
 .pill-group button { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); font: inherit; font-size: .875rem; cursor: pointer; color: var(--text); }
 .pill-group button[aria-pressed="true"] { background: var(--blue-600); border-color: var(--blue-600); color: #fff; }
+
+/* ======================= Import ======================= */
+.steps { display: flex; gap: 8px; flex-wrap: wrap; font-size: .8125rem; }
+.steps span { padding: 4px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); font-weight: 600; }
+.steps span.on { background: var(--blue-600); border-color: var(--blue-600); color: #fff; }
+.steps span.done { background: var(--green-100); border-color: var(--green-200); color: var(--green-700); }
+table.edit td { padding: 6px 8px; }
+table.edit .input, table.edit .select { min-height: 34px; font-size: .8125rem; padding: 0 8px; }
+table.edit .select { padding-right: 28px; background-position: right 8px center; }
+table.edit input[type=time] { width: 96px; }
+table.edit tr.bad td { background: var(--red-100); }
+table.edit tr.warn td { background: var(--amber-100); }
+table.edit tr.off td { opacity: .5; }
+table.edit .isu { font-size: .75rem; color: var(--red-700); max-width: 260px; }
+table.edit .isu.w { color: var(--amber-700); }
+.kelas-btn { border: 1px dashed var(--border-strong); background: var(--surface); border-radius: 6px; padding: 4px 8px; font: inherit; font-size: .8125rem; cursor: pointer; text-align: left; min-width: 110px; }
+.kelas-btn:hover { border-color: var(--blue-500); }
+.sticky-bar { position: sticky; bottom: 0; z-index: 4; background: var(--surface); border-top: 1px solid var(--border); padding: 12px var(--s-5); display: flex; gap: var(--s-3); align-items: center; flex-wrap: wrap; box-shadow: 0 -4px 12px rgba(16, 42, 61, .06); }
+.pager { display: flex; gap: 6px; align-items: center; font-size: .8125rem; }
+.drop { display: grid; gap: 10px; place-items: center; text-align: center; padding: var(--s-6) var(--s-4); border: 2px dashed var(--border-strong); border-radius: var(--radius-lg); background: var(--surface-2); }
+.stack { grid-template-columns: minmax(0, 1fr); }
+table.edit { min-width: 1180px; }
+table.edit td:nth-child(4) .select { min-width: 104px; }
+table.edit input[type=time] { width: 118px; }
+table.edit td:nth-child(7) .select { min-width: 110px; }
+table.edit .isu { min-width: 220px; }

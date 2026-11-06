@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Import tugasan — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/tugasan-import.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard({ roles: ['pentadbir', 'superadmin'] });
+      if (!sesi) return;
+      var el = UI.el, icon = App.icon;
+      var c = App.mount({ sesi: sesi, active: 'import-tugasan', title: 'Import tugasan' });
+      var tahun = String(new Date().getFullYear());
+      var R = null, H = null;
+
+      var tahunSel = el('select', { class: 'select', id: 'tahun', style: 'width:auto' });
+      var y = new Date().getFullYear();
+      [y + 1, y, y - 1].forEach(function (t) { var o = el('option', { value: String(t) }, String(t)); if (String(t) === tahun) o.selected = true; tahunSel.appendChild(o); });
+      tahunSel.addEventListener('change', function () { tahun = tahunSel.value; muat(); });
+      var ta = el('textarea', { class: 'input', id: 'teks', style: 'min-height:180px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8125rem', placeholder: 'Tampal jadual dari Excel di sini (termasuk baris tajuk).' });
+      var file = el('input', { type: 'file', accept: '.csv,.txt,text/csv', style: 'display:none', id: 'fail' });
+      file.addEventListener('change', function () { var f = file.files[0]; if (!f) return; var rd = new FileReader(); rd.onload = function () { ta.value = String(rd.result); semak(); }; rd.readAsText(f); });
+      var templat = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, [icon('i-download', 16), 'Muat turun templat']);
+      templat.addEventListener('click', function () {
+        var blob = new Blob(['﻿' + TugasanImport.TEMPLAT], { type: 'text/csv;charset=utf-8' });
+        var a = el('a', { href: URL.createObjectURL(blob), download: 'templat-tugasan.csv' });
+        document.body.appendChild(a); a.click(); a.remove();
+      });
+      var contoh = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, 'Isi contoh');
+      contoh.addEventListener('click', function () { ta.value = TugasanImport.TEMPLAT; semak(); });
+      var btnSemak = el('button', { class: 'btn', type: 'button' }, 'Semak');
+      btnSemak.addEventListener('click', semak);
+      var hasil = el('div', { class: 'stack' });
+      var info = el('div');
+
+      c.appendChild(el('section', { class: 'card' }, [
+        el('div', { class: 'card-head' }, [el('h2', {}, 'Tugasan guru daripada Excel'), el('div', { class: 'row' }, [templat, contoh])]),
+        el('div', { class: 'card-pad stack' }, [
+          el('p', { class: 'muted', style: 'font-size:.875rem' }, 'Satu baris bagi setiap tugasan. Lajur: guru_kod, jenis (berjadual / tidak berjadual), kumpulan, nama_tugasan, subjek_kod, bilangan_kelas, jabatan (KURI / HEM / KOKU), jam_kredit. Muat turun templat untuk contoh. Salin semua sel dari Excel (termasuk tajuk) dan tampal di bawah, atau pilih fail CSV.'),
+          el('div', { class: 'row' }, [el('div', { class: 'field' }, [el('label', { for: 'tahun' }, 'Tahun akademik'), tahunSel]), el('label', { for: 'fail', class: 'btn btn-secondary btn-sm', style: 'align-self:end' }, 'Pilih fail CSV'), file]),
+          ta, info,
+          el('div', { class: 'row end' }, btnSemak)
+        ])
+      ]));
+      c.appendChild(hasil);
+
+      function beban(j, h) { return j > h ? 'lebih' : j >= h * 0.8 ? 'hampir' : 'dalam'; }
+
+      function semak() {
+        hasil.textContent = '';
+        if (!R) return;
+        var r = TugasanImport.baca(ta.value, R);
+        if (r.lajurTiada.length) { hasil.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, 'Lajur wajib tiada dalam baris tajuk: ' + r.lajurTiada.join(', ') + '. Muat turun templat untuk contoh.'))); return; }
+        if (!r.baris.length) { hasil.appendChild(el('div', { class: 'notice notice-warn' }, el('span', {}, 'Tiada baris data.'))); return; }
+        var sah = r.baris.filter(function (b) { return !b.isu.length; }), salah = r.baris.length - sah.length;
+
+        var tb = el('tbody');
+        r.baris.forEach(function (b) {
+          tb.appendChild(el('tr', { class: b.isu.length ? 'bad' : '' }, [
+            el('td', { class: 'num muted' }, String(b.n)),
+            el('td', {}, [el('b', {}, b.guru_kod), el('div', { class: 'muted', style: 'font-size:.75rem' }, b.guru_nama)]),
+            el('td', {}, b.data.jenis_tugasan === 'tidak_berjadual' ? 'Tidak berjadual' : b.data.jenis_tugasan === 'berjadual' ? 'Berjadual' : '?'),
+            el('td', {}, b.data.nama_tugasan || ''),
+            el('td', {}, App.labelOf(R.kumpulan, b.data.kumpulan) + (b.data.jabatan ? ' · ' + App.labelOf(R.jabatan, b.data.jabatan) : '')),
+            el('td', { class: 'num r' }, b.data.jam_kredit != null ? String(b.data.jam_kredit) : ''),
+            el('td', {}, el('div', { class: 'isu' }, b.isu.length ? b.isu.map(function (x) { return el('div', {}, x); }) : [el('span', { style: 'color:var(--green-700)' }, 'OK')]))
+          ]));
+        });
+        hasil.appendChild(el('section', { class: 'card' }, [
+          el('div', { class: 'card-head' }, [el('h2', {}, 'Semakan baris'), el('span', { class: 'muted', style: 'font-size:.8125rem' }, sah.length + ' sah' + (salah ? ', ' + salah + ' bermasalah (tidak akan disimpan)' : ''))]),
+          el('div', { class: 'table-wrap' }, el('table', { class: 'data edit' }, [el('thead', {}, el('tr', {}, ['Baris', 'Guru', 'Jenis', 'Tugasan', 'Kumpulan', 'Jam', 'Semakan'].map(function (h) { return el('th', {}, h); }))), tb]))
+        ]));
+
+        var jum = TugasanImport.jumlah(r.baris);
+        var tb2 = el('tbody');
+        jum.forEach(function (j) {
+          var a = App.bebanBadge(beban(j.berjadual, H.had_berjadual)), b = App.bebanBadge(beban(j.tidak_berjadual, H.had_tidak_berjadual));
+          tb2.appendChild(el('tr', {}, [el('td', {}, [el('b', {}, j.guru_nama), el('div', { class: 'muted', style: 'font-size:.75rem' }, j.guru_kod)]),
+            el('td', {}, el('span', { class: 'badge badge-' + a.kind }, j.berjadual + ' / ' + H.had_berjadual)),
+            el('td', {}, el('span', { class: 'badge badge-' + b.kind }, j.tidak_berjadual + ' / ' + H.had_tidak_berjadual))]));
+        });
+        var ganti = el('input', { type: 'checkbox', id: 'ganti' });
+        ganti.checked = true;
+        var simpan = el('button', { class: 'btn', type: 'button' }, 'Simpan ' + sah.length + ' tugasan');
+        simpan.disabled = !sah.length;
+        simpan.addEventListener('click', function () {
+          var msg = sah.length + ' tugasan untuk ' + jum.length + ' guru (' + tahun + ') akan disimpan.' + (ganti.checked ? ' Tugasan sedia ada guru-guru ini untuk ' + tahun + ' akan DIGANTI.' : ' Tugasan sedia ada dikekalkan (ditambah, bukan diganti).') + (salah ? ' ' + salah + ' baris bermasalah diabaikan.' : '');
+          App.confirm('Simpan tugasan?', msg, 'Simpan').then(function (ok) {
+            if (!ok) return;
+            simpan.disabled = true; simpan.textContent = 'Menyimpan...';
+            Api.call('TUGASAN_IMPORT', { tahun: tahun, ganti: ganti.checked, tugasan: sah.map(function (b) { return b.data; }) }).then(function (d) {
+              hasil.textContent = '';
+              hasil.appendChild(el('div', { class: 'notice notice-info' }, el('span', {}, 'Selesai. ' + d.tugasan + ' tugasan untuk ' + d.guru + ' guru disimpan' + (d.diganti ? ', ' + d.diganti + ' tugasan lama diganti' : '') + '.')));
+              hasil.appendChild(el('div', { class: 'row' }, el('a', { class: 'btn', href: 'guru.html' }, 'Lihat jam kredit di Senarai guru')));
+              ta.value = '';
+              muat();
+            }, function (e) { UI.toast(e.message); simpan.disabled = false; simpan.textContent = 'Simpan ' + sah.length + ' tugasan'; });
+          });
+        });
+        hasil.appendChild(el('section', { class: 'card' }, [
+          el('div', { class: 'card-head' }, el('h2', {}, 'Jumlah jam kredit selepas import')),
+          el('div', { class: 'table-wrap' }, el('table', { class: 'data' }, [el('thead', {}, el('tr', {}, ['Guru', 'Berjadual', 'Tidak berjadual'].map(function (h) { return el('th', {}, h); }))), tb2])),
+          el('div', { class: 'sticky-bar' }, [el('label', { class: 'check-inline', for: 'ganti', style: 'flex:1' }, [ganti, 'Ganti tugasan sedia ada bagi guru dalam senarai ini']), simpan])
+        ]));
+      }
+
+      function muat() {
+        return Api.call('IMPORT_RUJUKAN', { tahun: tahun }).then(function (d) {
+          R = d; H = d.had;
+          info.textContent = '';
+          if (d.tugasan_sedia_ada) info.appendChild(el('div', { class: 'notice notice-info' }, el('span', {}, 'Sudah ada ' + d.tugasan_sedia_ada + ' tugasan untuk ' + tahun + '.')));
+        }, function (e) { UI.toast(e.message); });
+      }
+      muat();
+    })();
+  </script>
+</body>
+</html>

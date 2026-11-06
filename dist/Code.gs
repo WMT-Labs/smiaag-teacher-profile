@@ -21,7 +21,7 @@ var PROP = {
 };
 
 /** Had saiz badan permintaan (aksara). Dinaikkan nanti untuk import PDF. */
-var MAX_REQUEST_CHARS = 100000;
+var MAX_REQUEST_CHARS = 200000; // cukup untuk satu kumpulan import (beberapa guru sekali)
 
 /**
  * Dapatkan Spreadsheet pangkalan data.
@@ -377,8 +377,8 @@ var REF_SEEDS = {
     ['tugasan_tidak_berjadual', 'Tugasan tidak berjadual']],
   ref_jabatan: [['KURI', 'Kurikulum'], ['HEM', 'Hal Ehwal Murid'], ['KOKU', 'Kokurikulum'], ['lain_lain', 'Lain-lain']],
   ref_hari: [['isnin', 'Isnin'], ['selasa', 'Selasa'], ['rabu', 'Rabu'], ['khamis', 'Khamis'], ['jumaat', 'Jumaat'], ['sabtu', 'Sabtu'], ['ahad', 'Ahad']],
-  ref_sumber_slot: [['pdf', 'Import PDF'], ['manual', 'Manual']],
-  ref_jenis_unit: [['badan_beruniform', 'Badan beruniform'], ['kelab_persatuan', 'Kelab / persatuan'], ['pasukan_sekolah', 'Pasukan sekolah']],
+  ref_sumber_slot: [['asc', 'Import aSc'], ['pdf', 'Import PDF'], ['manual', 'Manual']],
+  ref_jenis_unit: [['badan_beruniform', 'Badan beruniform (Syabab)'], ['kelab_persatuan', 'Kelab / persatuan'], ['pasukan_sekolah', 'Pasukan sekolah']],
   ref_jawatan_unit: [['penasihat', 'Penasihat'], ['penyelaras', 'Penyelaras'], ['ajk', 'AJK'], ['lain_lain', 'Lain-lain']],
   ref_peringkat_pertandingan: [['sekolah', 'Sekolah'], ['daerah', 'Daerah'], ['negeri', 'Negeri'], ['kebangsaan', 'Kebangsaan']],
   ref_peranan_pertandingan: [['pengurus', 'Pengurus'], ['jurulatih', 'Jurulatih'], ['pengiring', 'Pengiring'], ['lain_lain', 'Lain-lain']],
@@ -446,6 +446,8 @@ function getTableSchema(table) {
  *   insert(table, row, ctx)       -> objek yang disimpan
  *   update(table, id, patch, ctx) -> objek selepas kemas kini
  *   remove(table, id, ctx)        -> true/false
+ *   insertMany(table, rows, ctx)  -> senarai objek (satu tulisan ke Sheet; untuk import)
+ *   removeWhere(table, filter)    -> bilangan dipadam (satu tulisan ke Sheet; untuk import)
  *
  * Kenapa begini: apabila pindah ke Supabase, hanya fail ini yang diganti.
  * Modul lain tidak perlu tahu data disimpan di mana.
@@ -645,6 +647,79 @@ function remove(table, id, ctx) {
       }
     }
     return false;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Operasi pukal (import). Satu bacaan dan satu tulisan, bukan satu bagi setiap baris,
+// supaya import ratusan baris tidak melepasi had masa Apps Script.
+// ---------------------------------------------------------------------------
+
+function insertMany(table, rows, ctx) {
+  var s = getTableSchema(table);
+  ctx = ctx || {};
+  if (!Array.isArray(rows)) throw new AppError('VALIDASI', 'Data tidak sah.');
+  return _withLock(function () {
+    var data = _readAll(s);
+    var fkSets = {};
+    function fkSet(t) {
+      if (!fkSets[t]) {
+        var ts = getTableSchema(t), set = {};
+        _readAll(ts).rows.forEach(function (r) { set[r[ts.pk]] = true; });
+        fkSets[t] = set;
+      }
+      return fkSets[t];
+    }
+    var semua = data.rows.slice(), out = [], lines = [], now = nowIso();
+    rows.forEach(function (row, i) {
+      var clean;
+      try {
+        clean = _validate(s, row, true, { skipFk: true });
+        s.columns.forEach(function (c) {
+          var d = s.defs[c];
+          if (d.fk && clean[c] !== null && clean[c] !== undefined && !ctx.skipFk && !fkSet(d.fk)[clean[c]]) {
+            _bad(c, 'Rekod rujukan untuk "' + c + '" tidak wujud.');
+          }
+        });
+        if (!clean[s.pk]) clean[s.pk] = uuid();
+        if (semua.some(function (r) { return r[s.pk] === clean[s.pk]; })) throw new AppError('DUPLIKAT', 'Rekod dengan id ini sudah wujud.');
+        _checkUnique(s, clean, null, semua);
+      } catch (e) {
+        if (e && e.name === 'AppError') { e.message = 'Baris ' + (i + 1) + ': ' + e.message; e.details = { baris: i + 1, field: e.details && e.details.field }; }
+        throw e;
+      }
+      if (s.audit) { clean.created_at = now; clean.updated_at = now; clean.updated_by = ctx.actorId || null; }
+      semua.push(clean);
+      out.push(clean);
+      lines.push(s.columns.map(function (c) { return _toCell(s.defs[c], clean[c]); }));
+    });
+    if (lines.length) data.sheet.getRange(data.sheet.getLastRow() + 1, 1, lines.length, s.columns.length).setValues(lines);
+    if (s.isRef) delete _REF_CACHE[s.name];
+    return out;
+  });
+}
+
+/** Padam semua baris yang sepadan dengan penapis. filter mesti ada sekurang-kurangnya satu lajur. */
+function removeWhere(table, filter) {
+  var s = getTableSchema(table);
+  if (!filter || typeof filter !== 'object' || !Object.keys(filter).length) throw new AppError('VALIDASI', 'Penapis diperlukan untuk padam pukal.');
+  Object.keys(filter).forEach(function (k) { if (!s.defs[k]) throw new AppError('VALIDASI', 'Penapis menggunakan lajur yang tidak wujud: ' + k); });
+  return _withLock(function () {
+    var data = _readAll(s);
+    var buang = {};
+    var n = 0;
+    data.rows.forEach(function (row) {
+      if (Object.keys(filter).every(function (k) { return _matches(row[k], filter[k]); })) { buang[row.__row] = true; n++; }
+    });
+    if (!n) return 0;
+    var last = data.sheet.getLastRow();
+    var range = data.sheet.getRange(2, 1, last - 1, s.columns.length);
+    var values = range.getValues();
+    var keep = values.filter(function (v, i) { return !buang[i + 2] && v.some(function (x) { return x !== '' && x !== null; }); });
+    range.clearContent();
+    if (keep.length) data.sheet.getRange(2, 1, keep.length, s.columns.length).setValues(keep);
+    if (s.isRef) delete _REF_CACHE[s.name];
+    return n;
   });
 }
 
@@ -1488,8 +1563,14 @@ function _semakRekod(jadual, row) {
   }
 }
 
+/** Tugasan guru diisi oleh pentadbir sahaja (keputusan pemilik): guru tidak perlu mengisi satu persatu. */
+function _semakPenulisTugasan(ctx, jadual) {
+  if (jadual === 'tugasan_guru' && !_isAdmin(ctx)) throw new AppError('TIADA_KEBENARAN', 'Tugasan diisi oleh pentadbir. Hubungi pentadbir jika ada pembetulan.');
+}
+
 function aksiRekodSimpan(ctx, params) {
   var jadual = _jadualRekod(params);
+  _semakPenulisTugasan(ctx, jadual);
   var data = _dataRekod(jadual, params.data);
   var hasil;
   if (params.id) {
@@ -1518,6 +1599,7 @@ function aksiRekodSimpan(ctx, params) {
 
 function aksiRekodPadam(ctx, params) {
   var jadual = _jadualRekod(params);
+  _semakPenulisTugasan(ctx, jadual);
   var id = pUuid(params, 'id', 'Rekod');
   var lama = getById(jadual, id);
   if (!lama) throw new AppError('TIDAK_JUMPA', 'Rekod tidak dijumpai.');
@@ -1809,6 +1891,7 @@ function aksiKurikulumLihat(ctx, params) {
   return {
     guru: { id: guru.id, nama_penuh: guru.nama_penuh, guru_kod: guru.guru_kod },
     milik_sendiri: guru.id === ctx.guruId,
+    boleh: { tugasan: _isAdmin(ctx) },
     tahun: tahun,
     had: had,
     jam: jam,
@@ -2036,6 +2119,116 @@ function _seedWaktu() {
 }
 
 // ======================================================================
+// Import.gs
+// ======================================================================
+/**
+ * Import.gs — import pukal oleh pentadbir (Fasa 3).
+ *
+ *  1. Jadual daripada eksport aSc Timetables (XML). Fail dibaca di PELAYAR (js/asc.js), dipadankan
+ *     dengan guru/subjek/kelas, dan disemak serta disunting oleh pentadbir. Hanya selepas
+ *     "Sahkan dan simpan" barulah slot dihantar ke sini, dalam kumpulan kecil (beberapa guru sekali).
+ *  2. Tugasan guru daripada jadual Excel/CSV (salin-tampal). Dipadankan di pelayar, disahkan di sini.
+ *
+ * Server tetap menyemak SETIAP baris (jenis, julat, rujukan wujud) walaupun pelayar sudah menyemak.
+ */
+
+var IMPORT_MAX_BARIS = 600; // setiap panggilan
+
+function aksiImportRujukan(ctx, params) {
+  var tahun = _tahunParam(params);
+  return {
+    tahun: tahun,
+    guru: query('guru', { aktif: true }, { orderBy: 'nama_penuh' }).map(_pilih(['id', 'guru_kod', 'nama_penuh'])),
+    subjek: _subjekSenarai(),
+    kelas: query('kelas', { tahun_akademik: tahun }, { orderBy: 'nama' }).map(_pilih(['id', 'nama', 'tingkatan'])),
+    waktu: query('waktu', { tahun_akademik: tahun }, { orderBy: 'nombor' }).map(_pilih(['nombor', 'masa_mula', 'masa_akhir'])),
+    hari: _refSenarai('ref_hari'), jabatan: _refSenarai('ref_jabatan'),
+    kumpulan: _refSenarai('ref_kumpulan_tugasan'), jenis_tugasan: _refSenarai('ref_jenis_tugasan'),
+    had: hadJamKredit(tahun),
+    jadual_sedia_ada: query('jadual_slot', { tahun_akademik: tahun }).length,
+    tugasan_sedia_ada: query('tugasan_guru', { tahun_akademik: tahun }).length
+  };
+}
+
+function _senaraiGuruId(params) {
+  var ids = params.guru_ids;
+  if (!Array.isArray(ids) || !ids.length || ids.length > 100) throw new AppError('VALIDASI', 'Senarai guru tidak sah.');
+  ids.forEach(function (id) { if (typeof id !== 'string' || !UUID_RE.test(id)) throw new AppError('VALIDASI', 'ID guru tidak sah.'); });
+  return ids;
+}
+
+/**
+ * Simpan jadual bagi sekumpulan guru. Jadual tahun itu bagi guru dalam guru_ids DIGANTI sepenuhnya.
+ * params: { tahun, guru_ids: [...], slot: [{ guru_id, hari, masa_mula, masa_akhir, subjek_id?, label?, kelas_ids: [] }] }
+ */
+function aksiJadualImport(ctx, params) {
+  var tahun = _tahunParam(params);
+  var guruIds = _senaraiGuruId(params);
+  var slots = params.slot;
+  if (!Array.isArray(slots) || slots.length > IMPORT_MAX_BARIS) throw new AppError('VALIDASI', 'Terlalu banyak slot dalam satu kumpulan (maksimum ' + IMPORT_MAX_BARIS + ').');
+  var dibenar = {}; guruIds.forEach(function (id) { dibenar[id] = true; });
+  var waktu = query('waktu', { tahun_akademik: tahun });
+  var kelasSah = {}; query('kelas', { tahun_akademik: tahun }).forEach(function (k) { kelasSah[k.id] = true; });
+
+  var barisSlot = [], barisKelas = [];
+  slots.forEach(function (x, i) {
+    var n = 'Slot ' + (i + 1) + ': ';
+    if (!x || typeof x !== 'object') throw new AppError('VALIDASI', n + 'data tidak sah.');
+    if (!dibenar[x.guru_id]) throw new AppError('VALIDASI', n + 'guru tiada dalam senarai kumpulan ini.');
+    if (!TIME_RE.test(x.masa_mula) || !TIME_RE.test(x.masa_akhir) || minitDari(x.masa_akhir) <= minitDari(x.masa_mula)) throw new AppError('VALIDASI', n + 'masa tidak sah.');
+    if (!x.subjek_id && !x.label) throw new AppError('VALIDASI', n + 'perlu subjek atau nama aktiviti.');
+    var kelasIds = Array.isArray(x.kelas_ids) ? x.kelas_ids : [];
+    if (kelasIds.length > 12) throw new AppError('VALIDASI', n + 'terlalu banyak kelas.');
+    var id = uuid();
+    barisSlot.push({
+      id: id, guru_id: x.guru_id, tahun_akademik: tahun, hari: x.hari, masa_mula: x.masa_mula, masa_akhir: x.masa_akhir,
+      subjek_id: x.subjek_id || null, label: x.label ? String(x.label).slice(0, 60) : null,
+      tempoh: kiraTempoh(waktu, x.masa_mula, x.masa_akhir), sumber: 'asc', disahkan: true
+    });
+    var seen = {};
+    kelasIds.forEach(function (k) {
+      if (!kelasSah[k]) throw new AppError('VALIDASI', n + 'kelas tidak wujud untuk tahun ' + tahun + '.');
+      if (!seen[k]) { seen[k] = true; barisKelas.push({ slot_id: id, kelas_id: k }); }
+    });
+  });
+
+  // Ganti: padam slot lama guru-guru ini (dan pautan kelasnya), kemudian tulis yang baharu.
+  var lama = query('jadual_slot', { tahun_akademik: tahun, guru_id: guruIds }).map(function (s) { return s.id; });
+  if (lama.length) removeWhere('jadual_slot_kelas', { slot_id: lama });
+  removeWhere('jadual_slot', { tahun_akademik: tahun, guru_id: guruIds });
+  insertMany('jadual_slot', barisSlot, { actorId: ctx.akaunId });
+  insertMany('jadual_slot_kelas', barisKelas, { actorId: ctx.akaunId, skipFk: true });
+  logAudit(ctx.akaunId, 'JADUAL_IMPORT', tahun, guruIds.length + ' guru, ' + barisSlot.length + ' slot');
+  return { guru: guruIds.length, slot: barisSlot.length, diganti: lama.length };
+}
+
+/**
+ * Simpan tugasan guru secara pukal.
+ * params: { tahun, ganti: true|false, tugasan: [{ guru_id, jenis_tugasan, kumpulan, nama_tugasan, subjek_id?, bilangan_kelas?, jabatan?, jam_kredit }] }
+ * ganti = true: tugasan tahun itu bagi guru yang ada dalam fail dipadam dahulu.
+ */
+function aksiTugasanImport(ctx, params) {
+  var tahun = _tahunParam(params);
+  var list = params.tugasan;
+  if (!Array.isArray(list) || !list.length || list.length > IMPORT_MAX_BARIS) throw new AppError('VALIDASI', 'Senarai tugasan tidak sah (1 hingga ' + IMPORT_MAX_BARIS + ' baris).');
+  var guruSah = {}; query('guru', {}).forEach(function (g) { guruSah[g.id] = true; });
+  var rows = list.map(function (t, i) {
+    if (!t || typeof t !== 'object') throw new AppError('VALIDASI', 'Baris ' + (i + 1) + ': data tidak sah.');
+    if (!guruSah[t.guru_id]) throw new AppError('VALIDASI', 'Baris ' + (i + 1) + ': guru tidak dijumpai.');
+    var row = { guru_id: t.guru_id, tahun_akademik: tahun };
+    REKOD_GURU.tugasan_guru.forEach(function (k) { if (k !== 'tahun_akademik' && t[k] !== undefined) row[k] = t[k]; });
+    try { _semakRekod('tugasan_guru', row); } catch (e) { e.message = 'Baris ' + (i + 1) + ': ' + e.message; throw e; }
+    return row;
+  });
+  var guruIds = Object.keys(rows.reduce(function (a, r) { a[r.guru_id] = true; return a; }, {}));
+  var dipadam = 0;
+  if (params.ganti === true) dipadam = removeWhere('tugasan_guru', { tahun_akademik: tahun, guru_id: guruIds });
+  insertMany('tugasan_guru', rows, { actorId: ctx.akaunId });
+  logAudit(ctx.akaunId, 'TUGASAN_IMPORT', tahun, guruIds.length + ' guru, ' + rows.length + ' tugasan' + (dipadam ? ', ' + dipadam + ' diganti' : ''));
+  return { guru: guruIds.length, tugasan: rows.length, diganti: dipadam };
+}
+
+// ======================================================================
 // Api.gs
 // ======================================================================
 /**
@@ -2100,7 +2293,11 @@ function getActions() {
     KELAS_PADAM:          { roles: R_SUPER, handler: aksiKelasPadam },
     SUBJEK_PUKAL:         { roles: R_SUPER, handler: aksiSubjekPukal },
     WAKTU_SIMPAN:         { roles: R_SUPER, handler: aksiWaktuSimpan },
-    HAD_SIMPAN:           { roles: R_SUPER, handler: aksiHadSimpan }
+    HAD_SIMPAN:           { roles: R_SUPER, handler: aksiHadSimpan },
+    // ---- Import pukal (pentadbir) ----
+    IMPORT_RUJUKAN:       { roles: R_ADMIN, handler: aksiImportRujukan },
+    JADUAL_IMPORT:        { roles: R_ADMIN, handler: aksiJadualImport },
+    TUGASAN_IMPORT:       { roles: R_ADMIN, handler: aksiTugasanImport }
   };
   Object.keys(_ACTIONS).forEach(function (k) {
     var d = _ACTIONS[k];

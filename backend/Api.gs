@@ -60,7 +60,11 @@ function getActions() {
     KELAS_PADAM:          { roles: R_SUPER, handler: aksiKelasPadam },
     SUBJEK_PUKAL:         { roles: R_SUPER, handler: aksiSubjekPukal },
     WAKTU_SIMPAN:         { roles: R_SUPER, handler: aksiWaktuSimpan },
-    HAD_SIMPAN:           { roles: R_SUPER, handler: aksiHadSimpan }
+    HAD_SIMPAN:           { roles: R_SUPER, handler: aksiHadSimpan },
+    // ---- Import pukal (pentadbir) ----
+    IMPORT_RUJUKAN:       { roles: R_ADMIN, handler: aksiImportRujukan },
+    JADUAL_IMPORT:        { roles: R_ADMIN, handler: aksiJadualImport },
+    TUGASAN_IMPORT:       { roles: R_ADMIN, handler: aksiTugasanImport }
   };
   Object.keys(_ACTIONS).forEach(function (k) {
     var d = _ACTIONS[k];

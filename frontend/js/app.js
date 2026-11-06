@@ -79,6 +79,8 @@
       items.push({ key: 'dashboard', text: 'Dashboard sekolah', icon: 'i-dashboard', soon: 'Fasa 6' });
       items.push({ key: 'guru', href: 'guru.html', text: 'Senarai guru', icon: 'i-clipboard' });
       items.push({ key: 'ganti', href: 'slot-kosong.html', text: 'Cari guru ganti', icon: 'i-search' });
+      items.push({ key: 'import-jadual', href: 'import-jadual.html', text: 'Import jadual (aSc)', icon: 'i-download' });
+      items.push({ key: 'import-tugasan', href: 'import-tugasan.html', text: 'Import tugasan', icon: 'i-download' });
       items.push({ key: 'akaun', href: 'akaun.html', text: 'Urus akaun', icon: 'i-shield' });
       if (role === 'superadmin') items.push({ key: 'rujukan', href: 'rujukan.html', text: 'Data rujukan', icon: 'i-sliders' });
     }

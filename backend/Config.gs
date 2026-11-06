@@ -16,7 +16,7 @@ var PROP = {
 };
 
 /** Had saiz badan permintaan (aksara). Dinaikkan nanti untuk import PDF. */
-var MAX_REQUEST_CHARS = 100000;
+var MAX_REQUEST_CHARS = 200000; // cukup untuk satu kumpulan import (beberapa guru sekali)
 
 /**
  * Dapatkan Spreadsheet pangkalan data.

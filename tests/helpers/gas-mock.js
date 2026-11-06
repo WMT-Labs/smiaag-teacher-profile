@@ -36,6 +36,12 @@ class FakeSheet {
         });
         return this;
       },
+      clearContent() {
+        for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) if (sh.grid[r - 1 + i]) sh.grid[r - 1 + i][c - 1 + j] = '';
+        // buang baris kosong di hujung supaya getLastRow() tepat (seperti Sheets)
+        while (sh.grid.length && sh.grid[sh.grid.length - 1].every((x) => x === '' || x === undefined)) sh.grid.pop();
+        return this;
+      },
       setNumberFormat() { return this; }, setBackground() { return this; },
       setFontColor() { return this; }, setFontWeight() { return this; }
     };

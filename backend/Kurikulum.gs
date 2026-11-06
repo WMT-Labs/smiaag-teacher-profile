@@ -171,6 +171,7 @@ function aksiKurikulumLihat(ctx, params) {
   return {
     guru: { id: guru.id, nama_penuh: guru.nama_penuh, guru_kod: guru.guru_kod },
     milik_sendiri: guru.id === ctx.guruId,
+    boleh: { tugasan: _isAdmin(ctx) },
     tahun: tahun,
     had: had,
     jam: jam,
