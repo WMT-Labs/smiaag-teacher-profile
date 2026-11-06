@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kokurikulum — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard();
+      if (!sesi) return;
+      var el = UI.el, icon = App.icon;
+      var m = /[?&]id=([0-9a-f-]{36})/i.exec(location.search);
+      var guruId = m && m[1] !== sesi.guru_id ? m[1] : null;
+      var c = App.mount({ sesi: sesi, active: guruId ? 'guru' : 'koku', title: 'Kokurikulum' });
+      var K = null, tahun = String(new Date().getFullYear());
+
+      function call(action, params) { params = params || {}; if (guruId) params.guru_id = guruId; return Api.call(action, params); }
+      function selepas(msg) { return function (r) { if (r) { UI.toast(msg); muat(); } }; }
+      function head(title, ic, actions) { return el('div', { class: 'card-head' }, [el('div', { class: 'sec-title' }, [el('span', { class: 'ico' }, icon(ic)), el('h2', {}, title)]), el('div', { class: 'row' }, actions || [])]); }
+      function btn(text, fn, ic) { var b = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, [icon(ic || 'i-plus', 16), text]); b.addEventListener('click', fn); return b; }
+      function iconBtn(name, label, fn, danger) { var b = el('button', { class: 'icon-btn' + (danger ? ' danger' : ''), type: 'button', 'aria-label': label, title: label }, icon(name)); b.addEventListener('click', fn); return b; }
+      function rumahChip(nama, warna) { return el('span', { class: 'house' }, [el('i', { style: 'background:' + (warna || '#999') }), nama]); }
+
+      // ---------------- unit ----------------
+      function unit() {
+        var groups = K.ref.jenis_unit.map(function (j) {
+          var list = K.keahlian.filter(function (k) { return k.jenis === j.kod; });
+          return el('div', { class: 'unit-group' }, [el('div', { class: 'group-label' }, j.label)].concat(list.length ? list.map(function (k) {
+            return el('div', { class: 'unit-row' }, [
+              el('div', { class: 'grow' }, [el('b', {}, k.unit_nama), el('div', { class: 'sub muted', style: 'font-size:.8125rem' }, App.labelOf(K.ref.jawatan_unit, k.jawatan))]),
+              iconBtn('i-edit', 'Tukar jawatan', function () { borangUnit(k); }),
+              iconBtn('i-trash', 'Keluar', function () { padam('keahlian_unit', k.id, k.unit_nama); }, true)
+            ]);
+          }) : [el('span', { class: 'muted', style: 'font-size:.875rem' }, 'Tiada')]));
+        });
+        return el('section', { class: 'card' }, [head('Unit beruniform, kelab dan pasukan', 'i-trophy', [btn('Tambah', function () { borangUnit(null); })])].concat(groups));
+      }
+      function borangUnit(k) {
+        k = k || {};
+        var ada = {}; K.keahlian.forEach(function (x) { if (x.id !== k.id) ada[x.unit_id] = true; });
+        var pilihan = K.ref.unit.filter(function (u) { return !ada[u.id]; }).map(function (u) { return { value: u.id, label: u.nama + ' · ' + App.labelOf(K.ref.jenis_unit, u.jenis) }; });
+        if (!pilihan.length) { UI.toast('Tiada unit lain untuk ' + K.tahun + '. Pentadbir menambah kelab di Urus kokurikulum.'); return; }
+        App.formDialog({
+          title: k.id ? 'Tukar jawatan' : 'Tambah unit ' + K.tahun,
+          fields: [
+            { name: 'unit_id', label: 'Unit', type: 'select', required: true, options: pilihan, value: k.unit_id || pilihan[0].value, hint: 'Kelab yang tiada dalam senarai ditambah oleh pentadbir.' },
+            { name: 'jawatan', label: 'Jawatan', type: 'select', required: true, options: K.ref.jawatan_unit, value: k.jawatan || 'ajk' }
+          ],
+          onSubmit: function (v) {
+            var p = { jadual: 'keahlian_unit', data: k.id ? { unit_id: v.unit_id, jawatan: v.jawatan } : { unit_id: v.unit_id, jawatan: v.jawatan, tahun_akademik: K.tahun } };
+            if (k.id) p.id = k.id;
+            return call('REKOD_SIMPAN', p);
+          }
+        }).then(selepas('Disimpan.'));
+      }
+      function padam(jadual, id, nama) {
+        App.confirm('Buang?', 'Buang "' + nama + '"?', 'Buang', true).then(function (ok) {
+          if (ok) call('REKOD_PADAM', { jadual: jadual, id: id }).then(function () { UI.toast('Dibuang.'); muat(); }, function (e) { UI.toast(e.message); });
+        });
+      }
+
+      // ---------------- rumah sukan ----------------
+      function rumah() {
+        var r = K.rumah;
+        var body = r ? el('div', { class: 'card-pad stack' }, [
+          el('div', { style: 'font-size:1.25rem' }, rumahChip(r.nama, r.warna)),
+          el('dl', { class: 'kv', style: 'margin:0' }, [el('dt', {}, 'Jawatan'), el('dd', {}, r.jawatan || '—')])
+        ]) : el('p', { class: 'empty-sm' }, 'Belum ditetapkan untuk ' + K.tahun + '.');
+        var acts = [btn(r ? 'Tukar' : 'Tetapkan', borangRumah, r ? 'i-edit' : 'i-plus')];
+        return el('section', { class: 'card' }, [head('Rumah sukan ' + K.tahun, 'i-heart', acts), body]);
+      }
+      function borangRumah() {
+        var r = K.rumah || {};
+        App.formDialog({
+          title: 'Rumah sukan ' + K.tahun,
+          fields: [
+            { name: 'rumah_sukan_id', label: 'Rumah', type: 'select', required: true, options: K.ref.rumah.map(function (x) { return { value: x.id, label: x.nama }; }), value: r.rumah_sukan_id },
+            { name: 'jawatan', label: 'Jawatan', value: r.jawatan, placeholder: 'contoh: Ketua Rumah, Penolong, Ahli', attrs: { maxlength: '60' } }
+          ],
+          onSubmit: function (v) {
+            var p = { jadual: 'guru_rumah', data: r.id ? v : { rumah_sukan_id: v.rumah_sukan_id, jawatan: v.jawatan, tahun_akademik: K.tahun } };
+            if (r.id) p.id = r.id;
+            return call('REKOD_SIMPAN', p);
+          }
+        }).then(selepas('Rumah sukan disimpan.'));
+      }
+
+      // ---------------- pertandingan ----------------
+      function pertandingan() {
+        var body = K.pertandingan.length ? el('ul', { class: 'items' }, K.pertandingan.map(function (p) {
+          var aku = p.peserta.filter(function (x) { return x.guru_id === K.guru.id; })[0];
+          var lain = p.peserta.filter(function (x) { return x.guru_id !== K.guru.id; });
+          return el('li', {}, [
+            el('div', { class: 'grow' }, [
+              el('b', {}, p.nama_acara),
+              el('div', { class: 'sub' }, [App.labelOf(K.ref.peringkat, p.peringkat), UI.fmtDate(p.tarikh), p.bilangan_murid != null ? p.bilangan_murid + ' murid' : null, p.unit_nama].filter(Boolean).join(' · ')),
+              p.pencapaian ? el('div', { style: 'margin-top:4px' }, el('span', { class: 'badge badge-ok' }, p.pencapaian)) : null,
+              el('div', { class: 'peserta', style: 'margin-top:4px' }, (aku ? 'Peranan: ' + App.labelOf(K.ref.peranan, aku.peranan) : '') + (lain.length ? ' · Bersama: ' + lain.map(function (x) { return x.nama; }).join(', ') : ''))
+            ].filter(Boolean)),
+            iconBtn('i-edit', 'Sunting', function () { borangPertandingan(p, aku); }),
+            aku ? iconBtn('i-trash', 'Buang penyertaan', function () {
+              App.confirm('Buang penyertaan?', 'Buang penyertaan dalam "' + p.nama_acara + '"?' + (lain.length ? '' : ' Rekod pertandingan ini turut dipadam kerana tiada guru lain.'), 'Buang', true).then(function (ok) {
+                if (ok) Api.call('PENYERTAAN_PADAM', { id: aku.id }).then(function () { UI.toast('Dibuang.'); muat(); }, function (e) { UI.toast(e.message); });
+              });
+            }, true) : null
+          ].filter(Boolean));
+        })) : el('p', { class: 'empty-sm' }, 'Belum ada pertandingan untuk ' + K.tahun + '.');
+        return el('section', { class: 'card wide' }, [head('Pertandingan dan acara ' + K.tahun, 'i-award', [btn('Tambah', function () { borangPertandingan(null, null); })]), body]);
+      }
+      function borangPertandingan(p, aku) {
+        p = p || {};
+        App.formDialog({
+          title: p.id ? 'Sunting pertandingan' : 'Tambah pertandingan',
+          fields: [
+            { name: 'nama_acara', label: 'Nama acara', required: true, value: p.nama_acara, placeholder: 'contoh: Pertandingan Kawad Kaki', attrs: { maxlength: '200' } },
+            { name: 'peringkat', label: 'Peringkat', type: 'select', required: true, options: K.ref.peringkat, value: p.peringkat || 'sekolah' },
+            { name: 'tarikh', label: 'Tarikh', type: 'date', value: p.tarikh, attrs: { min: K.tahun + '-01-01', max: K.tahun + '-12-31' } },
+            { name: 'bilangan_murid', label: 'Bilangan murid', type: 'number', value: p.bilangan_murid, attrs: { min: '0', max: '2000', inputmode: 'numeric' } },
+            { name: 'pencapaian', label: 'Pencapaian', value: p.pencapaian, placeholder: 'contoh: Johan, Naib Johan, Penyertaan', attrs: { maxlength: '200' } },
+            { name: 'unit_id', label: 'Unit berkaitan', type: 'select', options: K.ref.unit.map(function (u) { return { value: u.id, label: u.nama }; }), value: p.unit_id, placeholder: '— Tiada —' },
+            { name: 'peranan', label: 'Peranan anda', type: 'select', required: true, options: K.ref.peranan, value: aku ? aku.peranan : 'pengurus' }
+          ],
+          onSubmit: function (v) { v.tahun = K.tahun; if (p.id) v.id = p.id; return call('PERTANDINGAN_SIMPAN', v); }
+        }).then(selepas('Pertandingan disimpan.'));
+      }
+
+      function render() {
+        c.textContent = '';
+        var top = el('div', { class: 'row', style: 'justify-content:space-between' });
+        top.appendChild(K.milik_sendiri ? el('span') : el('a', { class: 'back', href: 'profil.html?id=' + encodeURIComponent(K.guru.id) }, [icon('i-back', 18), K.guru.nama_penuh]));
+        var sel = el('select', { class: 'select', 'aria-label': 'Tahun', style: 'width:auto' });
+        var y = new Date().getFullYear();
+        [y + 1, y, y - 1, y - 2].forEach(function (t) { var o = el('option', { value: String(t) }, 'Tahun ' + t); if (String(t) === K.tahun) o.selected = true; sel.appendChild(o); });
+        sel.addEventListener('change', function () { tahun = sel.value; muat(); });
+        top.appendChild(sel);
+        c.appendChild(top);
+        c.appendChild(el('div', { class: 'profile-grid' }, [unit(), rumah(), pertandingan()]));
+      }
+      function muat() {
+        return call('KOKU_LIHAT', { tahun: tahun }).then(function (d) { K = d; render(); }, function (e) { c.textContent = ''; c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message))); });
+      }
+      c.appendChild(el('p', { class: 'muted' }, 'Memuatkan...'));
+      muat();
+    })();
+  </script>
+</body>
+</html>

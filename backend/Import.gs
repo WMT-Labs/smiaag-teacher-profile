@@ -69,12 +69,10 @@ function aksiJadualImport(ctx, params) {
     });
   });
 
-  // Ganti: padam slot lama guru-guru ini (dan pautan kelasnya), kemudian tulis yang baharu.
+  // Ganti secara selamat: slot baharu disahkan dahulu; jika gagal, jadual lama kekal.
   var lama = query('jadual_slot', { tahun_akademik: tahun, guru_id: guruIds }).map(function (s) { return s.id; });
-  if (lama.length) removeWhere('jadual_slot_kelas', { slot_id: lama });
-  removeWhere('jadual_slot', { tahun_akademik: tahun, guru_id: guruIds });
-  insertMany('jadual_slot', barisSlot, { actorId: ctx.akaunId });
-  insertMany('jadual_slot_kelas', barisKelas, { actorId: ctx.akaunId, skipFk: true });
+  replaceWhere('jadual_slot', { tahun_akademik: tahun, guru_id: guruIds }, barisSlot, { actorId: ctx.akaunId });
+  replaceWhere('jadual_slot_kelas', { slot_id: lama }, barisKelas, { actorId: ctx.akaunId, skipFk: true });
   logAudit(ctx.akaunId, 'JADUAL_IMPORT', tahun, guruIds.length + ' guru, ' + barisSlot.length + ' slot');
   return { guru: guruIds.length, slot: barisSlot.length, diganti: lama.length };
 }
@@ -99,8 +97,8 @@ function aksiTugasanImport(ctx, params) {
   });
   var guruIds = Object.keys(rows.reduce(function (a, r) { a[r.guru_id] = true; return a; }, {}));
   var dipadam = 0;
-  if (params.ganti === true) dipadam = removeWhere('tugasan_guru', { tahun_akademik: tahun, guru_id: guruIds });
-  insertMany('tugasan_guru', rows, { actorId: ctx.akaunId });
+  if (params.ganti === true) dipadam = replaceWhere('tugasan_guru', { tahun_akademik: tahun, guru_id: guruIds }, rows, { actorId: ctx.akaunId }).dipadam;
+  else insertMany('tugasan_guru', rows, { actorId: ctx.akaunId });
   logAudit(ctx.akaunId, 'TUGASAN_IMPORT', tahun, guruIds.length + ' guru, ' + rows.length + ' tugasan' + (dipadam ? ', ' + dipadam + ' diganti' : ''));
   return { guru: guruIds.length, tugasan: rows.length, diganti: dipadam };
 }

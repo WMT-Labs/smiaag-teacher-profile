@@ -64,7 +64,20 @@ function getActions() {
     // ---- Import pukal (pentadbir) ----
     IMPORT_RUJUKAN:       { roles: R_ADMIN, handler: aksiImportRujukan },
     JADUAL_IMPORT:        { roles: R_ADMIN, handler: aksiJadualImport },
-    TUGASAN_IMPORT:       { roles: R_ADMIN, handler: aksiTugasanImport }
+    TUGASAN_IMPORT:       { roles: R_ADMIN, handler: aksiTugasanImport },
+    // ---- Kokurikulum (Fasa 4) — keahlian unit & rumah guna REKOD_SIMPAN/REKOD_PADAM ----
+    KOKU_LIHAT:           { roles: R_SEMUA, handler: aksiKokuLihat },
+    PERTANDINGAN_SIMPAN:  { roles: R_SEMUA, handler: aksiPertandinganSimpan },
+    PENYERTAAN_SIMPAN:    { roles: R_SEMUA, handler: aksiPenyertaanSimpan },
+    PENYERTAAN_PADAM:     { roles: R_SEMUA, handler: aksiPenyertaanPadam },
+    PERTANDINGAN_PADAM:   { roles: R_ADMIN, handler: aksiPertandinganPadam },
+    KOKU_URUS:            { roles: R_ADMIN, handler: aksiKokuUrus },
+    UNIT_SIMPAN:          { roles: R_ADMIN, handler: aksiUnitSimpan },
+    UNIT_PADAM:           { roles: R_ADMIN, handler: aksiUnitPadam },
+    UNIT_SALIN:           { roles: R_ADMIN, handler: aksiUnitSalin },
+    RUMAH_SIMPAN:         { roles: R_ADMIN, handler: aksiRumahSimpan },
+    JUARA_SIMPAN:         { roles: R_ADMIN, handler: aksiJuaraSimpan },
+    JUARA_IMPORT:         { roles: R_ADMIN, handler: aksiJuaraImport }
   };
   Object.keys(_ACTIONS).forEach(function (k) {
     var d = _ACTIONS[k];

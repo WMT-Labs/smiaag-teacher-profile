@@ -2,7 +2,7 @@
 
 Sistem profil guru untuk Sekolah Menengah Islam Al-Amin Gombak. Menyimpan maklumat guru dalam tiga bahagian (kurikulum, kokurikulum, HEM), dan memberi pentadbir gambaran beban kerja seluruh sekolah.
 
-**Status: Fasa 3 (Kurikulum) siap, kecuali import PDF jadual.** Log masuk, urus akaun, profil guru, tugasan dan jam kredit, jadual waktu manual, pengesanan pertindihan dan carian guru ganti sudah berfungsi. Import PDF menunggu keputusan kaedah (lihat `docs/KEPUTUSAN.md`). Kokurikulum, HEM dan dashboard dibina pada fasa seterusnya (lihat [Fasa pembinaan](#fasa-pembinaan)).
+**Status: Fasa 4 (Kokurikulum) siap.** Log masuk, urus akaun, profil guru, kurikulum (tugasan, jam kredit, jadual, pertindihan, guru ganti, import jadual aSc dan import tugasan) dan kokurikulum (unit, rumah sukan, juara, pertandingan) sudah berfungsi. HEM dan dashboard dibina pada fasa seterusnya (lihat [Fasa pembinaan](#fasa-pembinaan)).
 
 ## Bagaimana ia berfungsi (ringkas)
 
@@ -31,6 +31,8 @@ backend/            Kod Apps Script (satu fail per kawasan)
   Akaun.gs            urus akaun (superadmin), cipta superadmin pertama
   Guru.gs             profil guru, telefon bertutup, cerapan, tempoh percubaan, subjek
   Kurikulum.gs        jam kredit, jadual, pertindihan, slot kosong, kelas, waktu
+  Import.gs           import jadual (aSc) dan tugasan oleh pentadbir
+  Kokurikulum.gs      unit, rumah sukan, juara rumah sukan, pertandingan
   Api.gs              pintu masuk doPost + SENARAI SEMUA AKSI dan peranan
   appsscript.json     tetapan projek Apps Script
 frontend/           Laman web (diterbitkan)
@@ -43,6 +45,12 @@ frontend/           Laman web (diterbitkan)
   guru.html           senarai guru (pentadbir)
   kurikulum.html      tugasan, jam kredit dan jadual waktu
   slot-kosong.html    cari guru ganti (pentadbir)
+  import-jadual.html  import jadual daripada eksport XML aSc Timetables (pentadbir)
+  import-tugasan.html import tugasan daripada Excel/CSV (pentadbir)
+  koku.html           kokurikulum guru
+  koku-urus.html      urus kokurikulum (pentadbir)
+  js/asc.js, js/tugasan-import.js   pembaca fail import (diuji di Node)
+  contoh/asc-contoh.xml             fail aSc contoh (data palsu)
   rujukan.html        data rujukan: subjek, kelas, waktu, had jam kredit (superadmin)
   pratonton.html      pratonton reka bentuk dashboard (data contoh)
   css/ js/ assets/
@@ -150,10 +158,10 @@ Google (Sheets dan Apps Script) dan, pada masa depan, Supabase **mungkin menyimp
 | 0 | Asas: struktur, template Sheets, repository, README, reka bentuk UI | Siap |
 | 1 | Auth: login, hash, session, had percubaan, tukar kata laluan, urus akaun, notis privasi | Siap |
 | 2 | Profil teras: guru, kelayakan, opsyen, kursus, cerapan, telefon bertutup, tempoh percubaan | Siap |
-| 3 | Kurikulum: subjek, kelas, tugasan, jadual, jam kredit, pertindihan, slot kosong | **Siap** (import PDF menunggu keputusan) |
-| 4 | Kokurikulum | Seterusnya |
-| 5 | HEM | |
+| 3 | Kurikulum: subjek, kelas, tugasan, jadual, jam kredit, pertindihan, slot kosong, import aSc dan tugasan | Siap (format aSc sebenar akan disemak) |
+| 4 | Kokurikulum: unit Syabab dan kelab, rumah sukan, juara, pertandingan | **Siap** |
+| 5 | HEM | Seterusnya |
 | 6 | Dashboard | |
 | 7 | Pengukuhan, audit keselamatan, `MIGRASI-SUPABASE.md` | |
 
-Lihat juga: [`docs/SKEMA.md`](docs/SKEMA.md), [`docs/SENARAI-SEMAK-FASA-0.md`](docs/SENARAI-SEMAK-FASA-0.md), [`docs/SENARAI-SEMAK-FASA-1.md`](docs/SENARAI-SEMAK-FASA-1.md), [`docs/SENARAI-SEMAK-FASA-2.md`](docs/SENARAI-SEMAK-FASA-2.md), [`docs/SENARAI-SEMAK-FASA-3.md`](docs/SENARAI-SEMAK-FASA-3.md), [`docs/KEPUTUSAN.md`](docs/KEPUTUSAN.md).
+Lihat juga: [`docs/SKEMA.md`](docs/SKEMA.md), [`docs/SENARAI-SEMAK-FASA-0.md`](docs/SENARAI-SEMAK-FASA-0.md), [`docs/SENARAI-SEMAK-FASA-1.md`](docs/SENARAI-SEMAK-FASA-1.md), [`docs/SENARAI-SEMAK-FASA-2.md`](docs/SENARAI-SEMAK-FASA-2.md), [`docs/SENARAI-SEMAK-FASA-3.md`](docs/SENARAI-SEMAK-FASA-3.md), [`docs/SENARAI-SEMAK-FASA-4.md`](docs/SENARAI-SEMAK-FASA-4.md), [`docs/KEPUTUSAN.md`](docs/KEPUTUSAN.md).

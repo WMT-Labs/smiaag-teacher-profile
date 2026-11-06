@@ -9,6 +9,7 @@
  *   remove(table, id, ctx)        -> true/false
  *   insertMany(table, rows, ctx)  -> senarai objek (satu tulisan ke Sheet; untuk import)
  *   removeWhere(table, filter)    -> bilangan dipadam (satu tulisan ke Sheet; untuk import)
+ *   replaceWhere(table, filter, rows, ctx) -> ganti selamat: sahkan semua dahulu, kemudian satu tulisan
  *
  * Kenapa begini: apabila pindah ke Supabase, hanya fail ini yang diganti.
  * Modul lain tidak perlu tahu data disimpan di mana.
@@ -216,47 +217,90 @@ function remove(table, id, ctx) {
 // supaya import ratusan baris tidak melepasi had masa Apps Script.
 // ---------------------------------------------------------------------------
 
+/** Sahkan dan sediakan baris baharu (tanpa menulis). `semua` = baris yang akan kekal dalam jadual. */
+function _sediakanBaris(s, rows, semua, ctx) {
+  if (!Array.isArray(rows)) throw new AppError('VALIDASI', 'Data tidak sah.');
+  var fkSets = {};
+  function fkSet(t) {
+    if (!fkSets[t]) {
+      var ts = getTableSchema(t), set = {};
+      _readAll(ts).rows.forEach(function (r) { set[r[ts.pk]] = true; });
+      fkSets[t] = set;
+    }
+    return fkSets[t];
+  }
+  semua = semua.slice();
+  var out = [], lines = [], now = nowIso();
+  rows.forEach(function (row, i) {
+    var clean;
+    try {
+      clean = _validate(s, row, true, { skipFk: true });
+      s.columns.forEach(function (c) {
+        var d = s.defs[c];
+        if (d.fk && clean[c] !== null && clean[c] !== undefined && !ctx.skipFk && !fkSet(d.fk)[clean[c]]) {
+          _bad(c, 'Rekod rujukan untuk "' + c + '" tidak wujud.');
+        }
+      });
+      if (!clean[s.pk]) clean[s.pk] = uuid();
+      if (semua.some(function (r) { return r[s.pk] === clean[s.pk]; })) throw new AppError('DUPLIKAT', 'Rekod dengan id ini sudah wujud.');
+      _checkUnique(s, clean, null, semua);
+    } catch (e) {
+      if (e && e.name === 'AppError') { e.message = 'Baris ' + (i + 1) + ': ' + e.message; e.details = { baris: i + 1, field: e.details && e.details.field }; }
+      throw e;
+    }
+    if (s.audit) { clean.created_at = now; clean.updated_at = now; clean.updated_by = ctx.actorId || null; }
+    semua.push(clean);
+    out.push(clean);
+    lines.push(s.columns.map(function (c) { return _toCell(s.defs[c], clean[c]); }));
+  });
+  return { out: out, lines: lines };
+}
+
 function insertMany(table, rows, ctx) {
   var s = getTableSchema(table);
   ctx = ctx || {};
-  if (!Array.isArray(rows)) throw new AppError('VALIDASI', 'Data tidak sah.');
   return _withLock(function () {
     var data = _readAll(s);
-    var fkSets = {};
-    function fkSet(t) {
-      if (!fkSets[t]) {
-        var ts = getTableSchema(t), set = {};
-        _readAll(ts).rows.forEach(function (r) { set[r[ts.pk]] = true; });
-        fkSets[t] = set;
-      }
-      return fkSets[t];
-    }
-    var semua = data.rows.slice(), out = [], lines = [], now = nowIso();
-    rows.forEach(function (row, i) {
-      var clean;
-      try {
-        clean = _validate(s, row, true, { skipFk: true });
-        s.columns.forEach(function (c) {
-          var d = s.defs[c];
-          if (d.fk && clean[c] !== null && clean[c] !== undefined && !ctx.skipFk && !fkSet(d.fk)[clean[c]]) {
-            _bad(c, 'Rekod rujukan untuk "' + c + '" tidak wujud.');
-          }
-        });
-        if (!clean[s.pk]) clean[s.pk] = uuid();
-        if (semua.some(function (r) { return r[s.pk] === clean[s.pk]; })) throw new AppError('DUPLIKAT', 'Rekod dengan id ini sudah wujud.');
-        _checkUnique(s, clean, null, semua);
-      } catch (e) {
-        if (e && e.name === 'AppError') { e.message = 'Baris ' + (i + 1) + ': ' + e.message; e.details = { baris: i + 1, field: e.details && e.details.field }; }
-        throw e;
-      }
-      if (s.audit) { clean.created_at = now; clean.updated_at = now; clean.updated_by = ctx.actorId || null; }
-      semua.push(clean);
-      out.push(clean);
-      lines.push(s.columns.map(function (c) { return _toCell(s.defs[c], clean[c]); }));
-    });
-    if (lines.length) data.sheet.getRange(data.sheet.getLastRow() + 1, 1, lines.length, s.columns.length).setValues(lines);
+    var p = _sediakanBaris(s, rows, data.rows, ctx);
+    if (p.lines.length) data.sheet.getRange(data.sheet.getLastRow() + 1, 1, p.lines.length, s.columns.length).setValues(p.lines);
     if (s.isRef) delete _REF_CACHE[s.name];
-    return out;
+    return p.out;
+  });
+}
+
+/**
+ * Ganti baris yang sepadan dengan penapis dengan baris baharu, SECARA SELAMAT:
+ * semua baris baharu disahkan dahulu (terhadap baris yang kekal). Jika satu gagal, tiada apa berubah.
+ * Pulangkan { dipadam, ditambah: [...] }.
+ */
+function replaceWhere(table, filter, rows, ctx) {
+  var s = getTableSchema(table);
+  ctx = ctx || {};
+  if (!filter || typeof filter !== 'object' || !Object.keys(filter).length) throw new AppError('VALIDASI', 'Penapis diperlukan untuk ganti pukal.');
+  Object.keys(filter).forEach(function (k) { if (!s.defs[k]) throw new AppError('VALIDASI', 'Penapis menggunakan lajur yang tidak wujud: ' + k); });
+  return _withLock(function () {
+    var data = _readAll(s);
+    var buang = {}, kekal = [], n = 0;
+    data.rows.forEach(function (row) {
+      if (Object.keys(filter).every(function (k) { return _matches(row[k], filter[k]); })) { buang[row.__row] = true; n++; }
+      else kekal.push(row);
+    });
+    var p = _sediakanBaris(s, rows, kekal, ctx); // lontar ralat sebelum apa-apa ditulis
+    var last = data.sheet.getLastRow();
+    var keep = [];
+    if (last > 1) {
+      var range = data.sheet.getRange(2, 1, last - 1, s.columns.length);
+      keep = range.getValues().filter(function (v, i) { return !buang[i + 2] && v.some(function (x) { return x !== '' && x !== null; }); });
+      if (n) range.clearContent();
+    }
+    if (n) {
+      var semua = keep.concat(p.lines);
+      if (semua.length) data.sheet.getRange(2, 1, semua.length, s.columns.length).setValues(semua);
+    } else if (p.lines.length) {
+      data.sheet.getRange(last + 1, 1, p.lines.length, s.columns.length).setValues(p.lines);
+    }
+    if (s.isRef) delete _REF_CACHE[s.name];
+    return { dipadam: n, ditambah: p.out };
   });
 }
 

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Urus kokurikulum — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard({ roles: ['pentadbir', 'superadmin'] });
+      if (!sesi) return;
+      var el = UI.el, icon = App.icon;
+      var c = App.mount({ sesi: sesi, active: 'koku-urus', title: 'Urus kokurikulum' });
+      var U = null, tahun = String(new Date().getFullYear());
+      var KED = ['Johan', 'Naib johan', 'Ketiga', 'Keempat'];
+
+      function head(title, desc, actions) {
+        return el('div', { class: 'card-head' }, [el('div', {}, [el('h2', {}, title), desc ? el('p', { class: 'muted', style: 'font-size:.8125rem;margin-top:2px' }, desc) : null].filter(Boolean)), el('div', { class: 'row' }, actions || [])]);
+      }
+      function btn(text, fn, kind, ic) { var b = el('button', { class: 'btn btn-sm ' + (kind || 'btn-secondary'), type: 'button' }, [ic ? icon(ic, 16) : null, text].filter(Boolean)); b.addEventListener('click', fn); return b; }
+      function iconBtn(name, label, fn, danger) { var b = el('button', { class: 'icon-btn' + (danger ? ' danger' : ''), type: 'button', 'aria-label': label, title: label }, icon(name)); b.addEventListener('click', fn); return b; }
+      function selepas(msg) { return function (r) { if (r) { UI.toast(msg); muat(); } }; }
+      function rumahById(id) { return U.rumah.filter(function (r) { return r.id === id; })[0] || { nama: '?', warna: '#999' }; }
+      function chip(r) { return el('span', { class: 'house' }, [el('i', { style: 'background:' + r.warna }), r.nama]); }
+
+      // ---------------- ringkasan ----------------
+      function ringkasan() {
+        var by = {}; U.unit.forEach(function (u) { by[u.jenis] = (by[u.jenis] || 0) + 1; });
+        var ahli = U.unit.reduce(function (a, u) { return a + u.ahli.length; }, 0);
+        var stats = U.ref.jenis_unit.map(function (j) { return el('div', { class: 'card stat' }, [el('span', { class: 'label' }, j.label), el('span', { class: 'value' }, String(by[j.kod] || 0)), el('span', { class: 'sub' }, 'unit')]); });
+        stats.push(el('div', { class: 'card stat ' + (U.guru_tanpa_unit ? 'warn' : 'good') }, [el('span', { class: 'label' }, 'Guru tanpa unit'), el('span', { class: 'value' }, String(U.guru_tanpa_unit)), el('span', { class: 'sub' }, 'daripada ' + U.jumlah_guru + ' guru aktif')]));
+        stats.push(el('div', { class: 'card stat good' }, [el('span', { class: 'label' }, 'Pertandingan ' + U.tahun), el('span', { class: 'value' }, String(U.pertandingan.length)), el('span', { class: 'sub' }, ahli + ' jawatan unit diisi')]));
+        return el('section', { class: 'stats', 'aria-label': 'Ringkasan' }, stats);
+      }
+
+      // ---------------- unit ----------------
+      function unit() {
+        var acts = [btn('Tambah unit atau kelab', function () { borangUnit(null); }, 'btn', 'i-plus')];
+        if (U.tahun_unit_sebelum) acts.unshift(btn('Salin dari ' + (+U.tahun - 1), salin));
+        var groups = U.ref.jenis_unit.map(function (j) {
+          var list = U.unit.filter(function (u) { return u.jenis === j.kod; });
+          return el('div', { class: 'unit-group' }, [el('div', { class: 'group-label' }, j.label + ' (' + list.length + ')')].concat(list.length ? list.map(function (u) {
+            var susun = u.ahli.slice().sort(function (a, b) { var o = ['penasihat', 'penyelaras', 'ajk', 'lain_lain']; return o.indexOf(a.jawatan) - o.indexOf(b.jawatan); });
+            return el('div', { class: 'unit-row' }, [
+              el('div', { class: 'grow' }, [el('b', {}, u.nama), el('div', { class: 'peserta' }, susun.length ? susun.map(function (a) { return a.nama + ' (' + App.labelOf(U.ref.jawatan_unit, a.jawatan) + ')'; }).join(', ') : 'Belum ada guru')]),
+              el('span', { class: 'badge badge-neutral' }, u.ahli.length + ' guru'),
+              iconBtn('i-edit', 'Sunting ' + u.nama, function () { borangUnit(u); }),
+              iconBtn('i-trash', 'Padam ' + u.nama, function () { padamUnit(u); }, true)
+            ]);
+          }) : [el('span', { class: 'muted', style: 'font-size:.875rem' }, j.kod === 'kelab_persatuan' ? 'Belum ada kelab. Tekan "Tambah unit atau kelab".' : 'Tiada')]));
+        });
+        return el('section', { class: 'card wide' }, [head('Unit kokurikulum ' + U.tahun, 'Guru mendaftar sendiri ke unit dalam senarai ini melalui menu Kokurikulum.', acts)].concat(groups));
+      }
+      function borangUnit(u) {
+        u = u || {};
+        App.formDialog({
+          title: u.id ? 'Sunting unit' : 'Tambah unit ' + U.tahun,
+          fields: [
+            { name: 'nama', label: 'Nama', required: true, value: u.nama, placeholder: 'contoh: Kelab Bahasa Arab', attrs: { maxlength: '120' } },
+            { name: 'jenis', label: 'Jenis', type: 'select', required: true, options: U.ref.jenis_unit, value: u.jenis || 'kelab_persatuan' }
+          ],
+          onSubmit: function (v) { v.tahun = U.tahun; if (u.id) v.id = u.id; return Api.call('UNIT_SIMPAN', v); }
+        }).then(selepas('Unit disimpan.'));
+      }
+      function padamUnit(u) {
+        App.confirm('Padam unit?', 'Padam "' + u.nama + '" (' + U.tahun + ')?', 'Padam', true).then(function (ok) {
+          if (ok) Api.call('UNIT_PADAM', { id: u.id }).then(function () { UI.toast('Unit dipadam.'); muat(); }, function (e) { UI.toast(e.message); });
+        });
+      }
+      function salin() {
+        App.confirm('Salin unit?', 'Salin senarai unit dari ' + (+U.tahun - 1) + ' ke ' + U.tahun + '. Ahli tidak disalin; guru mendaftar semula setiap tahun.', 'Salin').then(function (ok) {
+          if (ok) Api.call('UNIT_SALIN', { tahun: U.tahun }).then(function (r) { UI.toast(r.disalin + ' unit disalin.'); muat(); }, function (e) { UI.toast(e.message); });
+        });
+      }
+
+      // ---------------- rumah sukan ----------------
+      function rumah() {
+        return el('section', { class: 'card wide' }, [
+          head('Rumah sukan ' + U.tahun, 'Guru memilih rumah sendiri melalui menu Kokurikulum.'),
+          el('div', { class: 'card-pad' }, el('div', { class: 'houses' }, U.rumah.map(function (r) {
+            return el('div', { class: 'card house-card', style: '--hc:' + r.warna }, [
+              el('div', { class: 'row', style: 'justify-content:space-between' }, [chip(r), iconBtn('i-edit', 'Sunting ' + r.nama, function () { borangRumah(r); })]),
+              el('div', { class: 'big-num', style: 'font-size:1.75rem' }, String(r.guru.length)),
+              el('div', { class: 'peserta' }, r.guru.length ? r.guru.map(function (g) { return g.nama + (g.jawatan ? ' (' + g.jawatan + ')' : ''); }).join(', ') : 'Belum ada guru')
+            ]);
+          })))
+        ]);
+      }
+      function borangRumah(r) {
+        App.formDialog({
+          title: 'Sunting rumah ' + r.nama,
+          fields: [
+            { name: 'nama', label: 'Nama', required: true, value: r.nama, attrs: { maxlength: '60' } },
+            { name: 'warna', label: 'Warna', type: 'color', required: true, value: r.warna }
+          ],
+          onSubmit: function (v) { v.id = r.id; return Api.call('RUMAH_SIMPAN', v); }
+        }).then(selepas('Rumah sukan disimpan.'));
+      }
+
+      // ---------------- juara ----------------
+      function juara() {
+        var max = 1;
+        U.rumah.forEach(function (r) { var k = U.kiraan_juara[r.id]; if (k && k.johan > max) max = k.johan; });
+        var bars = el('div', { class: 'medal-bars', role: 'img', 'aria-label': 'Bilangan kali johan bagi setiap rumah' }, U.rumah.map(function (r) {
+          var n = (U.kiraan_juara[r.id] || {}).johan || 0;
+          return el('div', { class: 'medal-row' }, [chip(r), el('div', { class: 'track' }, el('div', { class: 'fill', style: 'width:' + (n / max * 100) + '%;background:' + r.warna })), el('b', { class: 'num' }, String(n))]);
+        }));
+        var tahunList = {};
+        U.juara.forEach(function (j) { (tahunList[j.tahun_akademik] = tahunList[j.tahun_akademik] || [])[j.kedudukan - 1] = j; });
+        var tb = el('tbody');
+        Object.keys(tahunList).sort().reverse().forEach(function (t) {
+          tb.appendChild(el('tr', {}, [el('td', { 'data-label': 'Tahun' }, el('b', {}, t))].concat([0, 1, 2, 3].map(function (i) {
+            var j = tahunList[t][i];
+            return el('td', { 'data-label': KED[i] }, j ? chip(rumahById(j.rumah_sukan_id)) : '—');
+          })).concat([el('td', { 'data-label': '', class: 'r' }, iconBtn('i-edit', 'Sunting ' + t, function () { borangJuara(t); }))])));
+        });
+        if (!U.juara.length) tb.appendChild(el('tr', {}, el('td', { colspan: '6', class: 'empty full' }, 'Belum ada rekod. Tekan "Rekod keputusan" atau import sejarah tahun-tahun lepas.')));
+        return el('section', { class: 'card wide' }, [
+          head('Juara rumah sukan', 'Sejarah keputusan setiap tahun.', [btn('Import sejarah (CSV)', importJuara), btn('Rekod keputusan', function () { borangJuara(U.tahun); }, 'btn', 'i-plus')]),
+          el('div', { class: 'grid-2', style: 'gap:0' }, [
+            el('div', { class: 'table-wrap' }, el('table', { class: 'data cards' }, [el('thead', {}, el('tr', {}, ['Tahun'].concat(KED, ['']).map(function (h) { return el('th', {}, h); }))), tb])),
+            el('div', { style: 'border-left:1px solid var(--border)' }, [el('div', { class: 'group-label', style: 'padding:16px 24px 0' }, 'Bilangan kali johan'), bars])
+          ])
+        ]);
+      }
+      function borangJuara(t) {
+        var ada = U.juara.filter(function (j) { return j.tahun_akademik === t; });
+        var nilai = function (k) { var j = ada.filter(function (x) { return x.kedudukan === k; })[0]; return j ? j.rumah_sukan_id : ''; };
+        var opsi = U.rumah.map(function (r) { return { value: r.id, label: r.nama }; });
+        App.formDialog({
+          title: 'Keputusan rumah sukan',
+          fields: [{ name: 'tahun', label: 'Tahun', required: true, value: t, attrs: { inputmode: 'numeric', maxlength: '4' } }].concat(KED.map(function (k, i) {
+            return { name: 'k' + (i + 1), label: k, type: 'select', options: opsi, value: nilai(i + 1), placeholder: '— Belum ditentukan —' };
+          })),
+          validate: function (v) {
+            if (!/^\d{4}$/.test(v.tahun || '')) return 'Tahun mesti 4 digit.';
+            var pilih = [v.k1, v.k2, v.k3, v.k4].filter(Boolean);
+            if (pilih.length !== pilih.filter(function (x, i) { return pilih.indexOf(x) === i; }).length) return 'Setiap rumah hanya boleh ada satu kedudukan.';
+            return null;
+          },
+          onSubmit: function (v) {
+            var kep = [1, 2, 3, 4].filter(function (i) { return v['k' + i]; }).map(function (i) { return { rumah_sukan_id: v['k' + i], kedudukan: i }; });
+            return Api.call('JUARA_SIMPAN', { tahun: v.tahun, keputusan: kep });
+          }
+        }).then(selepas('Keputusan disimpan.'));
+      }
+      function importJuara() {
+        App.formDialog({
+          title: 'Import sejarah juara',
+          fields: [{ name: 'teks', label: 'Satu kedudukan setiap baris', type: 'textarea', required: true,
+            placeholder: 'tahun,rumah,kedudukan,catatan\n2024,Fatah,1\n2024,Najah,2\n2024,Falah,3\n2024,Solah,4',
+            hint: 'Kedudukan 1 = johan. Boleh tampal dari Excel. Tahun yang ada dalam senarai ini akan DIGANTI.' }],
+          submitText: 'Import',
+          onSubmit: function (v) { return Api.call('JUARA_IMPORT', v); }
+        }).then(function (r) { if (r) { UI.toast(r.baris + ' rekod untuk ' + r.tahun + ' tahun diimport.'); muat(); } });
+      }
+
+      // ---------------- pertandingan ----------------
+      function pertandingan() {
+        var body = U.pertandingan.length ? el('ul', { class: 'items' }, U.pertandingan.map(function (p) {
+          return el('li', {}, [
+            el('div', { class: 'grow' }, [
+              el('b', {}, p.nama_acara),
+              el('div', { class: 'sub' }, [App.labelOf(U.ref.peringkat, p.peringkat), UI.fmtDate(p.tarikh), p.bilangan_murid != null ? p.bilangan_murid + ' murid' : null, p.unit_nama, p.pencapaian].filter(Boolean).join(' · ')),
+              el('div', { class: 'peserta', style: 'margin-top:2px' }, 'Guru: ' + p.peserta.map(function (x) { return x.nama + ' (' + App.labelOf(U.ref.peranan, x.peranan) + ')'; }).join(', '))
+            ]),
+            iconBtn('i-plus', 'Tambah guru', function () { tambahGuru(p); }),
+            iconBtn('i-trash', 'Padam pertandingan', function () {
+              App.confirm('Padam pertandingan?', 'Padam "' + p.nama_acara + '" dan semua penyertaan guru?', 'Padam', true).then(function (ok) {
+                if (ok) Api.call('PERTANDINGAN_PADAM', { id: p.id }).then(function () { UI.toast('Dipadam.'); muat(); }, function (e) { UI.toast(e.message); });
+              });
+            }, true)
+          ]);
+        })) : el('p', { class: 'empty-sm' }, 'Belum ada pertandingan. Guru merekod pertandingan melalui menu Kokurikulum.');
+        return el('section', { class: 'card wide' }, [head('Pertandingan ' + U.tahun, 'Direkod oleh guru yang terlibat.'), body]);
+      }
+      function tambahGuru(p) {
+        var ada = {}; p.peserta.forEach(function (x) { ada[x.guru_id] = true; });
+        App.formDialog({
+          title: 'Tambah guru: ' + p.nama_acara,
+          fields: [
+            { name: 'guru_id', label: 'Guru', type: 'select', required: true, options: U.ref.guru.filter(function (g) { return !ada[g.id]; }).map(function (g) { return { value: g.id, label: g.nama_penuh }; }) },
+            { name: 'peranan', label: 'Peranan', type: 'select', required: true, options: U.ref.peranan, value: 'pengiring' }
+          ],
+          onSubmit: function (v) { v.pertandingan_id = p.id; return Api.call('PENYERTAAN_SIMPAN', v); }
+        }).then(selepas('Guru ditambah.'));
+      }
+
+      function render() {
+        c.textContent = '';
+        var sel = el('select', { class: 'select', 'aria-label': 'Tahun', style: 'width:auto' });
+        var y = new Date().getFullYear();
+        [y + 1, y, y - 1, y - 2].forEach(function (t) { var o = el('option', { value: String(t) }, 'Tahun ' + t); if (String(t) === U.tahun) o.selected = true; sel.appendChild(o); });
+        sel.addEventListener('change', function () { tahun = sel.value; muat(); });
+        c.appendChild(el('div', { class: 'row end' }, sel));
+        c.appendChild(ringkasan());
+        c.appendChild(unit());
+        c.appendChild(rumah());
+        c.appendChild(juara());
+        c.appendChild(pertandingan());
+      }
+      function muat() { return Api.call('KOKU_URUS', { tahun: tahun }).then(function (d) { U = d; render(); }, function (e) { UI.toast(e.message); }); }
+      c.appendChild(el('p', { class: 'muted' }, 'Memuatkan...'));
+      muat();
+    })();
+  </script>
+</body>
+</html>

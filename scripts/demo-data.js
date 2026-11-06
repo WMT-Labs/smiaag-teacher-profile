@@ -52,6 +52,23 @@ function seedDemo(ctx, a) {
   ctx.insert('tugasan_guru', { guru_id: a.ad.guru.id, tahun_akademik: '2026', jenis_tugasan: 'berjadual', kumpulan: 'subjek', nama_tugasan: 'Matematik T2', subjek_id: S.MAT, bilangan_kelas: 1, jam_kredit: 5 });
   ctx.insert('cerapan', { guru_id: a.ad.guru.id, tahun_akademik: '2026', bilangan_dicerap: 1, pencerap: 'Pengetua Contoh' });
 
+  // Kokurikulum (unit Syabab dan rumah sukan dimuat oleh setupTemplate)
+  const U = Object.fromEntries(ctx.query('unit_kokurikulum', { tahun_akademik: '2026' }).map((u) => [u.nama, u.id]));
+  U['Kelab Bahasa Arab'] = ctx.insert('unit_kokurikulum', { nama: 'Kelab Bahasa Arab', jenis: 'kelab_persatuan', tahun_akademik: '2026' }).id;
+  U['Kelab Robotik'] = ctx.insert('unit_kokurikulum', { nama: 'Kelab Robotik', jenis: 'kelab_persatuan', tahun_akademik: '2026' }).id;
+  U['Pasukan Bola Sepak'] = ctx.insert('unit_kokurikulum', { nama: 'Pasukan Bola Sepak', jenis: 'pasukan_sekolah', tahun_akademik: '2026' }).id;
+  const H = Object.fromEntries(ctx.query('rumah_sukan', {}).map((r) => [r.nama, r.id]));
+  ctx.insert('keahlian_unit', { guru_id: g1, unit_id: U.KASPA, tahun_akademik: '2026', jawatan: 'penasihat' });
+  ctx.insert('keahlian_unit', { guru_id: g1, unit_id: U['Kelab Bahasa Arab'], tahun_akademik: '2026', jawatan: 'ajk' });
+  ctx.insert('keahlian_unit', { guru_id: a.ad.guru.id, unit_id: U['Pasukan Bola Sepak'], tahun_akademik: '2026', jawatan: 'penyelaras' });
+  ctx.insert('guru_rumah', { guru_id: g1, rumah_sukan_id: H.Najah, tahun_akademik: '2026', jawatan: 'Ketua Rumah' });
+  ctx.insert('guru_rumah', { guru_id: a.ad.guru.id, rumah_sukan_id: H.Fatah, tahun_akademik: '2026', jawatan: 'Penasihat' });
+  const pt = ctx.insert('pertandingan', { nama_acara: 'Pertandingan Kawad Kaki (contoh)', peringkat: 'daerah', tarikh: '2026-08-12', bilangan_murid: 24, pencapaian: 'Johan', unit_id: U.KASPA, tahun_akademik: '2026' });
+  ctx.insert('penyertaan_pertandingan', { pertandingan_id: pt.id, guru_id: g1, peranan: 'jurulatih' });
+  ctx.insert('penyertaan_pertandingan', { pertandingan_id: pt.id, guru_id: a.ad.guru.id, peranan: 'pengiring' });
+  [['2023', ['Falah', 'Fatah', 'Solah', 'Najah']], ['2024', ['Fatah', 'Najah', 'Falah', 'Solah']], ['2025', ['Najah', 'Fatah', 'Solah', 'Falah']]]
+    .forEach(([t, susun]) => susun.forEach((r, i) => ctx.insert('juara_rumah_sukan', { tahun_akademik: t, rumah_sukan_id: H[r], kedudukan: i + 1 })));
+
   // Guru baharu dalam percubaan (tamat 02/09/2026, perlu disahkan)
   ctx.update('guru', a.g2.guru.id, { status_lantikan: 'percubaan', tarikh_lantikan: '2026-03-02', jawatan: 'Guru Akademik Biasa' });
   ctx.insert('tugasan_guru', { guru_id: a.g2.guru.id, tahun_akademik: '2026', jenis_tugasan: 'berjadual', kumpulan: 'subjek', nama_tugasan: 'Sains T1', subjek_id: S.SNS, bilangan_kelas: 4, jam_kredit: 23 });

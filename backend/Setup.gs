@@ -34,6 +34,7 @@ function setupTemplate() {
   report.push(_seedRefs(ss));
   report.push(_seedHadJamKredit());
   report.push(_seedWaktu());
+  report.push(_seedKoku());
 
   var blank = ss.getSheetByName('Sheet1') || ss.getSheetByName('Helaian1');
   if (blank && ss.getSheets().length > 1 && blank.getLastRow() === 0 && blank.getLastColumn() === 0) {

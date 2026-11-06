@@ -104,7 +104,10 @@ test('JADUAL_IMPORT: tolak data tidak sah tanpa menyimpan apa-apa', () => {
   assert.match(t([{ ...ok, masa_akhir: '07:00' }]).message, /masa tidak sah/);
   assert.match(t([{ ...ok, label: null }]).message, /subjek atau nama aktiviti/);
   assert.match(t([{ ...ok, kelas_ids: ['11111111-1111-4111-8111-111111111111'] }]).message, /kelas tidak wujud/);
-  assert.equal(t([{ ...ok, hari: 'hariraya' }]).code, 'VALIDASI');
+  call('SLOT_SIMPAN', { guru_id: gidA, hari: 'rabu', masa_mula: '07:30', masa_akhir: '08:00', label: 'Sedia ada' }, ADM.token);
+  assert.equal(t([ok, { ...ok, hari: 'hariraya' }]).code, 'VALIDASI');
+  assert.equal(ctx.query('jadual_slot', { guru_id: gidA }).length, 1, 'import gagal: jadual lama KEKAL');
+  ctx.removeWhere('jadual_slot', { guru_id: gidA });
   assert.equal(t([ok], []).code, 'VALIDASI');
   assert.equal(ctx.query('jadual_slot', {}).length, 0);
   assert.ok(kelas);
@@ -132,6 +135,8 @@ test('TUGASAN_IMPORT: pukal, pilihan ganti, pengesahan setiap baris', () => {
   assert.match(call('TUGASAN_IMPORT', { tugasan: [t('11111111-1111-4111-8111-111111111111', 'X', 1)] }, ADM.token).message, /Baris 1: guru tidak dijumpai/);
   assert.match(call('TUGASAN_IMPORT', { tugasan: [t(gidA, 'X', 99)] }, ADM.token).message, /Baris 1: .*antara 0 dan 40/);
   assert.equal(ctx.query('tugasan_guru', { guru_id: gidA }).length, 1, 'tiada separa simpan');
+  assert.match(call('TUGASAN_IMPORT', { ganti: true, tugasan: [t(gidA, 'Baru', 2), t(gidA, 'Rosak', 99)] }, ADM.token).message, /Baris 2/);
+  assert.equal(ctx.query('tugasan_guru', { guru_id: gidA })[0].nama_tugasan, 'PI T2', 'ganti gagal: tugasan lama KEKAL');
 });
 
 // ---------------------------------------------------------------- pembaca tugasan (tulen)

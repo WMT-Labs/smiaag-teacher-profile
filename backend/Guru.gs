@@ -135,7 +135,9 @@ var REKOD_GURU = {
   kelayakan: ['tahap', 'bidang', 'institusi', 'tahun_tamat'],
   tugasan_guru: ['tahun_akademik', 'jenis_tugasan', 'kumpulan', 'nama_tugasan', 'subjek_id', 'bilangan_kelas', 'jabatan', 'jam_kredit'],
   kursus: ['tajuk', 'penganjur', 'tarikh_mula', 'tarikh_tamat', 'jam', 'tahap'],
-  opsyen_guru: ['jenis', 'subjek_id']
+  opsyen_guru: ['jenis', 'subjek_id'],
+  keahlian_unit: ['unit_id', 'tahun_akademik', 'jawatan'],
+  guru_rumah: ['rumah_sukan_id', 'tahun_akademik', 'jawatan']
 };
 
 function _jadualRekod(params) {
@@ -155,6 +157,10 @@ function _dataRekod(jadual, data) {
 }
 
 function _semakRekod(jadual, row) {
+  if (jadual === 'keahlian_unit' && row.unit_id) {
+    var u = getById('unit_kokurikulum', row.unit_id);
+    if (u && row.tahun_akademik && u.tahun_akademik !== row.tahun_akademik) throw new AppError('VALIDASI', 'Unit ini untuk tahun ' + u.tahun_akademik + '.', { field: 'unit_id' });
+  }
   if (jadual === 'tugasan_guru') {
     if (row.jenis_tugasan === 'tidak_berjadual') {
       if (row.kumpulan !== 'tugasan_tidak_berjadual') throw new AppError('VALIDASI', 'Tugasan tidak berjadual mesti dalam kumpulan "Tugasan tidak berjadual".', { field: 'kumpulan' });

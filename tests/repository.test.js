@@ -173,3 +173,17 @@ test('insertMany dan removeWhere: satu tulisan, pengesahan setiap baris, FK, uni
   ctx.insert('jadual_slot', { ...rows[0] });
   assert.equal(ctx.query('jadual_slot', {}).length, 2, 'insert selepas removeWhere menulis pada baris betul');
 });
+
+test('replaceWhere: sahkan semua dahulu; gagal = tiada perubahan; berjaya = satu tulisan', () => {
+  const { ctx } = loadReady();
+  const k = (nama, tahun_akademik = '2026') => ({ nama, tingkatan: 1, tahun_akademik });
+  ctx.insertMany('kelas', [k('1 A'), k('1 B'), k('1 A', '2025')]);
+  assert.throws(() => ctx.replaceWhere('kelas', { tahun_akademik: '2026' }, [k('1 C'), k('1 C')]), (e) => e.code === 'DUPLIKAT');
+  assert.deepEqual(ctx.query('kelas', { tahun_akademik: '2026' }, { orderBy: 'nama' }).map((x) => x.nama).join(), '1 A,1 B', 'tiada perubahan');
+  const r = ctx.replaceWhere('kelas', { tahun_akademik: '2026' }, [k('1 A'), k('1 C'), k('1 D')]);
+  assert.equal(r.dipadam, 2);
+  assert.equal(ctx.query('kelas', { tahun_akademik: '2026' }, { orderBy: 'nama' }).map((x) => x.nama).join(), '1 A,1 C,1 D', 'nama sama dengan baris yang dipadam dibenarkan');
+  assert.equal(ctx.query('kelas', { tahun_akademik: '2025' }).length, 1, 'baris lain tidak disentuh');
+  assert.equal(ctx.replaceWhere('kelas', { tahun_akademik: '2030' }, [k('9 Z', '2030')]).dipadam, 0);
+  assert.equal(ctx.query('kelas', {}).length, 5);
+});

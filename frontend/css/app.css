@@ -371,3 +371,20 @@ table.edit td:nth-child(4) .select { min-width: 104px; }
 table.edit input[type=time] { width: 118px; }
 table.edit td:nth-child(7) .select { min-width: 110px; }
 table.edit .isu { min-width: 220px; }
+
+/* ======================= Fasa 4: kokurikulum ======================= */
+.house { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+.house i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--border); }
+.house-card { padding: var(--s-4) var(--s-5); display: grid; gap: 8px; border-top: 4px solid var(--hc, var(--blue-500)); }
+.houses { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-4); }
+.medal-bars { display: grid; gap: 12px; padding: var(--s-5); }
+.medal-row { display: grid; grid-template-columns: 90px 1fr 40px; gap: var(--s-3); align-items: center; font-size: .875rem; }
+.medal-row .track { height: 14px; }
+.medal-row .fill { opacity: 1; }
+.unit-group { padding: var(--s-4) var(--s-5); border-top: 1px solid var(--border); }
+.unit-group:first-child { border-top: 0; }
+.unit-row { display: flex; gap: var(--s-3); align-items: flex-start; padding: 10px 0; border-top: 1px dashed var(--border); }
+.unit-row:first-of-type { border-top: 0; }
+.unit-row .grow { flex: 1; min-width: 0; }
+.peserta { font-size: .8125rem; color: var(--text-muted); }
+@media (max-width: 860px) { .houses { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

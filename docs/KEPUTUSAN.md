@@ -15,7 +15,24 @@ Dikemas kini pada penghujung setiap fasa. Rujuk dokumen arahan projek (Seksyen 1
 | 06/11/2026 | Cerapan boleh dikemas kini oleh guru sendiri; GK, PK dan Pengetua (peranan pentadbir) boleh mengemas kini bagi pihak guru. |
 | 06/11/2026 | Status "Dalam percubaan" selama 6 bulan dari tarikh lantikan. Pentadbir dimaklumkan bila tamat dan mengesahkan ke guru tetap. |
 | 06/11/2026 | Jadual: guna jadual sekolah (PDF aSc Timetables, satu halaman setiap guru). Kaedah ekstrak: tidak berbayar (Claude API ditolak). |
+| 06/11/2026 | Jadual diimport daripada eksport aSc Timetables (fail akan diberi kemudian; guna data contoh dahulu). |
+| 06/11/2026 | Tugasan guru diimport/diisi oleh pentadbir sahaja; guru tidak mengisi satu persatu. |
+| 06/11/2026 | Unit Syabab: KASPA, KRS, BSMM, Puteri Islam. Kelab diisi oleh pentadbir. Rumah sukan: Fatah (merah), Falah (hijau), Najah (biru), Solah (kuning). |
 | 06/11/2026 | Cerapan dipermudahkan: hanya bilangan dicerap setahun dan nama pencerap. Tiada sasaran, tiada tarikh dirancang. Jadual `sasaran_cerapan` dan `ref_status_cerapan` dibuang. |
+
+## Fasa 4 dan import: andaian
+
+1. **Format eksport aSc** ditulis berdasarkan struktur XML aSc yang biasa (`period`, `daysdef`, `subject`, `teacher`, `class`, `lesson`, `card`). Saya tak pasti 100% ia sama dengan versi sekolah. Bila fail sebenar diterima, saya semak dan laraskan `frontend/js/asc.js`. Fail sebenar mengandungi nama guru, jadi **jangan** letak dalam repo; uji melalui halaman Import jadual.
+2. **Padanan guru aSc** guna nama penuh, atau singkatan aSc yang sama dengan ID guru. Selebihnya dipilih manual pada langkah 2.
+3. **Singkatan aSc yang tiada dalam senarai subjek** (contoh Perhimpunan, Usrah) disimpan sebagai aktiviti, bukan subjek. Tambah subjek dengan kod yang sama jika ia sebenarnya subjek.
+4. **Import jadual mengganti** jadual tahun itu bagi guru yang diimport sahaja. Guru lain tidak disentuh. Slot import ditanda `sumber = asc`.
+5. **Ganti pukal yang selamat:** semua baris baharu disahkan dahulu. Jika satu baris gagal, data lama kekal (tiada separa simpan). Berlaku untuk import jadual, tugasan dan juara rumah sukan.
+6. **Tugasan** kini hanya boleh ditambah/diubah oleh pentadbir (disemak di server). Guru melihat sahaja.
+7. **Jadual** masih boleh disunting oleh guru sendiri (untuk pembetulan kecil). Import seterusnya akan menggantinya. Beritahu jika mahu jadual juga dikunci untuk pentadbir sahaja.
+8. **Unit Syabab** dimuat untuk tahun semasa oleh `setupTemplate`. Unit tahun baharu boleh disalin daripada tahun lepas (tanpa ahli). Label jenis "Badan beruniform (Syabab)".
+9. **Keahlian unit dan rumah sukan** diisi oleh guru sendiri (atau pentadbir bagi pihak guru). Satu rumah sukan bagi setiap guru setiap tahun.
+10. **Pertandingan** direkod oleh guru yang terlibat; guru itu menjadi peserta. Peserta lain boleh mengubah rekod. Pentadbir boleh menambah guru lain. Jika peserta terakhir keluar, rekod pertandingan dipadam.
+11. **Carta juara** dilukis dengan CSS (bukan Chart.js) kerana ringkas. Chart.js akan digunakan pada dashboard (Fasa 6).
 
 ## Fasa 3: andaian dan perkara yang dibangkitkan
 
@@ -70,6 +87,5 @@ Dikemas kini pada penghujung setiap fasa. Rujuk dokumen arahan projek (Seksyen 1
 | Perkara | Diperlukan pada |
 |---|---|
 | Tempoh simpanan data guru yang berpindah atau bersara (notis privasi kini menyebut "mengikut tempoh yang ditetapkan oleh pihak sekolah") | Fasa 7 |
-| Kaedah import jadual: eksport aSc Timetables (dicadangkan) atau OCR Google Drive dengan had yang dinyatakan | Sebelum import jadual dibina |
+| Fail eksport aSc sebenar (untuk menyemak format) | Bila tersedia |
 | Senarai tetap subjek dan kelas (superadmin boleh isi sendiri di Data rujukan, tambah pukal) | Sebelum guna sebenar |
-| Senarai unit kokurikulum dan rumah sukan | Fasa 4 |
