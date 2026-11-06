@@ -54,23 +54,35 @@ class FakeSpreadsheet {
 
 function pad(n) { return String(n).padStart(2, '0'); }
 
-function createEnv() {
+function createEnv(opts = {}) {
   const ss = new FakeSpreadsheet();
   const props = {};
   const logs = [];
+  const cache = new Map();
+  const now = () => (clock ? clock.getTime() : Date.now());
   let clock = new Date('2026-11-06T10:30:00Z');
   const env = {
     ss, props, logs,
     setNow(d) { clock = new Date(d); },
+    advance(ms) { clock = new Date(clock.getTime() + ms); },
     console,
     Logger: { log: (m) => logs.push(m) },
     SpreadsheetApp: { getActiveSpreadsheet: () => ss, openById: () => ss },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => props[k] || null, setProperty: (k, v) => { props[k] = v; } }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => props[k] || null, setProperty: (k, v) => { props[k] = v; }, deleteProperty: (k) => { delete props[k]; } }) },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
-    CacheService: { getScriptCache: () => { const m = new Map(); return { get: (k) => m.get(k) || null, put: (k, v) => m.set(k, v), remove: (k) => m.delete(k) }; } },
+    cache,
+    CacheService: { getScriptCache: () => ({
+      get: (k) => { const e = cache.get(k); return e && e.until > now() ? e.v : null; },
+      put: (k, v, ttl = 600) => { cache.set(k, { v: String(v), until: now() + Math.min(ttl, 21600) * 1000 }); },
+      remove: (k) => { cache.delete(k); }
+    }) },
     ContentService: { MimeType: { JSON: 'JSON' }, createTextOutput: (t) => ({ text: t, setMimeType() { return this; } }) },
     Utilities: {
       getUuid: () => crypto.randomUUID(),
+      DigestAlgorithm: { SHA_256: 'sha256' },
+      Charset: { UTF_8: 'utf8' },
+      // Apps Script memulangkan bait bertanda (-128..127)
+      computeDigest: (alg, value) => [...crypto.createHash(alg).update(String(value), 'utf8').digest()].map((b) => (b > 127 ? b - 256 : b)),
       // Hanya corak yang digunakan oleh sistem; zon waktu tetap +08:00.
       formatDate(d, _tz, fmt) {
         const t = new Date(d.getTime() + 8 * 3600 * 1000);
@@ -80,6 +92,7 @@ function createEnv() {
     },
     Date: class extends Date { constructor(...a) { if (a.length === 0) { super(clock.getTime()); } else { super(...a); } } static now() { return clock.getTime(); } }
   };
+  if (opts.realClock) { env.Date = Date; clock = null; env.setNow = env.advance = () => { throw new Error('realClock'); }; }
   return env;
 }
 

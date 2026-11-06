@@ -39,7 +39,10 @@
     }).then(function (body) {
       if (body && body.ok) return body.data;
       var code = body && body.code ? body.code : 'RALAT_SERVER';
-      if (code === 'TIDAK_LOG_MASUK' && action !== 'LOGIN') { clearSession(); }
+      if (code === 'TIDAK_LOG_MASUK' && action !== 'LOGIN' && action !== 'LOGOUT') {
+        clearSession();
+        location.replace('index.html?tamat=1');
+      }
       throw makeError(code, (body && body.message) || 'Ralat tidak dijangka berlaku.');
     }, function (err) {
       if (err && err.name === 'AbortError') throw makeError('TAMAT_MASA', 'Pelayan lambat menjawab. Semak sambungan internet dan cuba lagi.');

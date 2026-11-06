@@ -88,10 +88,11 @@ test('kunci asing, kekangan unik dan julat nombor', () => {
   throwsVal(() => ctx.insert('tugasan_guru', { guru_id: g.id, tahun_akademik: '2026', jenis_tugasan: 'berjadual', kumpulan: 'subjek', nama_tugasan: 'X', jam_kredit: 'banyak' }), /nombor/);
   const t = ctx.insert('tugasan_guru', { guru_id: g.id, tahun_akademik: '2026', jenis_tugasan: 'berjadual', kumpulan: 'subjek', nama_tugasan: 'PI T2', jam_kredit: '1.5' });
   assert.strictEqual(t.jam_kredit, 1.5);
-  // unik dengan null dianggap sama: hanya satu sasaran lalai sekolah setahun
-  ctx.insert('sasaran_cerapan', { tahun_akademik: '2026', bilangan_sasaran_setahun: 2 });
-  assert.throws(() => ctx.insert('sasaran_cerapan', { tahun_akademik: '2026', bilangan_sasaran_setahun: 3 }), (e) => e.code === 'DUPLIKAT');
-  ctx.insert('sasaran_cerapan', { tahun_akademik: '2026', guru_id: g.id, bilangan_sasaran_setahun: 3 });
+  // cerapan: satu baris setiap guru setiap tahun
+  const c = ctx.insert('cerapan', { guru_id: g.id, tahun_akademik: '2026', bilangan_dicerap: 2, pencerap: 'Pencerap Contoh' });
+  assert.equal(c.bilangan_dicerap, 2);
+  assert.throws(() => ctx.insert('cerapan', { guru_id: g.id, tahun_akademik: '2026' }), (e) => e.code === 'DUPLIKAT');
+  assert.equal(ctx.insert('cerapan', { guru_id: g.id, tahun_akademik: '2025' }).bilangan_dicerap, 0, 'lalai 0');
 });
 
 test('sanitasi formula injection: awalan \' ditambah semasa simpan, dibuang semasa baca', () => {
@@ -117,8 +118,8 @@ test('nombor IC dalam teks bebas dibuang, nombor telefon tidak terjejas', () => 
   assert.equal(ctx.getById('guru', g.id).no_telefon, '012-3456789');
   assert.equal(ctx.stripIdentityNumbers('IC 900101145678'), 'IC');
   assert.equal(ctx.stripIdentityNumbers('tel 0123456789'), 'tel 0123456789');
-  const c = ctx.insert('cerapan', { guru_id: g.id, tahun_akademik: '2026', ulasan_ringkas: 'Baik.\nIC: 900101-14-5678' });
-  assert.equal(ctx.getById('cerapan', c.id).ulasan_ringkas, 'Baik.\nIC:');
+  const c = ctx.insert('cerapan', { guru_id: g.id, tahun_akademik: '2026', catatan: 'Baik.\nIC: 900101-14-5678' });
+  assert.equal(ctx.getById('cerapan', c.id).catatan, 'Baik.\nIC:');
 });
 
 test('Sheets yang menukar tarikh/masa/boolean kepada jenis asalnya tetap dibaca betul', () => {

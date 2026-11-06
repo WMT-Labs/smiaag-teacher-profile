@@ -81,21 +81,6 @@ Unik: (kod)
 
 Unik: (kod)
 
-### `ref_status_cerapan`
-
-| Lajur | Jenis | Wajib | Rujukan | Lalai |
-|---|---|---|---|---|
-| id (PK) | uuid | ya |  |  |
-| kod | text | ya |  |  |
-| label | text | ya |  |  |
-| susunan | int [0..1000] | ya |  | 0 |
-| aktif | bool | ya |  | true |
-| created_at | datetime |  |  |  |
-| updated_at | datetime |  |  |  |
-| updated_by | text |  |  |  |
-
-Unik: (kod)
-
 ### `ref_kategori_subjek`
 
 | Lajur | Jenis | Wajib | Rujukan | Lalai |
@@ -361,31 +346,14 @@ Unik: (guru_id, jenis, subjek_id)
 | id (PK) | uuid | ya |  |  |
 | guru_id | uuid | ya | FK → guru |  |
 | tahun_akademik | year | ya |  |  |
-| tarikh_dirancang | date |  |  |  |
-| tarikh_sebenar | date |  |  |  |
+| bilangan_dicerap | int [0..50] | ya |  | 0 |
 | pencerap | text |  |  |  |
-| subjek_id | uuid |  | FK → subjek |  |
-| kelas_id | uuid |  | FK → kelas |  |
-| skor_atau_gred | text |  |  |  |
-| ulasan_ringkas | text |  |  |  |
-| status | text | ya | ref → ref_status_cerapan | dirancang |
+| catatan | text |  |  |  |
 | created_at | datetime |  |  |  |
 | updated_at | datetime |  |  |  |
 | updated_by | text |  |  |  |
 
-### `sasaran_cerapan`
-
-| Lajur | Jenis | Wajib | Rujukan | Lalai |
-|---|---|---|---|---|
-| id (PK) | uuid | ya |  |  |
-| tahun_akademik | year | ya |  |  |
-| guru_id | uuid |  | FK → guru |  |
-| bilangan_sasaran_setahun | int [0..20] | ya |  |  |
-| created_at | datetime |  |  |  |
-| updated_at | datetime |  |  |  |
-| updated_by | text |  |  |  |
-
-Unik: (tahun_akademik, guru_id)
+Unik: (guru_id, tahun_akademik)
 
 ### `audit_log`
 
@@ -657,7 +625,6 @@ Unik: (usrah_guru_id, guru_id, tarikh)
 - `ref_tahap_kelayakan`: sijil, diploma, ijazah_sarjana_muda, ijazah_sarjana, doktor_falsafah, lain_lain
 - `ref_jenis_opsyen`: major, minor
 - `ref_peringkat_kursus`: sekolah, daerah, negeri, kebangsaan, lain_lain
-- `ref_status_cerapan`: dirancang, selesai, ditunda
 - `ref_kategori_subjek`: subjek, al_quran_tutorial, lain
 - `ref_jenis_tugasan`: berjadual, tidak_berjadual
 - `ref_kumpulan_tugasan`: subjek, al_quran_tutorial, aktiviti_lain, tugasan_tidak_berjadual

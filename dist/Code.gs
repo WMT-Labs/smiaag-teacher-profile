@@ -11,7 +11,7 @@
  */
 
 var APP_NAME = 'SMIAAG Teacher Profiling';
-var APP_VERSION = '0.1.0-fasa0';
+var APP_VERSION = '0.2.0-fasa1';
 var TZ = 'Asia/Kuala_Lumpur';
 
 /** Nama kunci dalam PropertiesService. */
@@ -115,6 +115,68 @@ function jsonOut(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
+/** Tarikh JS -> ISO 8601 zon Asia/Kuala_Lumpur. */
+function toIso(date) {
+  return Utilities.formatDate(date, TZ, "yyyy-MM-dd'T'HH:mm:ssXXX");
+}
+
+// ---------------------------------------------------------------------------
+// Pengesahan parameter daripada frontend (semua disemak di server)
+// ---------------------------------------------------------------------------
+
+/** Ambil teks. opt: { label, min, max, re, upper, optional } */
+function pStr(params, key, opt) {
+  opt = opt || {};
+  var label = opt.label || key;
+  var v = params[key];
+  if (v === undefined || v === null || (typeof v === 'string' && v.trim() === '')) {
+    if (opt.optional) return null;
+    throw new AppError('VALIDASI', label + ' wajib diisi.', { field: key });
+  }
+  if (typeof v !== 'string') throw new AppError('VALIDASI', label + ' tidak sah.', { field: key });
+  v = v.trim();
+  if (opt.upper) v = v.toUpperCase();
+  if (opt.min && v.length < opt.min) throw new AppError('VALIDASI', label + ' terlalu pendek (minimum ' + opt.min + ' aksara).', { field: key });
+  if (v.length > (opt.max || 200)) throw new AppError('VALIDASI', label + ' terlalu panjang.', { field: key });
+  if (opt.re && !opt.re.test(v)) throw new AppError('VALIDASI', opt.reMsg || (label + ' tidak sah.'), { field: key });
+  return v;
+}
+
+function pUuid(params, key, label) {
+  var v = params[key];
+  if (typeof v !== 'string' || !UUID_RE.test(v)) throw new AppError('VALIDASI', (label || key) + ' tidak sah.', { field: key });
+  return v;
+}
+
+function pBool(params, key, label) {
+  var v = params[key];
+  if (v !== true && v !== false) throw new AppError('VALIDASI', (label || key) + ' mesti ya atau tidak.', { field: key });
+  return v;
+}
+
+function pOneOf(params, key, allowed, label) {
+  var v = params[key];
+  if (allowed.indexOf(v) === -1) throw new AppError('VALIDASI', (label || key) + ' tidak sah.', { field: key });
+  return v;
+}
+
+// ---------------------------------------------------------------------------
+// Log audit
+// ---------------------------------------------------------------------------
+
+/** Rekod tindakan penting. Kegagalan menulis log tidak menggagalkan tindakan utama, tetapi dicatat. */
+function logAudit(akaunId, tindakan, sasaran, butiran) {
+  try {
+    insert('audit_log', {
+      masa: nowIso(), akaun_id: akaunId || null, tindakan: tindakan,
+      sasaran: sasaran ? String(sasaran).slice(0, 200) : null,
+      butiran: butiran ? String(butiran).slice(0, 1000) : null
+    }, { skipFk: true });
+  } catch (e) {
+    Logger.log('Gagal menulis audit_log: ' + e.message);
+  }
+}
+
 // ======================================================================
 // Schema.gs
 // ======================================================================
@@ -170,14 +232,9 @@ var _TABLE_DEFS = {
       'jam:num[0..1000]', 'tahap:enum(ref_peringkat_kursus)!']
   },
   cerapan: {
-    cols: ['id:uuid!', 'guru_id:fk(guru)!', 'tahun_akademik:year!', 'tarikh_dirancang:date', 'tarikh_sebenar:date',
-      'pencerap:text', 'subjek_id:fk(subjek)', 'kelas_id:fk(kelas)', 'skor_atau_gred:text', 'ulasan_ringkas:text',
-      'status:enum(ref_status_cerapan)!=dirancang']
-  },
-  sasaran_cerapan: {
-    // guru_id kosong = nilai lalai sekolah; ada guru_id = sasaran khusus guru itu.
-    cols: ['id:uuid!', 'tahun_akademik:year!', 'guru_id:fk(guru)', 'bilangan_sasaran_setahun:int[0..20]!'],
-    unique: [['tahun_akademik', 'guru_id']]
+    // Ringkas: satu baris bagi setiap guru setiap tahun. Berapa kali dicerap dan siapa pencerapnya.
+    cols: ['id:uuid!', 'guru_id:fk(guru)!', 'tahun_akademik:year!', 'bilangan_dicerap:int[0..50]!=0', 'pencerap:text', 'catatan:text'],
+    unique: [['guru_id', 'tahun_akademik']]
   },
   audit_log: {
     audit: false,
@@ -271,7 +328,6 @@ var REF_SEEDS = {
     ['ijazah_sarjana', 'Ijazah Sarjana'], ['doktor_falsafah', 'Doktor Falsafah'], ['lain_lain', 'Lain-lain']],
   ref_jenis_opsyen: [['major', 'Major'], ['minor', 'Minor']],
   ref_peringkat_kursus: [['sekolah', 'Sekolah'], ['daerah', 'Daerah'], ['negeri', 'Negeri'], ['kebangsaan', 'Kebangsaan'], ['lain_lain', 'Lain-lain']],
-  ref_status_cerapan: [['dirancang', 'Dirancang'], ['selesai', 'Selesai'], ['ditunda', 'Ditunda']],
   ref_kategori_subjek: [['subjek', 'Subjek'], ['al_quran_tutorial', 'Al-Quran / Tutorial'], ['lain', 'Lain']],
   ref_jenis_tugasan: [['berjadual', 'Berjadual'], ['tidak_berjadual', 'Tidak berjadual']],
   ref_kumpulan_tugasan: [['subjek', 'Subjek'], ['al_quran_tutorial', 'Al-Quran / Tutorial'], ['aktiviti_lain', 'Aktiviti lain'],
@@ -289,7 +345,7 @@ var REF_SEEDS = {
 var REF_COLS = ['id:uuid!', 'kod:text!', 'label:text!', 'susunan:int[0..1000]!=0', 'aktif:bool!=true'];
 
 /** Jenis lajur teks yang dianggap "medan bebas" dan dihadkan lebih panjang. */
-var LONG_TEXT_COLS = ['ulasan_ringkas', 'butiran', 'catatan', 'pencapaian'];
+var LONG_TEXT_COLS = ['butiran', 'catatan', 'pencapaian'];
 var MAX_TEXT = 200;
 var MAX_LONG_TEXT = 1000;
 
@@ -784,18 +840,418 @@ function _seedHadJamKredit() {
 // Auth.gs
 // ======================================================================
 /**
- * Auth.gs — pengesahan dan kebenaran akses.
+ * Auth.gs — log masuk, sesi, kata laluan dan persetujuan PDPA.
  *
- * FASA 0: hanya kerangka. `requireAuth` sengaja SENTIASA MENOLAK (gagal tutup)
- * sehingga logik sebenar dibina pada Fasa 1. Jadi walaupun Web App sudah
- * di-deploy, tiada data boleh dibaca.
- *
- * Rancangan Fasa 1: sahkan token dalam tab `sessions`, semak tempoh luput,
- * semak role, dan pulangkan { akaunId, guruId, role }.
+ * Ringkasan cara ia berfungsi (bahasa mudah):
+ *  - Kata laluan tidak pernah disimpan. Yang disimpan ialah "cap jari" (hash) daripada:
+ *      pepper (rahsia dalam Script Properties) + salt (rawak, unik setiap guru) + kata laluan,
+ *    dikira dengan SHA-256 berulang kali (HASH_ITERATIONS) supaya meneka secara pukal jadi lambat.
+ *  - Bila log masuk berjaya, server cipta token rawak dan simpan dalam tab `sessions`
+ *    bersama masa luput. Frontend hantar token ini setiap kali. Server semak setiap kali.
+ *  - Log keluar memadam token di server. Token lama terus tidak berguna.
+ *  - Maksimum 8 percubaan gagal setiap 5 minit bagi setiap ID guru (CacheService).
  */
 
-function requireAuth(token, rolesDibenarkan) {
-  throw new AppError('TIDAK_LOG_MASUK', 'Sesi tidak sah atau telah tamat. Sila log masuk semula.');
+var HASH_VERSION = 'v1';
+var HASH_ITERATIONS = 1000;      // naikkan jika mahu lebih kuat; turunkan jika log masuk terlalu lambat
+var SESSION_TTL_HOURS = 8;
+var LOGIN_MAX_CUBA = 8;
+var LOGIN_TETINGKAP_SAAT = 300;  // 5 minit
+var PASSWORD_MIN = 8;
+var PASSWORD_MAX = 100;
+var GURU_KOD_RE = /^[A-Z0-9][A-Z0-9_-]{1,19}$/;
+
+// ---------------------------------------------------------------------------
+// Hash kata laluan
+// ---------------------------------------------------------------------------
+
+function _sha256Hex(str) {
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, str, Utilities.Charset.UTF_8);
+  var out = '';
+  for (var i = 0; i < bytes.length; i++) {
+    var b = (bytes[i] + 256) % 256;
+    out += (b < 16 ? '0' : '') + b.toString(16);
+  }
+  return out;
+}
+
+function _pepper() {
+  var p = PropertiesService.getScriptProperties().getProperty(PROP.PEPPER);
+  if (!p) throw new AppError('SETUP_BELUM_SIAP', 'Sistem belum disediakan. Jalankan setupTemplate() dahulu.');
+  return p;
+}
+
+/** Pulangkan rentetan "v1$<ulangan>$<hex>" supaya bilangan ulangan boleh diubah kemudian tanpa rosakkan hash lama. */
+function hashPassword(password, salt, iterations) {
+  var n = iterations || HASH_ITERATIONS;
+  var h = _sha256Hex(_pepper() + '|' + salt + '|' + password);
+  for (var i = 1; i < n; i++) h = _sha256Hex(h + salt);
+  return HASH_VERSION + '$' + n + '$' + h;
+}
+
+/** Bandingkan tanpa berhenti awal, supaya masa jawapan tidak membocorkan berapa aksara yang betul. */
+function _samaMasaTetap(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function verifyPassword(password, salt, stored) {
+  var parts = String(stored || '').split('$');
+  if (parts.length !== 3 || parts[0] !== HASH_VERSION) return false;
+  var n = parseInt(parts[1], 10);
+  if (!(n >= 1 && n <= 100000)) return false;
+  return _samaMasaTetap(hashPassword(password, salt, n), stored);
+}
+
+function newSalt() {
+  return (uuid() + uuid()).replace(/-/g, '');
+}
+
+/** Kata laluan sementara 10 aksara, tanpa aksara yang mengelirukan (0/O, 1/l/I). */
+function janaPasswordSementara() {
+  var abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'; // 56 aksara
+  var out = '';
+  while (out.length < 10) {
+    var hex = uuid().replace(/-/g, '');
+    for (var i = 0; i + 1 < hex.length && out.length < 10; i += 2) {
+      var b = parseInt(hex.substr(i, 2), 16);
+      if (b < 224) out += abc.charAt(b % 56); // tolak 224..255 supaya tiada berat sebelah
+    }
+  }
+  return out;
+}
+
+/** Peraturan kata laluan. Pulangkan mesej ralat, atau null jika lulus. */
+function semakPolisiPassword(pw, guruKod) {
+  if (typeof pw !== 'string' || pw.length < PASSWORD_MIN) return 'Kata laluan mesti sekurang-kurangnya ' + PASSWORD_MIN + ' aksara.';
+  if (pw.length > PASSWORD_MAX) return 'Kata laluan terlalu panjang (maksimum ' + PASSWORD_MAX + ' aksara).';
+  if (guruKod && pw.trim().toUpperCase() === String(guruKod).toUpperCase()) return 'Kata laluan tidak boleh sama dengan ID guru.';
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Had percubaan log masuk
+// ---------------------------------------------------------------------------
+
+function _kunciKey(kod) { return 'login:' + kod; }
+
+function _bacaCubaan(kod) {
+  var v = CacheService.getScriptCache().get(_kunciKey(kod));
+  if (!v) return null;
+  try { return JSON.parse(v); } catch (e) { return null; }
+}
+
+function semakHadCubaan(kod) {
+  var c = _bacaCubaan(kod);
+  if (c && c.n >= LOGIN_MAX_CUBA && c.until > Date.now()) {
+    var minit = Math.max(1, Math.ceil((c.until - Date.now()) / 60000));
+    throw new AppError('TERLALU_BANYAK_CUBAAN', 'Terlalu banyak percubaan log masuk. Cuba lagi dalam ' + minit + ' minit, atau minta pentadbir buka kunci.');
+  }
+}
+
+function catatCubaanGagal(kod) {
+  var c = _bacaCubaan(kod);
+  if (!c || c.until <= Date.now()) c = { n: 0, until: Date.now() + LOGIN_TETINGKAP_SAAT * 1000 };
+  c.n++;
+  var ttl = Math.max(1, Math.ceil((c.until - Date.now()) / 1000));
+  CacheService.getScriptCache().put(_kunciKey(kod), JSON.stringify(c), ttl);
+}
+
+function bukaKunci(kod) { CacheService.getScriptCache().remove(_kunciKey(kod)); }
+
+function adaKunci(kod) {
+  var c = _bacaCubaan(kod);
+  return !!(c && c.n >= LOGIN_MAX_CUBA && c.until > Date.now());
+}
+
+// ---------------------------------------------------------------------------
+// Sesi
+// ---------------------------------------------------------------------------
+
+function _tolakSesi(msg) {
+  throw new AppError('TIDAK_LOG_MASUK', msg || 'Sesi tidak sah atau telah tamat. Sila log masuk semula.');
+}
+
+/**
+ * Langkah pertama setiap aksi selain LOGIN.
+ * roles: senarai peranan dibenarkan (null = mana-mana peranan yang sah).
+ * Peranan dibaca daripada akaun SEMASA, bukan daripada sesi, jadi perubahan peranan berkuat kuasa serta-merta.
+ */
+function requireAuth(token, roles) {
+  if (typeof token !== 'string' || !UUID_RE.test(token)) _tolakSesi();
+  var s = getById('sessions', token);
+  if (!s) _tolakSesi();
+  if (!(Date.parse(s.expiry) > Date.now())) {
+    remove('sessions', token);
+    _tolakSesi('Sesi anda telah tamat. Sila log masuk semula.');
+  }
+  var akaun = getById('akaun', s.akaun_id);
+  var guru = akaun ? getById('guru', akaun.guru_id) : null;
+  if (!akaun || !akaun.aktif || !guru || !guru.aktif) {
+    remove('sessions', token);
+    _tolakSesi();
+  }
+  if (roles && roles.indexOf(akaun.role) === -1) {
+    throw new AppError('TIADA_KEBENARAN', 'Anda tiada kebenaran untuk tindakan ini.');
+  }
+  return {
+    token: token, akaunId: akaun.id, guruId: guru.id, guruKod: guru.guru_kod, role: akaun.role,
+    pending: !!akaun.wajib_tukar_password || !akaun.persetujuan_pdpa_pada,
+    akaun: akaun, guru: guru
+  };
+}
+
+function bersihkanSesiTamat() {
+  var now = Date.now();
+  query('sessions', {}).forEach(function (s) {
+    if (!(Date.parse(s.expiry) > now)) remove('sessions', s.token);
+  });
+}
+
+function _padamSesiAkaun(akaunId, kecualiToken) {
+  query('sessions', { akaun_id: akaunId }).forEach(function (s) {
+    if (s.token !== kecualiToken) remove('sessions', s.token);
+  });
+}
+
+function _ringkasanSesi(akaun, guru) {
+  return {
+    akaun_id: akaun.id, guru_id: guru.id, guru_kod: guru.guru_kod, nama_penuh: guru.nama_penuh, role: akaun.role,
+    wajib_tukar_password: !!akaun.wajib_tukar_password,
+    perlu_persetujuan_pdpa: !akaun.persetujuan_pdpa_pada
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Aksi
+// ---------------------------------------------------------------------------
+
+function aksiLogin(ctx, params) {
+  var kod = pStr(params, 'guru_kod', { label: 'ID guru', max: 20, upper: true, re: GURU_KOD_RE, reMsg: 'ID guru tidak sah. Contoh: SM216.' });
+  var pw = params.password;
+  if (typeof pw !== 'string' || pw.length === 0) throw new AppError('VALIDASI', 'Masukkan kata laluan.', { field: 'password' });
+  if (pw.length > PASSWORD_MAX) pw = pw.slice(0, PASSWORD_MAX + 1); // tetap gagal, tanpa kos hash besar
+
+  semakHadCubaan(kod);
+
+  var guru = query('guru', { guru_kod: kod })[0] || null;
+  var akaun = guru ? (query('akaun', { guru_id: guru.id })[0] || null) : null;
+  var ok;
+  if (akaun) ok = verifyPassword(pw, akaun.salt, akaun.password_hash);
+  else { hashPassword(pw, 'tiada-akaun'); ok = false; } // masa jawapan sama sama ada ID wujud atau tidak
+
+  if (!ok) {
+    catatCubaanGagal(kod);
+    if (akaun) update('akaun', akaun.id, { percubaan_gagal: Math.min(1000, (akaun.percubaan_gagal || 0) + 1) }, { actorId: 'sistem' });
+    logAudit(akaun ? akaun.id : null, 'LOGIN_GAGAL', kod);
+    throw new AppError('LOGIN_GAGAL', 'ID guru atau kata laluan salah.');
+  }
+  if (!akaun.aktif || !guru.aktif) {
+    logAudit(akaun.id, 'LOGIN_DITOLAK_TIDAK_AKTIF', kod);
+    throw new AppError('AKAUN_TIDAK_AKTIF', 'Akaun anda tidak aktif. Hubungi pentadbir sistem.');
+  }
+
+  bukaKunci(kod);
+  bersihkanSesiTamat();
+  if (akaun.percubaan_gagal) update('akaun', akaun.id, { percubaan_gagal: 0 }, { actorId: 'sistem' });
+
+  var token = uuid();
+  var expiry = toIso(new Date(Date.now() + SESSION_TTL_HOURS * 3600 * 1000));
+  insert('sessions', { token: token, akaun_id: akaun.id, role: akaun.role, expiry: expiry });
+  logAudit(akaun.id, 'LOGIN_BERJAYA', kod);
+  return { token: token, expiry: expiry, sesi: _ringkasanSesi(akaun, guru) };
+}
+
+function aksiLogout(ctx) {
+  remove('sessions', ctx.token);
+  logAudit(ctx.akaunId, 'LOGOUT', ctx.guruKod);
+  return { selesai: true };
+}
+
+function aksiSesiSaya(ctx) {
+  return _ringkasanSesi(ctx.akaun, ctx.guru);
+}
+
+function aksiTukarPassword(ctx, params) {
+  var lama = params.password_lama, baru = params.password_baru;
+  if (typeof lama !== 'string' || !lama) throw new AppError('VALIDASI', 'Masukkan kata laluan semasa.', { field: 'password_lama' });
+  semakHadCubaan(ctx.guruKod);
+  if (!verifyPassword(lama.slice(0, PASSWORD_MAX + 1), ctx.akaun.salt, ctx.akaun.password_hash)) {
+    catatCubaanGagal(ctx.guruKod);
+    throw new AppError('PASSWORD_LAMA_SALAH', 'Kata laluan semasa tidak betul.', { field: 'password_lama' });
+  }
+  var err = semakPolisiPassword(baru, ctx.guruKod);
+  if (err) throw new AppError('VALIDASI', err, { field: 'password_baru' });
+  if (baru === lama) throw new AppError('VALIDASI', 'Kata laluan baharu mesti berbeza daripada yang lama.', { field: 'password_baru' });
+
+  var salt = newSalt();
+  update('akaun', ctx.akaunId, {
+    salt: salt, password_hash: hashPassword(baru, salt), wajib_tukar_password: false, percubaan_gagal: 0
+  }, { actorId: ctx.akaunId });
+  _padamSesiAkaun(ctx.akaunId, ctx.token); // log keluar peranti lain
+  logAudit(ctx.akaunId, 'TUKAR_PASSWORD', ctx.guruKod);
+  return _ringkasanSesi(getById('akaun', ctx.akaunId), ctx.guru);
+}
+
+function aksiSetujuPdpa(ctx, params) {
+  if (params.setuju !== true) throw new AppError('VALIDASI', 'Sila tandakan persetujuan untuk meneruskan.', { field: 'setuju' });
+  var akaun = ctx.akaun;
+  if (!akaun.persetujuan_pdpa_pada) {
+    akaun = update('akaun', ctx.akaunId, { persetujuan_pdpa_pada: nowIso() }, { actorId: ctx.akaunId });
+    logAudit(ctx.akaunId, 'SETUJU_PDPA', ctx.guruKod, 'Versi notis ' + PDPA_VERSI);
+  }
+  return _ringkasanSesi(akaun, ctx.guru);
+}
+
+/** Naikkan nombor ini jika isi notis privasi berubah dengan ketara (rekod dalam audit_log). */
+var PDPA_VERSI = '1.0';
+
+// ======================================================================
+// Akaun.gs
+// ======================================================================
+/**
+ * Akaun.gs — pengurusan akaun oleh superadmin (dan buka kunci oleh pentadbir).
+ *
+ * - Cipta akaun: sistem jana kata laluan sementara, dipaparkan SEKALI kepada superadmin.
+ * - Reset kata laluan: kata laluan sementara baharu, guru wajib tukar semasa log masuk.
+ * - Nyahaktif: rekod kekal, guru tidak boleh log masuk. Semua sesinya dipadam.
+ * - Tiada fungsi "lupa kata laluan" melalui emel pada fasa ini.
+ */
+
+var SEMUA_ROLE = ['guru', 'pentadbir', 'superadmin'];
+
+function _akaunDanGuru(akaunId) {
+  var akaun = getById('akaun', akaunId);
+  if (!akaun) throw new AppError('TIDAK_JUMPA', 'Akaun tidak dijumpai.');
+  return { akaun: akaun, guru: getById('guru', akaun.guru_id) };
+}
+
+function _bukanDiriSendiri(ctx, akaunId, msg) {
+  if (ctx.akaunId === akaunId) throw new AppError('TIDAK_DIBENARKAN', msg);
+}
+
+/** Pastikan sentiasa ada sekurang-kurangnya seorang superadmin aktif. */
+function _pastikanAdaSuperadminLain(akaunId) {
+  var lain = query('akaun', { role: 'superadmin', aktif: true }).filter(function (a) { return a.id !== akaunId; });
+  if (!lain.length) throw new AppError('TIDAK_DIBENARKAN', 'Mesti ada sekurang-kurangnya seorang superadmin aktif.');
+}
+
+function _barisAkaun(akaun, guru) {
+  return {
+    akaun_id: akaun.id, guru_id: guru ? guru.id : null,
+    guru_kod: guru ? guru.guru_kod : '', nama_penuh: guru ? guru.nama_penuh : '',
+    status_lantikan: guru ? guru.status_lantikan : null,
+    role: akaun.role, aktif: !!akaun.aktif,
+    wajib_tukar_password: !!akaun.wajib_tukar_password,
+    persetujuan_pdpa_pada: akaun.persetujuan_pdpa_pada,
+    percubaan_gagal: akaun.percubaan_gagal || 0,
+    dikunci: guru ? adaKunci(guru.guru_kod) : false
+  };
+}
+
+function aksiAkaunSenarai(ctx) {
+  var guruById = {};
+  query('guru', {}).forEach(function (g) { guruById[g.id] = g; });
+  return query('akaun', {})
+    .map(function (a) { return _barisAkaun(a, guruById[a.guru_id]); })
+    .sort(function (x, y) { return x.guru_kod < y.guru_kod ? -1 : 1; });
+}
+
+function _ciptaAkaunDalaman(kod, nama, status, role, actorId) {
+  if (query('guru', { guru_kod: kod }).length) throw new AppError('DUPLIKAT', 'ID guru ' + kod + ' sudah wujud.', { field: 'guru_kod' });
+  var guru = insert('guru', { guru_kod: kod, nama_penuh: nama, status_lantikan: status }, { actorId: actorId });
+  var pw = janaPasswordSementara();
+  var salt = newSalt();
+  var akaun;
+  try {
+    akaun = insert('akaun', { guru_id: guru.id, salt: salt, password_hash: hashPassword(pw, salt), role: role, wajib_tukar_password: true }, { actorId: actorId });
+  } catch (e) {
+    remove('guru', guru.id); // jangan tinggalkan guru tanpa akaun
+    throw e;
+  }
+  return { akaun: akaun, guru: guru, password: pw };
+}
+
+function aksiAkaunCipta(ctx, params) {
+  var kod = pStr(params, 'guru_kod', { label: 'ID guru', upper: true, max: 20, re: GURU_KOD_RE, reMsg: 'ID guru hanya huruf, nombor, - atau _ (contoh SM216).' });
+  var nama = pStr(params, 'nama_penuh', { label: 'Nama penuh', min: 3, max: 150 });
+  var status = pStr(params, 'status_lantikan', { label: 'Status lantikan', max: 30 });
+  var role = pOneOf(params, 'role', SEMUA_ROLE, 'Peranan');
+  var r = _ciptaAkaunDalaman(kod, nama, status, role, ctx.akaunId);
+  logAudit(ctx.akaunId, 'AKAUN_CIPTA', kod, 'peranan=' + role);
+  return { akaun: _barisAkaun(r.akaun, r.guru), password_sementara: r.password };
+}
+
+function aksiAkaunResetPassword(ctx, params) {
+  var id = pUuid(params, 'akaun_id', 'Akaun');
+  _bukanDiriSendiri(ctx, id, 'Untuk akaun sendiri, guna menu Tukar kata laluan.');
+  var x = _akaunDanGuru(id);
+  var pw = janaPasswordSementara();
+  var salt = newSalt();
+  var akaun = update('akaun', id, { salt: salt, password_hash: hashPassword(pw, salt), wajib_tukar_password: true, percubaan_gagal: 0 }, { actorId: ctx.akaunId });
+  _padamSesiAkaun(id, null);
+  if (x.guru) bukaKunci(x.guru.guru_kod);
+  logAudit(ctx.akaunId, 'AKAUN_RESET_PASSWORD', x.guru ? x.guru.guru_kod : id);
+  return { akaun: _barisAkaun(akaun, x.guru), password_sementara: pw };
+}
+
+function aksiAkaunSetAktif(ctx, params) {
+  var id = pUuid(params, 'akaun_id', 'Akaun');
+  var aktif = pBool(params, 'aktif', 'Status aktif');
+  _bukanDiriSendiri(ctx, id, 'Anda tidak boleh menyahaktifkan akaun sendiri.');
+  var x = _akaunDanGuru(id);
+  if (!aktif && x.akaun.role === 'superadmin') _pastikanAdaSuperadminLain(id);
+  var akaun = update('akaun', id, { aktif: aktif }, { actorId: ctx.akaunId });
+  if (x.guru) update('guru', x.guru.id, { aktif: aktif }, { actorId: ctx.akaunId });
+  if (!aktif) _padamSesiAkaun(id, null);
+  logAudit(ctx.akaunId, aktif ? 'AKAUN_AKTIFKAN' : 'AKAUN_NYAHAKTIF', x.guru ? x.guru.guru_kod : id);
+  return _barisAkaun(akaun, getById('guru', akaun.guru_id));
+}
+
+function aksiAkaunTukarRole(ctx, params) {
+  var id = pUuid(params, 'akaun_id', 'Akaun');
+  var role = pOneOf(params, 'role', SEMUA_ROLE, 'Peranan');
+  _bukanDiriSendiri(ctx, id, 'Anda tidak boleh menukar peranan akaun sendiri.');
+  var x = _akaunDanGuru(id);
+  if (x.akaun.role === 'superadmin' && role !== 'superadmin') _pastikanAdaSuperadminLain(id);
+  var akaun = update('akaun', id, { role: role }, { actorId: ctx.akaunId });
+  _padamSesiAkaun(id, null); // paksa log masuk semula supaya menu sepadan dengan peranan baharu
+  logAudit(ctx.akaunId, 'AKAUN_TUKAR_ROLE', x.guru ? x.guru.guru_kod : id, x.akaun.role + ' -> ' + role);
+  return _barisAkaun(akaun, x.guru);
+}
+
+function aksiAkaunBukaKunci(ctx, params) {
+  var id = pUuid(params, 'akaun_id', 'Akaun');
+  var x = _akaunDanGuru(id);
+  if (x.guru) bukaKunci(x.guru.guru_kod);
+  var akaun = update('akaun', id, { percubaan_gagal: 0 }, { actorId: ctx.akaunId });
+  logAudit(ctx.akaunId, 'AKAUN_BUKA_KUNCI', x.guru ? x.guru.guru_kod : id);
+  return _barisAkaun(akaun, x.guru);
+}
+
+/**
+ * Cipta superadmin pertama (sekali sahaja, dijalankan dari editor Apps Script).
+ *  1. Project Settings > Script Properties: tambah BOOTSTRAP_GURU_KOD (contoh SM216) dan BOOTSTRAP_NAMA.
+ *  2. Pilih fungsi ini, tekan Run. Kata laluan sementara dipaparkan dalam Execution log.
+ *  3. Log masuk dan tukar kata laluan. Dua property tadi dipadam automatik.
+ * Fungsi ini menolak jika superadmin sudah wujud.
+ */
+function ciptaSuperadminPertama() {
+  var props = PropertiesService.getScriptProperties();
+  if (query('akaun', { role: 'superadmin' }).length) throw new Error('Superadmin sudah wujud. Guna halaman Urus akaun untuk akaun lain.');
+  var kod = String(props.getProperty('BOOTSTRAP_GURU_KOD') || '').trim().toUpperCase();
+  var nama = String(props.getProperty('BOOTSTRAP_NAMA') || '').trim();
+  if (!GURU_KOD_RE.test(kod) || nama.length < 3) {
+    throw new Error('Tetapkan dahulu BOOTSTRAP_GURU_KOD dan BOOTSTRAP_NAMA dalam Project Settings > Script Properties.');
+  }
+  var r = _ciptaAkaunDalaman(kod, nama, 'tetap', 'superadmin', 'setup');
+  props.deleteProperty('BOOTSTRAP_GURU_KOD');
+  props.deleteProperty('BOOTSTRAP_NAMA');
+  logAudit(r.akaun.id, 'AKAUN_CIPTA_SUPERADMIN_PERTAMA', kod);
+  Logger.log('Superadmin dicipta.\nID guru: ' + kod + '\nKata laluan sementara: ' + r.password + '\nLog masuk sekarang dan tukar kata laluan.');
+  return { guru_kod: kod, password_sementara: r.password };
 }
 
 // ======================================================================
@@ -808,26 +1264,48 @@ function requireAuth(token, rolesDibenarkan) {
  * Bentuk jawapan:  { "ok": true, "data": ... }  atau  { "ok": false, "code": "KOD", "message": "..." }
  *
  * Peraturan:
- *   - Hanya LOGIN tidak memerlukan token. Setiap aksi lain memanggil requireAuth() dahulu.
+ *   - Hanya LOGIN tidak memerlukan token. Setiap aksi lain melalui requireAuth() dahulu.
  *   - Aksi yang tidak dikenali tanpa token mendapat jawapan yang sama seperti aksi sebenar
  *     (TIDAK_LOG_MASUK), supaya orang luar tidak dapat meneka senarai aksi.
+ *   - Guru yang belum tukar kata laluan sementara atau belum bersetuju dengan notis privasi
+ *     hanya boleh memanggil aksi bertanda `allowPending`.
  *   - Ralat tidak dijangka tidak membocorkan butiran dalaman kepada pelayar.
  */
 
+var R_SEMUA = ['guru', 'pentadbir', 'superadmin'];
+var R_ADMIN = ['pentadbir', 'superadmin'];
+var R_SUPER = ['superadmin'];
+
+var _ACTIONS = null;
+
 /**
- * Daftar aksi. Setiap modul menambah aksinya di sini pada fasa masing-masing.
- *   public  : true hanya untuk LOGIN
- *   roles   : senarai peranan yang dibenarkan
- *   handler : function (ctx, params) -> data
+ * SENARAI SEMUA AKSI DAN SIAPA BOLEH MEMANGGILNYA.
+ * Semak di sini dahulu ketika audit keselamatan.
  */
-var ACTIONS = {
-  LOGIN: {
-    public: true,
-    handler: function (ctx, params) {
-      throw new AppError('BELUM_SEDIA', 'Log masuk belum diaktifkan. Ia dibina pada Fasa 1.');
-    }
-  }
-};
+function getActions() {
+  if (_ACTIONS) return _ACTIONS;
+  _ACTIONS = {
+    // ---- Auth (Fasa 1) ----
+    LOGIN:                { public: true, handler: aksiLogin },
+    LOGOUT:               { roles: R_SEMUA, allowPending: true, handler: aksiLogout },
+    SESI_SAYA:            { roles: R_SEMUA, allowPending: true, handler: aksiSesiSaya },
+    TUKAR_PASSWORD:       { roles: R_SEMUA, allowPending: true, handler: aksiTukarPassword },
+    SETUJU_PDPA:          { roles: R_SEMUA, allowPending: true, handler: aksiSetujuPdpa },
+    // ---- Urus akaun ----
+    AKAUN_SENARAI:        { roles: R_ADMIN, handler: aksiAkaunSenarai },
+    AKAUN_BUKA_KUNCI:     { roles: R_ADMIN, handler: aksiAkaunBukaKunci },
+    AKAUN_CIPTA:          { roles: R_SUPER, handler: aksiAkaunCipta },
+    AKAUN_RESET_PASSWORD: { roles: R_SUPER, handler: aksiAkaunResetPassword },
+    AKAUN_SET_AKTIF:      { roles: R_SUPER, handler: aksiAkaunSetAktif },
+    AKAUN_TUKAR_ROLE:     { roles: R_SUPER, handler: aksiAkaunTukarRole }
+  };
+  Object.keys(_ACTIONS).forEach(function (k) {
+    var d = _ACTIONS[k];
+    if (!d.public && !(Array.isArray(d.roles) && d.roles.length)) throw new Error('Aksi ' + k + ' tiada senarai peranan.');
+    if (typeof d.handler !== 'function') throw new Error('Aksi ' + k + ' tiada handler.');
+  });
+  return _ACTIONS;
+}
 
 function handleRequest(raw) {
   try {
@@ -840,13 +1318,17 @@ function handleRequest(raw) {
       throw new AppError('PERMINTAAN_TIDAK_SAH', 'Permintaan tidak sah.');
     }
     var params = (req.params && typeof req.params === 'object' && !Array.isArray(req.params)) ? req.params : {};
-    var def = Object.prototype.hasOwnProperty.call(ACTIONS, req.action) ? ACTIONS[req.action] : null;
+    var actions = getActions();
+    var def = Object.prototype.hasOwnProperty.call(actions, req.action) ? actions[req.action] : null;
 
     if (def && def.public === true) {
       return { ok: true, data: def.handler(null, params) };
     }
     var ctx = requireAuth(req.token, def ? def.roles : null);   // langkah pertama untuk semua aksi lain
     if (!def) throw new AppError('AKSI_TIDAK_DIKENALI', 'Aksi tidak dikenali.');
+    if (ctx.pending && !def.allowPending) {
+      throw new AppError('PERLU_TINDAKAN', 'Sila setuju dengan notis privasi dan tukar kata laluan sementara dahulu.');
+    }
     return { ok: true, data: def.handler(ctx, params) };
   } catch (err) {
     if (err instanceof AppError || (err && err.name === 'AppError')) {

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Laman utama — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard();
+      if (!sesi) return;
+      var el = UI.el;
+      var c = App.mount({ sesi: sesi, active: 'utama', title: 'Laman utama' });
+      var admin = sesi.role !== 'guru';
+
+      c.appendChild(el('section', { class: 'welcome' }, [
+        el('h2', { style: 'font-size:1.375rem' }, 'Assalamualaikum, ' + sesi.nama_penuh),
+        el('p', { class: 'muted' }, sesi.guru_kod + ' · ' + App.LABEL_ROLE[sesi.role] + ' · sesi tamat ' + App.fmtDateTime((Api.getSession() || {}).expiry))
+      ]));
+
+      function card(o) {
+        var inner = [el('span', { class: 'ico' }, App.icon(o.icon)), el('div', {}, [el('b', {}, o.title), el('span', {}, o.desc)])];
+        return o.href ? el('a', { class: 'card link-card', href: o.href }, inner) : el('div', { class: 'card link-card soon' }, inner);
+      }
+      var links = el('section', { class: 'links', 'aria-label': 'Pautan pantas' });
+      links.appendChild(card({ icon: 'i-users', title: 'Profil saya', desc: 'Akan datang (Fasa 2): maklumat teras, kelayakan, kursus, cerapan.' }));
+      if (admin) links.appendChild(card({ icon: 'i-shield', title: 'Urus akaun', href: 'akaun.html', desc: sesi.role === 'superadmin' ? 'Cipta akaun, reset kata laluan, nyahaktif.' : 'Lihat akaun dan buka kunci akaun guru.' }));
+      if (admin) links.appendChild(card({ icon: 'i-dashboard', title: 'Dashboard sekolah', desc: 'Akan datang (Fasa 6).' }));
+      links.appendChild(card({ icon: 'i-sliders', title: 'Tukar kata laluan', href: 'tukar-password.html', desc: 'Tukar kata laluan anda bila-bila masa.' }));
+      c.appendChild(links);
+
+      // Sahkan sesi dengan server (token mungkin sudah dipadam di server)
+      Api.call('SESI_SAYA').then(App.updateSesi).catch(function () {});
+    })();
+  </script>
+</body>
+</html>

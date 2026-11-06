@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notis privasi — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <main class="page-narrow">
+    <div style="width:100%;max-width:640px">
+      <div class="page-head">
+        <img src="assets/logo-96.png" alt="Logo SMIAAG" width="48" height="48">
+        <div><b>Profil Guru SMIAAG</b><span>Langkah 1 daripada 2: notis privasi</span></div>
+      </div>
+      <section class="card">
+        <div class="card-head"><h1 style="font-size:1.25rem">Notis privasi</h1><span class="badge badge-neutral">PDPA 2010</span></div>
+        <div class="card-pad prose">
+          <p>Sebelum menggunakan sistem ini, sila baca bagaimana data anda digunakan.</p>
+          <div>
+            <h3>Data yang dikumpul</h3>
+            <ul>
+              <li>Maklumat profil: nama, ID guru, status lantikan, jawatan, tarikh lantikan, nombor telefon dan gambar.</li>
+              <li>Kelayakan akademik, opsyen subjek dan rekod kursus.</li>
+              <li>Tugasan, jadual waktu, bilangan cerapan, kokurikulum dan HEM.</li>
+              <li>Rekod log masuk untuk keselamatan.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Data yang tidak dikumpul</h3>
+            <p>Gaji, nombor kad pengenalan atau apa-apa nombor pengenalan rasmi. Jika dimasukkan dalam ruangan teks, sistem akan membuangnya.</p>
+          </div>
+          <div>
+            <h3>Tujuan</h3>
+            <p>Rujukan profil guru dan perancangan beban kerja sekolah.</p>
+          </div>
+          <div>
+            <h3>Siapa boleh melihat</h3>
+            <p>Anda sendiri dan pentadbir sekolah. Guru lain tidak boleh melihat data anda. Nombor telefon penuh hanya dilihat oleh pentadbir dan setiap capaian direkod.</p>
+          </div>
+          <div>
+            <h3>Tempoh simpanan</h3>
+            <p>Selama anda berkhidmat. Selepas anda berhenti, akaun dinyahaktifkan, dan data diarkib atau dipadam mengikut tempoh yang ditetapkan oleh pihak sekolah.</p>
+          </div>
+          <div>
+            <h3>Lokasi simpanan</h3>
+            <p>Data disimpan dalam perkhidmatan Google, yang mungkin terletak di luar Malaysia.</p>
+          </div>
+          <div>
+            <h3>Hak anda</h3>
+            <p>Anda boleh melihat dan membetulkan data sendiri dalam sistem. Untuk mendapatkan salinan atau meminta data dipadam, hubungi pentadbir sistem.</p>
+          </div>
+
+          <div id="alert" class="notice notice-error" role="alert" hidden><span id="alert-text"></span></div>
+          <label class="check"><input type="checkbox" id="setuju"> Saya telah membaca notis ini dan bersetuju data saya diproses untuk tujuan di atas.</label>
+          <div class="row end">
+            <button class="btn-link" type="button" id="keluar">Log keluar</button>
+            <button class="btn" type="button" id="teruskan">Setuju dan teruskan</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard({ pendingPage: true });
+      if (!sesi) return;
+      if (!sesi.perlu_persetujuan_pdpa) { location.replace(App.nextPage(sesi)); return; }
+      var btn = document.getElementById('teruskan');
+      var alertBox = document.getElementById('alert');
+      document.getElementById('keluar').addEventListener('click', App.logout);
+      btn.addEventListener('click', function () {
+        alertBox.hidden = true;
+        if (!document.getElementById('setuju').checked) {
+          document.getElementById('alert-text').textContent = 'Tandakan kotak persetujuan untuk meneruskan.';
+          alertBox.hidden = false; return;
+        }
+        btn.disabled = true;
+        Api.call('SETUJU_PDPA', { setuju: true }).then(function (s) {
+          App.updateSesi(s);
+          location.replace(App.nextPage(s));
+        }).catch(function (e) {
+          document.getElementById('alert-text').textContent = e.message;
+          alertBox.hidden = false; btn.disabled = false;
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

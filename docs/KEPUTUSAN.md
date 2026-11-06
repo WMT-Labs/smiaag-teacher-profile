@@ -2,34 +2,46 @@
 
 Dikemas kini pada penghujung setiap fasa. Rujuk dokumen arahan projek (Seksyen 13 dan 14).
 
-## Fasa 0: andaian yang saya buat
+## Keputusan pemilik
 
-Semua ini kecil dan mudah diubah. Beritahu saya jika mahu lain.
+| Tarikh | Keputusan |
+|---|---|
+| 06/11/2026 | Hash kata laluan: SHA-256 + salt + pepper, diulang (1000 kali). |
+| 06/11/2026 | Had percubaan mengikut ID guru diterima; pentadbir boleh buka kunci. |
+| 06/11/2026 | Kata laluan: minimum 8 aksara, tidak sama dengan ID guru. |
+| 06/11/2026 | Cerapan dipermudahkan: hanya bilangan dicerap setahun dan nama pencerap. Tiada sasaran, tiada tarikh dirancang. Jadual `sasaran_cerapan` dan `ref_status_cerapan` dibuang. |
 
-1. **Jadual dalam dokumen yang tiada lajur `id`.** `sasaran_cerapan` dan `had_jam_kredit` saya beri `id` (UUID) supaya ikut peraturan "setiap tab ada id". `sasaran_cerapan` juga dapat lajur `guru_id`: kosong bermaksud nilai lalai sekolah, berisi bermaksud sasaran khusus guru itu. `sessions` menggunakan `token` sebagai kunci utama, seperti dalam dokumen.
-2. **Lajur tambahan `akaun.persetujuan_pdpa_pada`.** Seksyen 9 mahu persetujuan guru direkod. Tanpa lajur ini tiada bukti bila guru bersetuju.
-3. **Jadual `ref_*` yang saya tambah** selain yang dinyatakan jelas: `ref_tahap_kelayakan` (sijil hingga PhD), `ref_jenis_opsyen`, `ref_peringkat_kursus` (ada "lain-lain") dan `ref_peringkat_pertandingan` (tanpa "lain-lain", ikut dokumen), `ref_hari` (isnin hingga ahad). Kod nilai guna `snake_case`, jadi "al-quran-tutorial" menjadi `al_quran_tutorial`. Label paparan kekal cantik.
-4. **Lajur nilai terhad menyimpan `kod`**, bukan id, supaya data di Sheet masih boleh dibaca manusia. Dalam Postgres ia menjadi kunci asing kepada `ref_*.kod`.
-5. **Nilai null dalam kekangan unik dianggap sama.** Ini membolehkan hanya satu sasaran cerapan lalai sekolah bagi setiap tahun. Dalam Postgres: `UNIQUE NULLS NOT DISTINCT` (Supabase menyokongnya).
-6. **Nombor IC dalam teks bebas dibuang senyap-senyap** semasa simpan, mengikut arahan "abaikan, jangan simpan". Corak: 12 digit dengan atau tanpa sempang (`YYMMDD-PB-####`). Nombor telefon tidak terkesan.
-7. **Aksi tanpa token** (termasuk yang tidak wujud) semuanya dijawab `TIDAK_LOG_MASUK`, supaya orang luar tidak dapat meneka aksi yang ada. Saya sengaja tidak buat aksi `PING`, kerana dokumen mengatakan hanya `LOGIN` tanpa token.
-8. **`dist/Code.gs`** ialah gabungan fail backend dalam satu fail, supaya anda tidak perlu salin-tampal tujuh fail. Ia dijana dan dijaga oleh ujian.
-9. **Reka bentuk UI.** Warna logo tepat (`#00548d`, `#008c21`) hanya untuk jenama dan butang utama. Latar dan kad guna versi lembut. Semua gandingan warna teks melepasi nisbah kontras WCAG AA 4.5:1. Pada pratonton, status "hampir had" ditetapkan pada 80% had. Itu cadangan saya, bukan daripada dokumen, dan boleh diubah.
+## Fasa 1: andaian yang saya buat
 
-## Untuk dibincangkan sebelum Fasa 1 (keselamatan)
+1. **Tempoh sesi 8 jam.** Cukup untuk satu hari sekolah. Selepas itu log masuk semula. Boleh diubah (`SESSION_TTL_HOURS` dalam `Auth.gs`).
+2. **Kata laluan sementara dijana oleh sistem** (10 aksara, tiada aksara mengelirukan seperti 0/O atau 1/l), bukan ditaip oleh superadmin. Dipaparkan sekali sahaja.
+3. **Urutan log masuk pertama:** notis privasi dahulu, kemudian tukar kata laluan. Sebelum kedua-duanya selesai, server menolak semua aksi lain (bukan hanya disorok di frontend).
+4. **Pentadbir boleh melihat senarai akaun dan buka kunci.** Cipta, reset, nyahaktif dan tukar peranan hanya superadmin.
+5. **Nyahaktif akaun juga menandakan `guru.aktif` = FALSE**, kerana guru yang tidak boleh log masuk biasanya sudah tidak berkhidmat. Rekod tidak dipadam.
+6. **Sentiasa ada sekurang-kurangnya seorang superadmin aktif.** Superadmin tidak boleh menyahaktif, menukar peranan atau reset kata laluan akaun sendiri melalui Urus akaun (guna Tukar kata laluan).
+7. **Tukar kata laluan dan reset** melog keluar peranti lain. Tukar peranan juga memaksa log masuk semula.
+8. **Superadmin pertama** dicipta dengan fungsi `ciptaSuperadminPertama` yang membaca ID dan nama daripada Script Properties, supaya tiada data dalam kod. Fungsi menolak jika superadmin sudah wujud.
+9. **ID guru disimpan dalam huruf besar**, dan log masuk tidak sensitif huruf besar/kecil.
+10. **Bilangan ulangan hash (1000)** ialah anggaran saya. Saya tak pasti kelajuan sebenar Apps Script untuk ini. Ujian manual Fasa 1 meminta anda catat masa log masuk. Hash menyimpan bilangan ulangan, jadi nilai boleh diubah tanpa merosakkan kata laluan sedia ada.
+11. **Token disimpan dalam `sessionStorage`**: tutup tab bermaksud perlu log masuk semula. Lebih selamat untuk komputer bilik guru yang dikongsi, sedikit kurang mudah di telefon. Beritahu saya jika mahu ia kekal walaupun tab ditutup.
 
-Seksyen 13 meminta saya bangkitkan terus jika sesuatu bercanggah dengan amalan lebih baik.
+## Fasa 0: andaian
 
-- **SHA-256 + salt sahaja agak lemah** terhadap tekaan pantas jika Sheet bocor, kerana SHA-256 sangat laju. Cadangan saya: kekal SHA-256 dengan salt dan pepper seperti dalam dokumen, tetapi ulang pengiraan beberapa ribu kali (key stretching). Ia masih mematuhi spesifikasi dan hanya menambah beberapa ratus milisaat semasa log masuk. Saya akan buat begini pada Fasa 1 melainkan awak tidak mahu.
-- **Had percubaan login mengikut ID guru** bermaksud sesiapa yang tahu ID guru boleh sengaja mengunci akaun guru itu selama 5 minit. Apps Script tidak memberi alamat IP, jadi tidak dapat dihadkan mengikut IP. Saya cadangkan terima kos ini (ia hanya kacau, bukan bocor) dan pentadbir boleh buka kunci.
-- **Peraturan kata laluan.** Cadangan: minimum 8 aksara, tidak boleh sama dengan ID guru. Setuju?
+1. `had_jam_kredit` diberi lajur `id` (UUID) supaya ikut peraturan "setiap tab ada id". `sessions` guna `token` sebagai kunci utama.
+2. Lajur tambahan `akaun.persetujuan_pdpa_pada` untuk bukti persetujuan PDPA (Seksyen 9).
+3. Jadual `ref_*` tambahan: `ref_tahap_kelayakan`, `ref_jenis_opsyen`, `ref_peringkat_kursus` dan `ref_peringkat_pertandingan`, `ref_hari` (isnin hingga ahad). Kod nilai dalam `snake_case` (`al_quran_tutorial`).
+4. Lajur nilai terhad menyimpan `kod` (boleh dibaca manusia). Dalam Postgres ia menjadi kunci asing kepada `ref_*.kod`.
+5. Dalam kekangan unik, nilai kosong dianggap sama (`UNIQUE NULLS NOT DISTINCT` dalam Postgres).
+6. Nombor IC dalam teks bebas dibuang senyap-senyap semasa simpan. Nombor telefon tidak terkesan.
+7. Aksi tanpa token, termasuk yang tidak wujud, dijawab `TIDAK_LOG_MASUK`.
+8. `dist/Code.gs` ialah gabungan fail backend untuk salin-tampal.
+9. UI: warna logo tepat untuk jenama dan butang utama, versi lembut untuk latar. Status "hampir had" pada 80% had.
 
 ## Perkara belum diputuskan (Seksyen 14)
 
 | Perkara | Diperlukan pada |
 |---|---|
-| Kaedah ekstrak PDF (Claude API atau OCR Drive) dan format PDF jadual sebenar | Fasa 3 |
 | Adakah data isian guru perlu disahkan pentadbir (draf dan disahkan)? | Fasa 2 |
-| Sasaran bilangan cerapan setahun | Fasa 2 |
-| Tempoh simpanan data guru yang berpindah atau bersara | Fasa 1 dan 7 |
+| Tempoh simpanan data guru yang berpindah atau bersara (notis privasi kini menyebut "mengikut tempoh yang ditetapkan oleh pihak sekolah") | Fasa 7 |
+| Kaedah ekstrak PDF (Claude API atau OCR Drive) dan format PDF jadual sebenar | Fasa 3 |
 | Senarai tetap subjek, kelas, unit kokurikulum dan rumah sukan | Fasa 3 dan 4 |

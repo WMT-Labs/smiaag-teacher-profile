@@ -5,26 +5,48 @@
  * Bentuk jawapan:  { "ok": true, "data": ... }  atau  { "ok": false, "code": "KOD", "message": "..." }
  *
  * Peraturan:
- *   - Hanya LOGIN tidak memerlukan token. Setiap aksi lain memanggil requireAuth() dahulu.
+ *   - Hanya LOGIN tidak memerlukan token. Setiap aksi lain melalui requireAuth() dahulu.
  *   - Aksi yang tidak dikenali tanpa token mendapat jawapan yang sama seperti aksi sebenar
  *     (TIDAK_LOG_MASUK), supaya orang luar tidak dapat meneka senarai aksi.
+ *   - Guru yang belum tukar kata laluan sementara atau belum bersetuju dengan notis privasi
+ *     hanya boleh memanggil aksi bertanda `allowPending`.
  *   - Ralat tidak dijangka tidak membocorkan butiran dalaman kepada pelayar.
  */
 
+var R_SEMUA = ['guru', 'pentadbir', 'superadmin'];
+var R_ADMIN = ['pentadbir', 'superadmin'];
+var R_SUPER = ['superadmin'];
+
+var _ACTIONS = null;
+
 /**
- * Daftar aksi. Setiap modul menambah aksinya di sini pada fasa masing-masing.
- *   public  : true hanya untuk LOGIN
- *   roles   : senarai peranan yang dibenarkan
- *   handler : function (ctx, params) -> data
+ * SENARAI SEMUA AKSI DAN SIAPA BOLEH MEMANGGILNYA.
+ * Semak di sini dahulu ketika audit keselamatan.
  */
-var ACTIONS = {
-  LOGIN: {
-    public: true,
-    handler: function (ctx, params) {
-      throw new AppError('BELUM_SEDIA', 'Log masuk belum diaktifkan. Ia dibina pada Fasa 1.');
-    }
-  }
-};
+function getActions() {
+  if (_ACTIONS) return _ACTIONS;
+  _ACTIONS = {
+    // ---- Auth (Fasa 1) ----
+    LOGIN:                { public: true, handler: aksiLogin },
+    LOGOUT:               { roles: R_SEMUA, allowPending: true, handler: aksiLogout },
+    SESI_SAYA:            { roles: R_SEMUA, allowPending: true, handler: aksiSesiSaya },
+    TUKAR_PASSWORD:       { roles: R_SEMUA, allowPending: true, handler: aksiTukarPassword },
+    SETUJU_PDPA:          { roles: R_SEMUA, allowPending: true, handler: aksiSetujuPdpa },
+    // ---- Urus akaun ----
+    AKAUN_SENARAI:        { roles: R_ADMIN, handler: aksiAkaunSenarai },
+    AKAUN_BUKA_KUNCI:     { roles: R_ADMIN, handler: aksiAkaunBukaKunci },
+    AKAUN_CIPTA:          { roles: R_SUPER, handler: aksiAkaunCipta },
+    AKAUN_RESET_PASSWORD: { roles: R_SUPER, handler: aksiAkaunResetPassword },
+    AKAUN_SET_AKTIF:      { roles: R_SUPER, handler: aksiAkaunSetAktif },
+    AKAUN_TUKAR_ROLE:     { roles: R_SUPER, handler: aksiAkaunTukarRole }
+  };
+  Object.keys(_ACTIONS).forEach(function (k) {
+    var d = _ACTIONS[k];
+    if (!d.public && !(Array.isArray(d.roles) && d.roles.length)) throw new Error('Aksi ' + k + ' tiada senarai peranan.');
+    if (typeof d.handler !== 'function') throw new Error('Aksi ' + k + ' tiada handler.');
+  });
+  return _ACTIONS;
+}
 
 function handleRequest(raw) {
   try {
@@ -37,13 +59,17 @@ function handleRequest(raw) {
       throw new AppError('PERMINTAAN_TIDAK_SAH', 'Permintaan tidak sah.');
     }
     var params = (req.params && typeof req.params === 'object' && !Array.isArray(req.params)) ? req.params : {};
-    var def = Object.prototype.hasOwnProperty.call(ACTIONS, req.action) ? ACTIONS[req.action] : null;
+    var actions = getActions();
+    var def = Object.prototype.hasOwnProperty.call(actions, req.action) ? actions[req.action] : null;
 
     if (def && def.public === true) {
       return { ok: true, data: def.handler(null, params) };
     }
     var ctx = requireAuth(req.token, def ? def.roles : null);   // langkah pertama untuk semua aksi lain
     if (!def) throw new AppError('AKSI_TIDAK_DIKENALI', 'Aksi tidak dikenali.');
+    if (ctx.pending && !def.allowPending) {
+      throw new AppError('PERLU_TINDAKAN', 'Sila setuju dengan notis privasi dan tukar kata laluan sementara dahulu.');
+    }
     return { ok: true, data: def.handler(ctx, params) };
   } catch (err) {
     if (err instanceof AppError || (err && err.name === 'AppError')) {

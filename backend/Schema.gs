@@ -50,14 +50,9 @@ var _TABLE_DEFS = {
       'jam:num[0..1000]', 'tahap:enum(ref_peringkat_kursus)!']
   },
   cerapan: {
-    cols: ['id:uuid!', 'guru_id:fk(guru)!', 'tahun_akademik:year!', 'tarikh_dirancang:date', 'tarikh_sebenar:date',
-      'pencerap:text', 'subjek_id:fk(subjek)', 'kelas_id:fk(kelas)', 'skor_atau_gred:text', 'ulasan_ringkas:text',
-      'status:enum(ref_status_cerapan)!=dirancang']
-  },
-  sasaran_cerapan: {
-    // guru_id kosong = nilai lalai sekolah; ada guru_id = sasaran khusus guru itu.
-    cols: ['id:uuid!', 'tahun_akademik:year!', 'guru_id:fk(guru)', 'bilangan_sasaran_setahun:int[0..20]!'],
-    unique: [['tahun_akademik', 'guru_id']]
+    // Ringkas: satu baris bagi setiap guru setiap tahun. Berapa kali dicerap dan siapa pencerapnya.
+    cols: ['id:uuid!', 'guru_id:fk(guru)!', 'tahun_akademik:year!', 'bilangan_dicerap:int[0..50]!=0', 'pencerap:text', 'catatan:text'],
+    unique: [['guru_id', 'tahun_akademik']]
   },
   audit_log: {
     audit: false,
@@ -151,7 +146,6 @@ var REF_SEEDS = {
     ['ijazah_sarjana', 'Ijazah Sarjana'], ['doktor_falsafah', 'Doktor Falsafah'], ['lain_lain', 'Lain-lain']],
   ref_jenis_opsyen: [['major', 'Major'], ['minor', 'Minor']],
   ref_peringkat_kursus: [['sekolah', 'Sekolah'], ['daerah', 'Daerah'], ['negeri', 'Negeri'], ['kebangsaan', 'Kebangsaan'], ['lain_lain', 'Lain-lain']],
-  ref_status_cerapan: [['dirancang', 'Dirancang'], ['selesai', 'Selesai'], ['ditunda', 'Ditunda']],
   ref_kategori_subjek: [['subjek', 'Subjek'], ['al_quran_tutorial', 'Al-Quran / Tutorial'], ['lain', 'Lain']],
   ref_jenis_tugasan: [['berjadual', 'Berjadual'], ['tidak_berjadual', 'Tidak berjadual']],
   ref_kumpulan_tugasan: [['subjek', 'Subjek'], ['al_quran_tutorial', 'Al-Quran / Tutorial'], ['aktiviti_lain', 'Aktiviti lain'],
@@ -169,7 +163,7 @@ var REF_SEEDS = {
 var REF_COLS = ['id:uuid!', 'kod:text!', 'label:text!', 'susunan:int[0..1000]!=0', 'aktif:bool!=true'];
 
 /** Jenis lajur teks yang dianggap "medan bebas" dan dihadkan lebih panjang. */
-var LONG_TEXT_COLS = ['ulasan_ringkas', 'butiran', 'catatan', 'pencapaian'];
+var LONG_TEXT_COLS = ['butiran', 'catatan', 'pencapaian'];
 var MAX_TEXT = 200;
 var MAX_LONG_TEXT = 1000;
 

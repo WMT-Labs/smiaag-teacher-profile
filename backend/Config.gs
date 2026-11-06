@@ -6,7 +6,7 @@
  */
 
 var APP_NAME = 'SMIAAG Teacher Profiling';
-var APP_VERSION = '0.1.0-fasa0';
+var APP_VERSION = '0.2.0-fasa1';
 var TZ = 'Asia/Kuala_Lumpur';
 
 /** Nama kunci dalam PropertiesService. */

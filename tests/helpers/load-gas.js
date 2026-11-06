@@ -6,10 +6,10 @@ const vm = require('node:vm');
 const { createEnv } = require('./gas-mock');
 
 const BACKEND = path.join(__dirname, '..', '..', 'backend');
-const ORDER = ['Config.gs', 'Util.gs', 'Schema.gs', 'Repository.gs', 'Setup.gs', 'Auth.gs', 'Api.gs'];
+const ORDER = ['Config.gs', 'Util.gs', 'Schema.gs', 'Repository.gs', 'Setup.gs', 'Auth.gs', 'Akaun.gs', 'Api.gs'];
 
-function loadBackend(extraFiles = []) {
-  const env = createEnv();
+function loadBackend(extraFiles = [], opts = {}) {
+  const env = createEnv(opts);
   const ctx = vm.createContext(env);
   ORDER.concat(extraFiles).forEach((f) => {
     const p = path.join(BACKEND, f);
@@ -19,8 +19,8 @@ function loadBackend(extraFiles = []) {
 }
 
 /** Backend yang sudah disediakan (setupTemplate telah dijalankan). */
-function loadReady() {
-  const b = loadBackend();
+function loadReady(opts = {}) {
+  const b = loadBackend([], opts);
   b.ctx.setupTemplate();
   return b;
 }

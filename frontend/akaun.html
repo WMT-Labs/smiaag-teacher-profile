@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Urus akaun — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard({ roles: ['pentadbir', 'superadmin'] });
+      if (!sesi) return;
+      var el = UI.el;
+      var isSuper = sesi.role === 'superadmin';
+      var c = App.mount({ sesi: sesi, active: 'akaun', title: 'Urus akaun' });
+      var STATUS = [['tetap', 'Tetap'], ['kontrak', 'Kontrak'], ['lain_lain', 'Lain-lain']];
+      var ROLES = [['guru', 'Guru'], ['pentadbir', 'Pentadbir'], ['superadmin', 'Superadmin']];
+      var data = [];
+
+      function options(list, selected) {
+        return list.map(function (o) {
+          var opt = el('option', { value: o[0] }, o[1]);
+          if (o[0] === selected) opt.selected = true;
+          return opt;
+        });
+      }
+
+      // ---------- rangka halaman ----------
+      var cari = el('input', { class: 'input', type: 'search', placeholder: 'Cari nama atau ID guru', 'aria-label': 'Cari akaun' });
+      var tapisRole = el('select', { class: 'select', 'aria-label': 'Tapis peranan', style: 'width:auto' }, [el('option', { value: '' }, 'Semua peranan')].concat(options(ROLES)));
+      var tapisStatus = el('select', { class: 'select', 'aria-label': 'Tapis status', style: 'width:auto' }, [
+        el('option', { value: '' }, 'Semua status'), el('option', { value: 'aktif' }, 'Aktif'), el('option', { value: 'tidak' }, 'Tidak aktif'), el('option', { value: 'kunci' }, 'Dikunci')
+      ]);
+      var tools = [el('div', { class: 'grow' }, cari), tapisRole, tapisStatus];
+      if (isSuper) {
+        var addBtn = el('button', { class: 'btn btn-sm', type: 'button' }, 'Tambah akaun');
+        addBtn.addEventListener('click', ciptaAkaun);
+        tools.push(addBtn);
+      }
+      var tbody = el('tbody');
+      var count = el('span', { class: 'muted', style: 'font-size:.8125rem' });
+      c.appendChild(el('section', { class: 'card' }, [
+        el('div', { class: 'card-head' }, [el('h2', {}, 'Akaun pengguna'), count]),
+        el('div', { class: 'toolbar' }, tools),
+        el('div', { class: 'table-wrap' }, el('table', { class: 'data cards' }, [
+          el('thead', {}, el('tr', {}, [el('th', {}, 'Guru'), el('th', {}, 'Peranan'), el('th', {}, 'Status'), el('th', { class: 'r' }, 'Tindakan')])),
+          tbody
+        ]))
+      ]));
+      if (!isSuper) {
+        c.appendChild(el('p', { class: 'muted', style: 'font-size:.875rem' }, 'Sebagai pentadbir, anda boleh melihat akaun dan membuka kunci akaun yang terkunci. Tindakan lain dibuat oleh superadmin.'));
+      }
+      [cari, tapisRole, tapisStatus].forEach(function (x) { x.addEventListener('input', render); });
+
+      // ---------- paparan ----------
+      function badge(kind, text) { return el('span', { class: 'badge badge-' + kind }, text); }
+
+      function render() {
+        var q = cari.value.trim().toLowerCase(), r = tapisRole.value, st = tapisStatus.value;
+        var rows = data.filter(function (a) {
+          if (q && (a.nama_penuh + ' ' + a.guru_kod).toLowerCase().indexOf(q) === -1) return false;
+          if (r && a.role !== r) return false;
+          if (st === 'aktif' && !a.aktif) return false;
+          if (st === 'tidak' && a.aktif) return false;
+          if (st === 'kunci' && !a.dikunci) return false;
+          return true;
+        });
+        count.textContent = rows.length + ' daripada ' + data.length + ' akaun';
+        tbody.textContent = '';
+        if (!rows.length) {
+          tbody.appendChild(el('tr', {}, el('td', { colspan: '4', class: 'empty full' }, data.length ? 'Tiada akaun sepadan dengan carian.' : 'Belum ada akaun.')));
+          return;
+        }
+        rows.forEach(function (a) { tbody.appendChild(baris(a)); });
+      }
+
+      function baris(a) {
+        var diri = a.akaun_id === sesi.akaun_id;
+        var who = el('div', {}, [el('b', { style: 'color:var(--blue-900)' }, a.nama_penuh), el('div', { class: 'muted', style: 'font-size:.75rem' }, a.guru_kod + (diri ? ' · anda' : ''))]);
+
+        var roleCell;
+        if (isSuper && !diri) {
+          var sel = el('select', { class: 'select select-sm', 'aria-label': 'Peranan ' + a.nama_penuh }, options(ROLES, a.role));
+          sel.addEventListener('change', function () { tukarRole(a, sel); });
+          roleCell = sel;
+        } else roleCell = el('span', {}, App.LABEL_ROLE[a.role]);
+
+        var badges = el('div', { class: 'badges' }, [a.aktif ? badge('ok', 'Aktif') : badge('over', 'Tidak aktif')]);
+        if (a.dikunci) badges.appendChild(badge('over', 'Dikunci'));
+        if (a.aktif && a.wajib_tukar_password) badges.appendChild(badge('near', 'Kata laluan sementara'));
+        if (a.aktif && !a.persetujuan_pdpa_pada) badges.appendChild(badge('neutral', 'Belum setuju PDPA'));
+
+        var actions = el('div', { class: 'actions' });
+        function act(text, kind, fn) { var b = el('button', { class: 'btn btn-sm ' + kind, type: 'button' }, text); b.addEventListener('click', function () { fn(a, b); }); actions.appendChild(b); }
+        if (a.dikunci) act('Buka kunci', 'btn-secondary', bukaKunci);
+        if (isSuper && !diri) {
+          act('Reset kata laluan', 'btn-secondary', resetPassword);
+          act(a.aktif ? 'Nyahaktif' : 'Aktifkan', a.aktif ? 'btn-ghost' : 'btn-secondary', setAktif);
+        }
+        if (!actions.childNodes.length) actions.appendChild(el('span', { class: 'muted', style: 'font-size:.8125rem' }, '—'));
+
+        return el('tr', {}, [
+          el('td', { 'data-label': 'Guru' }, who),
+          el('td', { 'data-label': 'Peranan' }, roleCell),
+          el('td', { 'data-label': 'Status' }, badges),
+          el('td', { 'data-label': 'Tindakan', class: 'r' }, actions)
+        ]);
+      }
+
+      function ganti(row) {
+        data = data.map(function (x) { return x.akaun_id === row.akaun_id ? row : x; });
+        render();
+      }
+
+      function muat() {
+        tbody.textContent = '';
+        tbody.appendChild(el('tr', {}, el('td', { colspan: '4', class: 'empty full' }, 'Memuatkan...')));
+        Api.call('AKAUN_SENARAI').then(function (rows) { data = rows; render(); })
+          .catch(function (e) { tbody.textContent = ''; tbody.appendChild(el('tr', {}, el('td', { colspan: '4', class: 'empty full' }, e.message))); });
+      }
+
+      // ---------- tindakan ----------
+      function tunjukPassword(tajuk, a, pw) {
+        var copyBtn = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, 'Salin');
+        copyBtn.addEventListener('click', function () {
+          (navigator.clipboard ? navigator.clipboard.writeText(pw) : Promise.reject()).then(function () { copyBtn.textContent = 'Disalin'; }, function () { copyBtn.textContent = 'Salin manual'; });
+        });
+        return App.dialog({
+          title: tajuk,
+          body: [
+            el('dl', { class: 'kv' }, [el('dt', {}, 'Nama'), el('dd', {}, a.nama_penuh), el('dt', {}, 'ID guru'), el('dd', {}, a.guru_kod)]),
+            el('div', {}, [el('div', { class: 'muted', style: 'font-size:.8125rem;margin-bottom:6px' }, 'Kata laluan sementara'), el('div', { class: 'secret' }, [el('span', {}, pw), copyBtn])]),
+            el('div', { class: 'notice notice-warn' }, el('span', {}, 'Kata laluan ini dipaparkan sekali sahaja. Serahkan terus kepada guru berkenaan (bukan dalam kumpulan WhatsApp). Guru wajib menukarnya semasa log masuk pertama.'))
+          ],
+          actions: [{ text: 'Saya sudah catat', value: true }]
+        });
+      }
+
+      function ciptaAkaun() {
+        var f = {
+          kod: el('input', { class: 'input', id: 'n-kod', maxlength: '20', autocapitalize: 'characters', placeholder: 'contoh: SM216' }),
+          nama: el('input', { class: 'input', id: 'n-nama', maxlength: '150' }),
+          status: el('select', { class: 'select', id: 'n-status', style: 'min-height:46px' }, options(STATUS, 'tetap')),
+          role: el('select', { class: 'select', id: 'n-role', style: 'min-height:46px' }, options(ROLES, 'guru'))
+        };
+        var alertText = el('span');
+        var alertBox = el('div', { class: 'notice notice-error', role: 'alert' }, alertText);
+        alertBox.hidden = true;
+        function field(id, label, input, hint) {
+          return el('div', { class: 'field' }, [el('label', { for: id }, label), input].concat(hint ? [el('span', { class: 'hint' }, hint)] : []));
+        }
+        var created = null;
+        App.dialog({
+          title: 'Tambah akaun',
+          body: [
+            alertBox,
+            field('n-kod', 'ID guru', f.kod, 'Huruf dan nombor sahaja. Digunakan untuk log masuk.'),
+            field('n-nama', 'Nama penuh', f.nama),
+            field('n-status', 'Status lantikan', f.status),
+            field('n-role', 'Peranan', f.role)
+          ],
+          actions: [
+            { text: 'Batal', kind: 'btn-secondary', value: null },
+            { text: 'Cipta akaun', value: 'ok', onClick: function (b) {
+              alertBox.hidden = true;
+              if (!f.kod.value.trim() || !f.nama.value.trim()) { alertText.textContent = 'Isi ID guru dan nama penuh.'; alertBox.hidden = false; return false; }
+              b.disabled = true;
+              return Api.call('AKAUN_CIPTA', { guru_kod: f.kod.value, nama_penuh: f.nama.value, status_lantikan: f.status.value, role: f.role.value })
+                .then(function (r) { created = r; return true; })
+                .catch(function (e) { alertText.textContent = e.message; alertBox.hidden = false; b.disabled = false; return false; });
+            } }
+          ]
+        }).then(function (v) {
+          if (v !== 'ok' || !created) return;
+          data.push(created.akaun);
+          data.sort(function (x, y) { return x.guru_kod < y.guru_kod ? -1 : 1; });
+          render();
+          tunjukPassword('Akaun dicipta', created.akaun, created.password_sementara);
+        });
+        setTimeout(function () { f.kod.focus(); }, 50);
+      }
+
+      function resetPassword(a, b) {
+        App.confirm('Reset kata laluan?', 'Kata laluan ' + a.nama_penuh + ' akan diganti dengan kata laluan sementara baharu. Guru ini akan dilog keluar daripada semua peranti.', 'Reset').then(function (ok) {
+          if (!ok) return;
+          b.disabled = true;
+          Api.call('AKAUN_RESET_PASSWORD', { akaun_id: a.akaun_id }).then(function (r) {
+            ganti(r.akaun);
+            tunjukPassword('Kata laluan direset', r.akaun, r.password_sementara);
+          }).catch(function (e) { UI.toast(e.message); b.disabled = false; });
+        });
+      }
+
+      function setAktif(a, b) {
+        var nyah = a.aktif;
+        var p = nyah
+          ? App.confirm('Nyahaktif akaun?', a.nama_penuh + ' tidak lagi boleh log masuk. Rekod tidak dipadam dan boleh diaktifkan semula.', 'Nyahaktif', true)
+          : Promise.resolve(true);
+        p.then(function (ok) {
+          if (!ok) return;
+          b.disabled = true;
+          Api.call('AKAUN_SET_AKTIF', { akaun_id: a.akaun_id, aktif: !nyah }).then(function (r) {
+            ganti(r); UI.toast(nyah ? 'Akaun dinyahaktifkan.' : 'Akaun diaktifkan.');
+          }).catch(function (e) { UI.toast(e.message); b.disabled = false; });
+        });
+      }
+
+      function tukarRole(a, sel) {
+        var baru = sel.value;
+        App.confirm('Tukar peranan?', a.nama_penuh + ': ' + App.LABEL_ROLE[a.role] + ' kepada ' + App.LABEL_ROLE[baru] + '. Guru ini perlu log masuk semula.', 'Tukar').then(function (ok) {
+          if (!ok) { sel.value = a.role; return; }
+          Api.call('AKAUN_TUKAR_ROLE', { akaun_id: a.akaun_id, role: baru }).then(function (r) {
+            ganti(r); UI.toast('Peranan dikemas kini.');
+          }).catch(function (e) { sel.value = a.role; UI.toast(e.message); });
+        });
+      }
+
+      function bukaKunci(a, b) {
+        b.disabled = true;
+        Api.call('AKAUN_BUKA_KUNCI', { akaun_id: a.akaun_id }).then(function (r) { ganti(r); UI.toast('Kunci dibuka.'); })
+          .catch(function (e) { UI.toast(e.message); b.disabled = false; });
+      }
+
+      muat();
+    })();
+  </script>
+</body>
+</html>

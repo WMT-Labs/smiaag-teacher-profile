@@ -73,3 +73,65 @@ function stripIdentityNumbers(text) {
 function jsonOut(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
+
+/** Tarikh JS -> ISO 8601 zon Asia/Kuala_Lumpur. */
+function toIso(date) {
+  return Utilities.formatDate(date, TZ, "yyyy-MM-dd'T'HH:mm:ssXXX");
+}
+
+// ---------------------------------------------------------------------------
+// Pengesahan parameter daripada frontend (semua disemak di server)
+// ---------------------------------------------------------------------------
+
+/** Ambil teks. opt: { label, min, max, re, upper, optional } */
+function pStr(params, key, opt) {
+  opt = opt || {};
+  var label = opt.label || key;
+  var v = params[key];
+  if (v === undefined || v === null || (typeof v === 'string' && v.trim() === '')) {
+    if (opt.optional) return null;
+    throw new AppError('VALIDASI', label + ' wajib diisi.', { field: key });
+  }
+  if (typeof v !== 'string') throw new AppError('VALIDASI', label + ' tidak sah.', { field: key });
+  v = v.trim();
+  if (opt.upper) v = v.toUpperCase();
+  if (opt.min && v.length < opt.min) throw new AppError('VALIDASI', label + ' terlalu pendek (minimum ' + opt.min + ' aksara).', { field: key });
+  if (v.length > (opt.max || 200)) throw new AppError('VALIDASI', label + ' terlalu panjang.', { field: key });
+  if (opt.re && !opt.re.test(v)) throw new AppError('VALIDASI', opt.reMsg || (label + ' tidak sah.'), { field: key });
+  return v;
+}
+
+function pUuid(params, key, label) {
+  var v = params[key];
+  if (typeof v !== 'string' || !UUID_RE.test(v)) throw new AppError('VALIDASI', (label || key) + ' tidak sah.', { field: key });
+  return v;
+}
+
+function pBool(params, key, label) {
+  var v = params[key];
+  if (v !== true && v !== false) throw new AppError('VALIDASI', (label || key) + ' mesti ya atau tidak.', { field: key });
+  return v;
+}
+
+function pOneOf(params, key, allowed, label) {
+  var v = params[key];
+  if (allowed.indexOf(v) === -1) throw new AppError('VALIDASI', (label || key) + ' tidak sah.', { field: key });
+  return v;
+}
+
+// ---------------------------------------------------------------------------
+// Log audit
+// ---------------------------------------------------------------------------
+
+/** Rekod tindakan penting. Kegagalan menulis log tidak menggagalkan tindakan utama, tetapi dicatat. */
+function logAudit(akaunId, tindakan, sasaran, butiran) {
+  try {
+    insert('audit_log', {
+      masa: nowIso(), akaun_id: akaunId || null, tindakan: tindakan,
+      sasaran: sasaran ? String(sasaran).slice(0, 200) : null,
+      butiran: butiran ? String(butiran).slice(0, 1000) : null
+    }, { skipFk: true });
+  } catch (e) {
+    Logger.log('Gagal menulis audit_log: ' + e.message);
+  }
+}

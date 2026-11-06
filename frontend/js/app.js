@@ -1,0 +1,176 @@
+/*
+ * app.js — rangka halaman selepas log masuk: kawalan sesi, menu ikut peranan, dialog.
+ * Bergantung pada config.js, api.js dan ui.js.
+ */
+(function () {
+  'use strict';
+  var el = UI.el;
+  var ICON = 'assets/icons.svg#';
+
+  function icon(name, size) {
+    var ns = 'http://www.w3.org/2000/svg';
+    var s = document.createElementNS(ns, 'svg');
+    s.setAttribute('class', 'icon');
+    if (size) s.setAttribute('style', 'width:' + size + 'px;height:' + size + 'px');
+    s.setAttribute('aria-hidden', 'true');
+    var u = document.createElementNS(ns, 'use');
+    u.setAttribute('href', ICON + name);
+    s.appendChild(u);
+    return s;
+  }
+
+  var LABEL_ROLE = { guru: 'Guru', pentadbir: 'Pentadbir', superadmin: 'Superadmin' };
+
+  /** Ke mana selepas log masuk. Notis privasi dahulu, kemudian tukar kata laluan. */
+  function nextPage(sesi) {
+    if (sesi.perlu_persetujuan_pdpa) return 'privasi.html';
+    if (sesi.wajib_tukar_password) return 'tukar-password.html';
+    return 'utama.html';
+  }
+
+  /**
+   * Pastikan ada sesi sah sebelum paparkan halaman.
+   * opt: { roles: [...], pendingPage: true jika halaman ini sebahagian langkah wajib }
+   * Pulangkan objek sesi, atau null (dan alihkan halaman).
+   */
+  function guard(opt) {
+    opt = opt || {};
+    var s = Api.getSession();
+    if (!s || !s.token || !s.sesi || Date.parse(s.expiry) <= Date.now()) {
+      Api.clearSession();
+      location.replace('index.html' + (s ? '?tamat=1' : ''));
+      return null;
+    }
+    var pending = s.sesi.perlu_persetujuan_pdpa || s.sesi.wajib_tukar_password;
+    if (pending && !opt.pendingPage) { location.replace(nextPage(s.sesi)); return null; }
+    if (opt.roles && opt.roles.indexOf(s.sesi.role) === -1) { location.replace('utama.html'); return null; }
+    return s.sesi;
+  }
+
+  /** Simpan ringkasan sesi baharu (selepas SETUJU_PDPA / TUKAR_PASSWORD). */
+  function updateSesi(sesi) {
+    var s = Api.getSession();
+    if (s) { s.sesi = sesi; Api.setSession(s); }
+  }
+
+  function logout() {
+    Api.call('LOGOUT').catch(function () { /* tetap keluar walaupun pelayan gagal */ })
+      .then(function () { Api.clearSession(); location.replace('index.html'); });
+  }
+
+  function navItems(role) {
+    var admin = role === 'pentadbir' || role === 'superadmin';
+    var items = [
+      { label: 'Utama' },
+      { key: 'utama', href: 'utama.html', text: 'Laman utama', icon: 'i-dashboard' },
+      { key: 'profil', text: 'Profil saya', icon: 'i-users', soon: 'Fasa 2' },
+      { label: 'Bahagian' },
+      { key: 'kuri', text: 'Kurikulum', icon: 'i-book', soon: 'Fasa 3' },
+      { key: 'koku', text: 'Kokurikulum', icon: 'i-trophy', soon: 'Fasa 4' },
+      { key: 'hem', text: 'HEM', icon: 'i-heart', soon: 'Fasa 5' }
+    ];
+    if (admin) {
+      items.push({ label: 'Pentadbiran' });
+      items.push({ key: 'dashboard', text: 'Dashboard sekolah', icon: 'i-dashboard', soon: 'Fasa 6' });
+      items.push({ key: 'akaun', href: 'akaun.html', text: 'Urus akaun', icon: 'i-shield' });
+    }
+    items.push({ label: 'Akaun saya' });
+    items.push({ key: 'password', href: 'tukar-password.html', text: 'Tukar kata laluan', icon: 'i-sliders' });
+    return items;
+  }
+
+  /** Bina sidebar + topbar. Pulangkan elemen kandungan untuk diisi oleh halaman. */
+  function mount(opt) {
+    var sesi = opt.sesi;
+    var nav = el('nav', { class: 'nav' });
+    navItems(sesi.role).forEach(function (it) {
+      if (it.label) { nav.appendChild(el('div', { class: 'nav-label' }, it.label)); return; }
+      var a = el('a', { href: it.href || '#' }, [icon(it.icon), it.text]);
+      if (it.soon) { a.className = 'soon'; a.setAttribute('aria-disabled', 'true'); a.appendChild(el('span', { class: 'chip' }, it.soon)); }
+      if (it.key === opt.active) a.setAttribute('aria-current', 'page');
+      nav.appendChild(a);
+    });
+    var initials = (sesi.nama_penuh || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
+    var logo = el('img', { src: 'assets/logo-96.png', alt: 'Logo SMIAAG', width: '44', height: '44' });
+    var sidebar = el('aside', { class: 'sidebar', id: 'sidebar', 'aria-label': 'Menu utama' }, [
+      el('div', { class: 'brand' }, [logo, el('div', {}, [el('b', {}, 'Profil Guru'), el('span', {}, 'SMI Al-Amin Gombak')])]),
+      nav,
+      el('div', { class: 'userbox' }, [
+        el('div', { class: 'avatar', 'aria-hidden': 'true' }, initials),
+        el('div', {}, [el('b', {}, sesi.nama_penuh), el('span', {}, sesi.guru_kod + ' · ' + LABEL_ROLE[sesi.role])])
+      ])
+    ]);
+    var menuBtn = el('button', { class: 'menu-btn', 'aria-label': 'Buka menu', 'aria-controls': 'sidebar' }, icon('i-menu'));
+    var outBtn = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, [icon('i-logout', 16), 'Log keluar']);
+    var content = el('div', { class: 'content' });
+    var shell = el('div', { class: 'shell' }, [
+      sidebar,
+      el('div', { class: 'scrim', id: 'scrim' }),
+      el('div', { class: 'main' }, [
+        el('header', { class: 'topbar' }, [menuBtn, el('h1', {}, opt.title), el('span', { class: 'spacer' }), outBtn]),
+        el('main', {}, content)
+      ])
+    ]);
+    document.body.appendChild(shell);
+    menuBtn.addEventListener('click', function () { document.body.classList.toggle('nav-open'); });
+    shell.querySelector('#scrim').addEventListener('click', function () { document.body.classList.remove('nav-open'); });
+    outBtn.addEventListener('click', logout);
+    return content;
+  }
+
+  /**
+   * Dialog ringkas. opt: { title, body: [nodes], actions: [{text, kind, value}] }
+   * Pulangkan Promise dengan `value` butang yang ditekan (atau null jika ditutup).
+   */
+  function dialog(opt) {
+    return new Promise(function (resolve) {
+      var foot = el('div', { class: 'modal-foot' });
+      var d = el('dialog', { class: 'modal', 'aria-labelledby': 'dlg-title' }, [
+        el('div', { class: 'modal-head' }, el('h2', { id: 'dlg-title' }, opt.title)),
+        el('div', { class: 'modal-body' }, opt.body || []),
+        foot
+      ]);
+      (opt.actions || [{ text: 'Tutup', kind: 'btn-secondary', value: null }]).forEach(function (a) {
+        var b = el('button', { class: 'btn ' + (a.kind || ''), type: 'button' }, a.text);
+        b.addEventListener('click', function () {
+          if (a.onClick) {
+            var r = a.onClick(b);
+            if (r === false) return;
+            if (r && r.then) { r.then(function (v) { if (v !== false) { d.close(); resolve(a.value); } }); return; }
+          }
+          d.close(); resolve(a.value);
+        });
+        foot.appendChild(b);
+      });
+      d.addEventListener('cancel', function () { resolve(null); });
+      d.addEventListener('close', function () { setTimeout(function () { d.remove(); }, 0); });
+      document.body.appendChild(d);
+      d.showModal();
+    });
+  }
+
+  function confirmDialog(title, message, okText, danger) {
+    return dialog({
+      title: title,
+      body: [el('p', {}, message)],
+      actions: [
+        { text: 'Batal', kind: 'btn-secondary', value: false },
+        { text: okText || 'Teruskan', kind: danger ? 'btn-danger' : '', value: true }
+      ]
+    });
+  }
+
+  /** 2026-11-06T18:30:00+08:00 -> 06/11/2026, 6:30 ptg */
+  function fmtDateTime(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso || '');
+    if (!m) return '';
+    var h = +m[4], ampm = h < 12 ? 'pg' : (h < 19 ? 'ptg' : 'mlm');
+    var h12 = h % 12 === 0 ? 12 : h % 12;
+    return m[3] + '/' + m[2] + '/' + m[1] + ', ' + h12 + ':' + m[5] + ' ' + ampm;
+  }
+
+  window.App = {
+    icon: icon, nextPage: nextPage, guard: guard, updateSesi: updateSesi, logout: logout, mount: mount,
+    dialog: dialog, confirm: confirmDialog, fmtDateTime: fmtDateTime, LABEL_ROLE: LABEL_ROLE
+  };
+})();

@@ -2,7 +2,7 @@
 
 Sistem profil guru untuk Sekolah Menengah Islam Al-Amin Gombak. Menyimpan maklumat guru dalam tiga bahagian (kurikulum, kokurikulum, HEM), dan memberi pentadbir gambaran beban kerja seluruh sekolah.
 
-**Status: Fasa 0 (Asas) siap.** Struktur, pangkalan data Sheets, lapisan repository dan reka bentuk antara muka sudah ada. Log masuk, profil dan dashboard sebenar dibina pada fasa seterusnya (lihat [Fasa pembinaan](#fasa-pembinaan)).
+**Status: Fasa 1 (Auth) siap.** Log masuk, sesi, had percubaan, notis privasi, tukar kata laluan dan urus akaun sudah berfungsi. Profil guru dan dashboard dibina pada fasa seterusnya (lihat [Fasa pembinaan](#fasa-pembinaan)).
 
 ## Bagaimana ia berfungsi (ringkas)
 
@@ -27,16 +27,21 @@ backend/            Kod Apps Script (satu fail per kawasan)
   Schema.gs           definisi semua jadual (sumber kebenaran)
   Repository.gs       SATU-SATUNYA kod yang menyentuh Sheets
   Setup.gs            setupTemplate(): bina semua tab dan nilai asal
-  Auth.gs             kerangka pengesahan (Fasa 1)
-  Api.gs              pintu masuk doPost
+  Auth.gs             log masuk, hash kata laluan, sesi, had percubaan, PDPA
+  Akaun.gs            urus akaun (superadmin), cipta superadmin pertama
+  Api.gs              pintu masuk doPost + SENARAI SEMUA AKSI dan peranan
   appsscript.json     tetapan projek Apps Script
 frontend/           Laman web (diterbitkan)
   index.html          log masuk
+  privasi.html        notis privasi (log masuk pertama)
+  tukar-password.html tukar kata laluan
+  utama.html          laman utama selepas log masuk
+  akaun.html          urus akaun (pentadbir, superadmin)
   pratonton.html      pratonton reka bentuk dashboard (data contoh)
   css/ js/ assets/
 dist/Code.gs        gabungan semua fail backend dalam satu fail (untuk salin-tampal)
 docs/               SKEMA.md (dijana), senarai semak, catatan keputusan
-scripts/            skrip bundle dan jana dokumentasi
+scripts/            skrip bundle, jana dokumentasi, pelayan dev
 tests/              ujian automatik (Node)
 ```
 
@@ -71,6 +76,16 @@ Masa: kira-kira 15 minit. Anda perlukan akaun Google sekolah atau peribadi yang 
 3. Klik **Deploy**, salin **Web app URL** (berakhir dengan `/exec`).
 4. Bila anda mengubah kod kemudian: **Deploy > Manage deployments > edit (pensel) > Version: New version > Deploy**. URL kekal sama.
 
+### C2. Cipta superadmin pertama (sekali sahaja)
+
+1. Dalam Apps Script: **Project Settings > Script Properties > Add script property**:
+   - `BOOTSTRAP_GURU_KOD` = ID guru anda, contoh `SM216`
+   - `BOOTSTRAP_NAMA` = nama penuh anda
+2. Kembali ke Editor, pilih fungsi `ciptaSuperadminPertama`, tekan **Run**.
+3. Execution log memaparkan kata laluan sementara. Catat. Dua property tadi dipadam automatik.
+4. Fungsi ini menolak jika superadmin sudah wujud, jadi ia tidak boleh disalah guna kemudian.
+5. Akaun guru lain dicipta melalui halaman **Urus akaun** selepas anda log masuk.
+
 ### D. Hubungkan frontend
 
 1. Buka `frontend/js/config.js`, isi `API_URL` dengan URL tadi.
@@ -78,7 +93,15 @@ Masa: kira-kira 15 minit. Anda perlukan akaun Google sekolah atau peribadi yang 
 2. Terbitkan folder `frontend/`:
    - **Netlify**: *Add new site > Import from Git*, pilih repo ini. Tetapan dalam `netlify.toml` sudah betul (publish = `frontend`).
    - **GitHub Pages**: *Settings > Pages > Source: GitHub Actions*, kemudian jalankan workflow *Terbit frontend*.
-3. Buka laman, cuba log masuk. Pada Fasa 0 anda akan nampak mesej "Log masuk belum diaktifkan". Itu tanda frontend dan backend sudah bersambung.
+3. Buka laman dan log masuk dengan akaun superadmin. Anda akan dibawa ke notis privasi, kemudian diminta menetapkan kata laluan sendiri.
+
+### Cuba di komputer sendiri tanpa Google (pilihan)
+
+```bash
+npm run dev
+```
+
+Buka <http://localhost:8080>. Backend sebenar dijalankan atas data palsu dalam memori. Akaun contoh dan kata laluan sementara dipaparkan di terminal. Data hilang bila ditutup.
 
 ### Menjalankan ujian automatik
 
@@ -95,26 +118,31 @@ Selepas mengubah apa-apa dalam `backend/`, jalankan `npm run bundle` dan `npm ru
 Butiran penuh dalam dokumen arahan projek, Seksyen 3. Yang sudah berkuat kuasa pada Fasa 0:
 
 - Sheet tidak dikongsi dan tidak diterbitkan ke web.
-- Hanya `LOGIN` boleh dipanggil tanpa token. Pada Fasa 0, pengesahan sengaja menolak semua permintaan (gagal tutup), jadi tiada data boleh dibaca walaupun Web App sudah di-deploy.
+- Hanya `LOGIN` boleh dipanggil tanpa token. Setiap aksi lain menyemak token, tempoh luput, status akaun dan peranan di server. Senarai aksi dan peranan dalam `backend/Api.gs`.
+- Kata laluan: SHA-256 dengan salt unik setiap guru dan pepper, diulang 1000 kali. Tiada plaintext disimpan.
+- Sesi: token rawak, luput selepas 8 jam, disimpan dalam tab `sessions`. Log keluar memadam token di server. Tukar kata laluan melog keluar peranti lain.
+- Maksimum 8 percubaan gagal setiap 5 minit bagi setiap ID guru. Pentadbir boleh buka kunci.
+- Guru baharu wajib bersetuju dengan notis privasi dan tukar kata laluan sementara sebelum boleh buat apa-apa lagi.
+- Tindakan penting (log masuk, gagal log masuk, urus akaun, persetujuan PDPA) direkod dalam `audit_log`.
 - Semua penulisan melalui `Repository.gs`: sahkan jenis, julat, nilai rujukan dan kunci asing, tambah awalan `'` pada nilai berbahaya (`= + - @`), dan buang nombor yang menyerupai IC daripada teks bebas.
 - Gaji dan IC tidak mempunyai lajur langsung (ada ujian yang menjaganya).
 - `PEPPER` dijana secara rawak dan disimpan dalam Script Properties sahaja.
 
 ## PDPA dan lokasi data
 
-Google (Sheets dan Apps Script) dan, pada masa depan, Supabase **mungkin menyimpan data di luar Malaysia**. Pemilik projek perlu mempertimbangkan perkara ini dan memaklumkan guru dalam notis privasi. Ciri PDPA lain (notis dan persetujuan, eksport dan padam data seorang guru, tempoh simpanan, senarai semak kebocoran) dibina pada Fasa 1 dan Fasa 7.
+Google (Sheets dan Apps Script) dan, pada masa depan, Supabase **mungkin menyimpan data di luar Malaysia**. Pemilik projek perlu mempertimbangkan perkara ini dan memaklumkan guru dalam notis privasi. Notis privasi dan persetujuan sudah ada (Fasa 1). Eksport dan padam data seorang guru, tempoh simpanan dan senarai semak kebocoran dibina pada Fasa 7.
 
 ## Fasa pembinaan
 
 | Fasa | Kandungan | Status |
 |---|---|---|
-| 0 | Asas: struktur, template Sheets, repository, README, reka bentuk UI | **Siap** |
-| 1 | Auth: login, hash, session, had percubaan, tukar kata laluan, urus akaun, notis privasi | Seterusnya |
-| 2 | Profil teras: guru, kelayakan, opsyen, kursus, cerapan, telefon bertutup, gambar | |
+| 0 | Asas: struktur, template Sheets, repository, README, reka bentuk UI | Siap |
+| 1 | Auth: login, hash, session, had percubaan, tukar kata laluan, urus akaun, notis privasi | **Siap** |
+| 2 | Profil teras: guru, kelayakan, opsyen, kursus, cerapan (bilangan dan pencerap), telefon bertutup, gambar | Seterusnya |
 | 3 | Kurikulum: subjek, kelas, tugasan, jadual, jam kredit, pertindihan, slot kosong, import PDF | |
 | 4 | Kokurikulum | |
 | 5 | HEM | |
 | 6 | Dashboard | |
 | 7 | Pengukuhan, audit keselamatan, `MIGRASI-SUPABASE.md` | |
 
-Lihat juga: [`docs/SKEMA.md`](docs/SKEMA.md), [`docs/SENARAI-SEMAK-FASA-0.md`](docs/SENARAI-SEMAK-FASA-0.md), [`docs/KEPUTUSAN.md`](docs/KEPUTUSAN.md).
+Lihat juga: [`docs/SKEMA.md`](docs/SKEMA.md), [`docs/SENARAI-SEMAK-FASA-0.md`](docs/SENARAI-SEMAK-FASA-0.md), [`docs/SENARAI-SEMAK-FASA-1.md`](docs/SENARAI-SEMAK-FASA-1.md), [`docs/KEPUTUSAN.md`](docs/KEPUTUSAN.md).

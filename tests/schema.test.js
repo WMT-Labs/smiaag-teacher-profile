@@ -47,7 +47,7 @@ test('kekangan unik hanya merujuk lajur yang wujud', () => {
 });
 
 test('semua jadual dalam dokumen Seksyen 5 wujud', () => {
-  ['guru', 'akaun', 'sessions', 'kelayakan', 'opsyen_guru', 'kursus', 'cerapan', 'sasaran_cerapan', 'audit_log',
+  ['guru', 'akaun', 'sessions', 'kelayakan', 'opsyen_guru', 'kursus', 'cerapan', 'audit_log',
     'subjek', 'kelas', 'tugasan_guru', 'jadual_slot', 'had_jam_kredit',
     'unit_kokurikulum', 'keahlian_unit', 'rumah_sukan', 'guru_rumah', 'juara_rumah_sukan', 'pertandingan', 'penyertaan_pertandingan',
     'kumpulan_usrah_pelajar', 'usrah_guru', 'keahlian_usrah_guru', 'kehadiran_usrah_guru', 'peranan_hem'

@@ -37,6 +37,9 @@
           <p class="muted" style="margin-top:6px">Guna ID guru dan kata laluan yang diberi oleh pentadbir sistem.</p>
         </div>
 
+        <div id="info" class="notice notice-info" role="status" hidden>
+          <svg class="icon"><use href="assets/icons.svg#i-info"/></svg><span>Sesi anda telah tamat. Sila log masuk semula.</span>
+        </div>
         <div id="alert" class="notice notice-error" role="alert" hidden>
           <svg class="icon"><use href="assets/icons.svg#i-alert"/></svg><span id="alert-text"></span>
         </div>
@@ -68,8 +71,14 @@
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
   <script>
     (function () {
+      // Sudah log masuk? Terus ke halaman seterusnya.
+      var existing = Api.getSession();
+      if (existing && existing.sesi && Date.parse(existing.expiry) > Date.now()) { location.replace(App.nextPage(existing.sesi)); return; }
+      if (/[?&]tamat=1/.test(location.search)) document.getElementById('info').hidden = false;
+
       var form = document.getElementById('login-form');
       var alertBox = document.getElementById('alert');
       var alertText = document.getElementById('alert-text');
@@ -96,9 +105,15 @@
         if (!pass) { showError('Masukkan kata laluan anda.'); pw.focus(); return; }
         btn.disabled = true; btn.textContent = 'Sila tunggu...';
         Api.call('LOGIN', { guru_kod: kod, password: pass })
-          .then(function () { /* Fasa 1: simpan sesi dan alih ke halaman profil / dashboard */ })
-          .catch(function (err) { showError(err.message); })
-          .then(function () { btn.disabled = false; btn.textContent = 'Log masuk'; });
+          .then(function (data) {
+            Api.setSession({ token: data.token, expiry: data.expiry, sesi: data.sesi });
+            location.replace(App.nextPage(data.sesi));
+          })
+          .catch(function (err) {
+            showError(err.message);
+            btn.disabled = false; btn.textContent = 'Log masuk';
+            if (err.code === 'LOGIN_GAGAL') { pw.value = ''; pw.focus(); }
+          });
       });
     })();
   </script>
