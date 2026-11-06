@@ -12,13 +12,26 @@ const path = require('node:path');
 const { loadReady } = require('../tests/helpers/load-gas');
 
 const PORT = +process.env.PORT || 8080;
+let seedDemo = null; try { seedDemo = require('./demo-data').seedDemo; } catch (e) { /* tiada data demo */ }
 const FRONT = path.join(__dirname, '..', 'frontend');
 const { ctx } = loadReady({ realClock: true });
 
-// Akaun contoh (palsu). Superadmin perlu setuju PDPA dan tukar kata laluan semasa log masuk pertama.
+// Akaun contoh (palsu).
+//   DEMO_PASSWORD diset  -> akaun SA001/AD901/SM901 sudah siap (PDPA + kata laluan = DEMO_PASSWORD);
+//                           SM902 dibiarkan baharu untuk mencuba aliran log masuk pertama.
+//   tanpa DEMO_PASSWORD  -> semua akaun guna kata laluan sementara (dipaparkan di terminal).
+const DEMO_PW = process.env.DEMO_PASSWORD || '';
 const sa = ctx._ciptaAkaunDalaman('SA001', 'Superadmin Contoh', 'tetap', 'superadmin', 'setup');
 const g1 = ctx._ciptaAkaunDalaman('SM901', 'Guru Contoh Satu', 'tetap', 'guru', 'setup');
 const ad = ctx._ciptaAkaunDalaman('AD901', 'Pentadbir Contoh', 'kontrak', 'pentadbir', 'setup');
+const g2 = ctx._ciptaAkaunDalaman('SM902', 'Guru Contoh Dua', 'kontrak', 'guru', 'setup');
+function siapkan(r) {
+  const salt = ctx.newSalt();
+  ctx.update('akaun', r.akaun.id, { salt, password_hash: ctx.hashPassword(DEMO_PW, salt), wajib_tukar_password: false, persetujuan_pdpa_pada: ctx.nowIso() });
+  r.password = DEMO_PW + ' (sudah siap)';
+}
+if (DEMO_PW) [sa, g1, ad].forEach(siapkan);
+if (typeof seedDemo === 'function') seedDemo(ctx, { sa, g1, ad, g2 });
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg' };
 
@@ -47,4 +60,5 @@ http.createServer((req, res) => {
   console.log(`  Superadmin  SA001 / ${sa.password}`);
   console.log(`  Pentadbir   AD901 / ${ad.password}`);
   console.log(`  Guru        SM901 / ${g1.password}`);
+  console.log(`  Guru baharu SM902 / ${g2.password}`);
 });

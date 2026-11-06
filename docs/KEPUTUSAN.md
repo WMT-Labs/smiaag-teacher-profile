@@ -13,6 +13,17 @@ Dikemas kini pada penghujung setiap fasa. Rujuk dokumen arahan projek (Seksyen 1
 | 06/11/2026 | Data yang diubah guru terus disimpan, tanpa kelulusan pentadbir. |
 | 06/11/2026 | Cerapan dipermudahkan: hanya bilangan dicerap setahun dan nama pencerap. Tiada sasaran, tiada tarikh dirancang. Jadual `sasaran_cerapan` dan `ref_status_cerapan` dibuang. |
 
+## Fasa 2: andaian yang saya buat
+
+1. **Guru boleh mengubah semua maklumat teras sendiri** (nama, status lantikan, jawatan, tarikh lantikan, telefon), terus disimpan. ID guru hanya boleh diubah oleh superadmin (belum ada skrin, jarang diperlukan).
+2. **Cerapan dicatat oleh pentadbir sahaja.** Guru boleh lihat rekod sendiri. Beritahu saya jika mahu guru boleh mencatat sendiri.
+3. **Telefon:** guru menaip nombor baharu untuk menggantikan yang lama, atau tanda "Padam nombor telefon". Nombor disimpan sebagai digit sahaja (`0123456789`).
+4. **Gambar** dipotong segi empat dan dikecilkan ke 320x320 piksel di telefon guru sebelum dihantar (maksimum 150 KB). Apps Script tidak boleh mengubah saiz gambar sendiri. Gambar lama dibuang ke Trash Drive bila diganti.
+5. **Kebenaran Drive.** Untuk menyimpan gambar, Apps Script kini meminta akses Google Drive. Google hanya menawarkan akses penuh untuk DriveApp, walaupun skrip hanya menggunakan satu folder. Anda akan diminta membenarkan semula selepas kod dikemas kini.
+6. **Senarai guru** untuk pentadbir ditambah (bukan dalam dokumen asal untuk Fasa 2), supaya pentadbir boleh membuka profil guru sebelum dashboard siap pada Fasa 6.
+7. **Data rujukan subjek** boleh diisi superadmin sekarang, kerana opsyen guru memerlukan senarai subjek. Senarai tetap subjek masih perlu anda sahkan (Fasa 3).
+8. **Pentadbir menyunting profil guru lain** direkod dalam `audit_log` (`SUNTING_PROFIL_GURU`).
+
 ## Fasa 1: andaian yang saya buat
 
 1. **Sesi kekal 30 hari dan bergerak.** Setiap kali guru guna sistem, kiraan 30 hari bermula semula (paling kerap sekali sehari). Guru yang tidak guna sistem selama 30 hari perlu log masuk semula. Boleh diubah (`SESSION_TTL_DAYS` dalam `Auth.gs`).

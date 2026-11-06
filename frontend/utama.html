@@ -31,10 +31,11 @@
         return o.href ? el('a', { class: 'card link-card', href: o.href }, inner) : el('div', { class: 'card link-card soon' }, inner);
       }
       var links = el('section', { class: 'links', 'aria-label': 'Pautan pantas' });
-      links.appendChild(card({ icon: 'i-users', title: 'Profil saya', desc: 'Akan datang (Fasa 2): maklumat teras, kelayakan, kursus, cerapan.' }));
+      links.appendChild(card({ icon: 'i-users', title: 'Profil saya', href: 'profil.html', desc: 'Maklumat teras, gambar, kelayakan, opsyen, kursus dan cerapan.' }));
+      if (admin) links.appendChild(card({ icon: 'i-clipboard', title: 'Senarai guru', href: 'guru.html', desc: 'Buka dan kemas kini profil guru, catat cerapan.' }));
       if (admin) links.appendChild(card({ icon: 'i-shield', title: 'Urus akaun', href: 'akaun.html', desc: sesi.role === 'superadmin' ? 'Cipta akaun, reset kata laluan, nyahaktif.' : 'Lihat akaun dan buka kunci akaun guru.' }));
       if (admin) links.appendChild(card({ icon: 'i-dashboard', title: 'Dashboard sekolah', desc: 'Akan datang (Fasa 6).' }));
-      links.appendChild(card({ icon: 'i-sliders', title: 'Tukar kata laluan', href: 'tukar-password.html', desc: 'Tukar kata laluan anda bila-bila masa.' }));
+      if (sesi.role === 'superadmin') links.appendChild(card({ icon: 'i-sliders', title: 'Data rujukan', href: 'rujukan.html', desc: 'Senarai subjek untuk opsyen guru.' }));
       c.appendChild(links);
 
     })();

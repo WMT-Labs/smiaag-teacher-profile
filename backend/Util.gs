@@ -135,3 +135,35 @@ function logAudit(akaunId, tindakan, sasaran, butiran) {
     Logger.log('Gagal menulis audit_log: ' + e.message);
   }
 }
+
+/** Tahun akademik semasa, contoh "2026". */
+function tahunSemasa() {
+  return Utilities.formatDate(new Date(), TZ, 'yyyy');
+}
+
+// ---------------------------------------------------------------------------
+// Nombor telefon
+// ---------------------------------------------------------------------------
+
+/** Terima "012-345 6789", "+6012...", "6012..." -> "0123456789". Pulangkan null jika tidak sah. */
+function normalizePhone(input) {
+  if (typeof input !== 'string') return null;
+  var d = input.replace(/[\s\-().]/g, '');
+  if (/^\+60\d+$/.test(d)) d = '0' + d.slice(3);
+  else if (/^60\d{9,10}$/.test(d)) d = '0' + d.slice(2);
+  return /^0\d{8,10}$/.test(d) ? d : null;
+}
+
+/** "0123456789" -> "012-3456789" */
+function formatPhone(d) {
+  if (!d) return null;
+  return d.slice(0, 3) + '-' + d.slice(3);
+}
+
+/** "0123456789" -> "012-***-**89". Tiga digit awal dan dua digit akhir sahaja kelihatan. */
+function maskPhone(d) {
+  if (!d) return null;
+  d = String(d).replace(/\D/g, '');
+  if (d.length < 7) return '***';
+  return d.slice(0, 3) + '-' + new Array(d.length - 7 + 1).join('*') + '-**' + d.slice(-2);
+}

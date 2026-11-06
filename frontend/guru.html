@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Senarai guru — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard({ roles: ['pentadbir', 'superadmin'] });
+      if (!sesi) return;
+      var el = UI.el;
+      var c = App.mount({ sesi: sesi, active: 'guru', title: 'Senarai guru' });
+      var D = null;
+
+      var cari = el('input', { class: 'input', type: 'search', placeholder: 'Cari nama, ID atau jawatan', 'aria-label': 'Cari guru' });
+      var fStatus = el('select', { class: 'select', 'aria-label': 'Status lantikan', style: 'width:auto' }, el('option', { value: '' }, 'Semua status lantikan'));
+      var fCerap = el('select', { class: 'select', 'aria-label': 'Cerapan', style: 'width:auto' }, [
+        el('option', { value: '' }, 'Semua cerapan'), el('option', { value: 'belum' }, 'Belum dicerap'), el('option', { value: 'sudah' }, 'Sudah dicerap')
+      ]);
+      var fAktif = el('select', { class: 'select', 'aria-label': 'Aktif', style: 'width:auto' }, [
+        el('option', { value: 'aktif' }, 'Guru aktif'), el('option', { value: '' }, 'Termasuk tidak aktif')
+      ]);
+      var tbody = el('tbody');
+      var count = el('span', { class: 'muted', style: 'font-size:.8125rem' });
+      c.appendChild(el('section', { class: 'card' }, [
+        el('div', { class: 'card-head' }, [el('h2', {}, 'Guru'), count]),
+        el('div', { class: 'toolbar' }, [el('div', { class: 'grow' }, cari), fStatus, fCerap, fAktif]),
+        el('div', { class: 'table-wrap' }, el('table', { class: 'data cards' }, [
+          el('thead', {}, el('tr', {}, ['Guru', 'Jawatan', 'Status lantikan', 'Cerapan tahun ini'].map(function (h) { return el('th', {}, h); }))),
+          tbody
+        ]))
+      ]));
+      [cari, fStatus, fCerap, fAktif].forEach(function (x) { x.addEventListener('input', render); });
+
+      function render() {
+        var q = cari.value.trim().toLowerCase();
+        var rows = D.guru.filter(function (g) {
+          if (fAktif.value === 'aktif' && !g.aktif) return false;
+          if (q && (g.nama_penuh + ' ' + g.guru_kod + ' ' + (g.jawatan || '')).toLowerCase().indexOf(q) === -1) return false;
+          if (fStatus.value && g.status_lantikan !== fStatus.value) return false;
+          if (fCerap.value === 'belum' && g.cerapan_tahun_ini > 0) return false;
+          if (fCerap.value === 'sudah' && g.cerapan_tahun_ini === 0) return false;
+          return true;
+        });
+        count.textContent = rows.length + ' guru';
+        tbody.textContent = '';
+        if (!rows.length) { tbody.appendChild(el('tr', {}, el('td', { colspan: '4', class: 'empty full' }, 'Tiada guru sepadan.'))); return; }
+        rows.forEach(function (g) {
+          var initial = g.nama_penuh.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
+          tbody.appendChild(el('tr', {}, [
+            el('td', { 'data-label': 'Guru' }, el('div', { class: 'who' }, [
+              el('span', { class: 'avatar', style: 'width:34px;height:34px;font-size:.75rem' }, initial),
+              el('div', {}, [el('a', { href: 'profil.html?id=' + encodeURIComponent(g.id) }, g.nama_penuh), el('div', { class: 'muted', style: 'font-size:.75rem' }, g.guru_kod + (g.aktif ? '' : ' · tidak aktif'))])
+            ])),
+            el('td', { 'data-label': 'Jawatan' }, g.jawatan || '—'),
+            el('td', { 'data-label': 'Status' }, App.labelOf(D.ref.status_lantikan, g.status_lantikan)),
+            el('td', { 'data-label': 'Cerapan' }, g.cerapan_tahun_ini > 0
+              ? el('span', { class: 'badge badge-ok' }, g.cerapan_tahun_ini + ' kali')
+              : el('span', { class: 'badge badge-near' }, 'Belum dicerap'))
+          ]));
+        });
+      }
+
+      tbody.appendChild(el('tr', {}, el('td', { colspan: '4', class: 'empty full' }, 'Memuatkan...')));
+      Api.call('GURU_SENARAI').then(function (d) {
+        D = d;
+        d.ref.status_lantikan.forEach(function (r) { fStatus.appendChild(el('option', { value: r.kod }, r.label)); });
+        render();
+      }, function (e) { tbody.textContent = ''; tbody.appendChild(el('tr', {}, el('td', { colspan: '4', class: 'empty full' }, e.message))); });
+    })();
+  </script>
+</body>
+</html>

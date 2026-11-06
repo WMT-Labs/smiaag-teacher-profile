@@ -38,7 +38,18 @@ function getActions() {
     AKAUN_CIPTA:          { roles: R_SUPER, handler: aksiAkaunCipta },
     AKAUN_RESET_PASSWORD: { roles: R_SUPER, handler: aksiAkaunResetPassword },
     AKAUN_SET_AKTIF:      { roles: R_SUPER, handler: aksiAkaunSetAktif },
-    AKAUN_TUKAR_ROLE:     { roles: R_SUPER, handler: aksiAkaunTukarRole }
+    AKAUN_TUKAR_ROLE:     { roles: R_SUPER, handler: aksiAkaunTukarRole },
+    // ---- Profil guru (Fasa 2) — pemilikan disemak dalam _sasaranGuru() ----
+    PROFIL_LIHAT:         { roles: R_SEMUA, handler: aksiProfilLihat },
+    PROFIL_SIMPAN_TERAS:  { roles: R_SEMUA, handler: aksiProfilSimpanTeras },
+    REKOD_SIMPAN:         { roles: R_SEMUA, handler: aksiRekodSimpan },
+    REKOD_PADAM:          { roles: R_SEMUA, handler: aksiRekodPadam },
+    GAMBAR_SIMPAN:        { roles: R_SEMUA, handler: aksiGambarSimpan },
+    GAMBAR_PADAM:         { roles: R_SEMUA, handler: aksiGambarPadam },
+    CERAPAN_SIMPAN:       { roles: R_ADMIN, handler: aksiCerapanSimpan },
+    GURU_SENARAI:         { roles: R_ADMIN, handler: aksiGuruSenarai },
+    SUBJEK_SENARAI:       { roles: R_SEMUA, handler: aksiSubjekSenarai },
+    SUBJEK_SIMPAN:        { roles: R_SUPER, handler: aksiSubjekSimpan }
   };
   Object.keys(_ACTIONS).forEach(function (k) {
     var d = _ACTIONS[k];

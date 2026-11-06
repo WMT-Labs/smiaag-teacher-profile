@@ -68,7 +68,7 @@
     var items = [
       { label: 'Utama' },
       { key: 'utama', href: 'utama.html', text: 'Laman utama', icon: 'i-dashboard' },
-      { key: 'profil', text: 'Profil saya', icon: 'i-users', soon: 'Fasa 2' },
+      { key: 'profil', href: 'profil.html', text: 'Profil saya', icon: 'i-users' },
       { label: 'Bahagian' },
       { key: 'kuri', text: 'Kurikulum', icon: 'i-book', soon: 'Fasa 3' },
       { key: 'koku', text: 'Kokurikulum', icon: 'i-trophy', soon: 'Fasa 4' },
@@ -77,10 +77,12 @@
     if (admin) {
       items.push({ label: 'Pentadbiran' });
       items.push({ key: 'dashboard', text: 'Dashboard sekolah', icon: 'i-dashboard', soon: 'Fasa 6' });
+      items.push({ key: 'guru', href: 'guru.html', text: 'Senarai guru', icon: 'i-clipboard' });
       items.push({ key: 'akaun', href: 'akaun.html', text: 'Urus akaun', icon: 'i-shield' });
+      if (role === 'superadmin') items.push({ key: 'rujukan', href: 'rujukan.html', text: 'Data rujukan', icon: 'i-sliders' });
     }
     items.push({ label: 'Akaun saya' });
-    items.push({ key: 'password', href: 'tukar-password.html', text: 'Tukar kata laluan', icon: 'i-sliders' });
+    items.push({ key: 'password', href: 'tukar-password.html', text: 'Tukar kata laluan', icon: 'i-shield' });
     return items;
   }
 
@@ -165,6 +167,88 @@
     });
   }
 
+  /**
+   * Borang dalam dialog.
+   * opt: { title, submitText, fields: [{ name, label, type, options, value, required, hint, placeholder, attrs }],
+   *        onSubmit: function (values) -> Promise }
+   * type: text | number | date | select | textarea | checkbox. options: [{ kod, label }] atau [{ value, label }].
+   * Ralat daripada onSubmit dipaparkan dalam dialog; dialog kekal terbuka.
+   */
+  function formDialog(opt) {
+    var inputs = {};
+    var alertText = el('span');
+    var alertBox = el('div', { class: 'notice notice-error', role: 'alert' }, alertText);
+    alertBox.hidden = true;
+    var body = [alertBox];
+    opt.fields.forEach(function (f, i) {
+      var id = 'fd-' + f.name + '-' + i;
+      var input;
+      if (f.type === 'select') {
+        input = el('select', { class: 'select', id: id, style: 'min-height:46px' });
+        if (!f.required) input.appendChild(el('option', { value: '' }, f.placeholder || '— Pilih —'));
+        (f.options || []).forEach(function (o) {
+          var v = o.kod !== undefined ? o.kod : (o.value !== undefined ? o.value : o.id);
+          var op = el('option', { value: v }, o.label || o.nama);
+          if (String(v) === String(f.value == null ? '' : f.value)) op.selected = true;
+          input.appendChild(op);
+        });
+      } else if (f.type === 'textarea') {
+        input = el('textarea', { class: 'input', id: id, maxlength: '1000' });
+        input.value = f.value || '';
+      } else if (f.type === 'checkbox') {
+        input = el('input', { type: 'checkbox', id: id });
+        input.checked = !!f.value;
+        body.push(el('label', { class: 'check-inline', for: id }, [input, f.label]));
+        inputs[f.name] = input;
+        return;
+      } else {
+        input = el('input', { class: 'input', id: id, type: f.type || 'text' });
+        if (f.value !== undefined && f.value !== null) input.value = f.value;
+      }
+      if (f.placeholder && f.type !== 'select') input.setAttribute('placeholder', f.placeholder);
+      Object.keys(f.attrs || {}).forEach(function (k) { input.setAttribute(k, f.attrs[k]); });
+      inputs[f.name] = input;
+      var parts = [el('label', { for: id }, f.label + (f.required ? '' : ' (pilihan)')), input];
+      if (f.hint) parts.push(el('span', { class: 'hint' }, f.hint));
+      body.push(el('div', { class: 'field' }, parts));
+    });
+    var result;
+    var p = dialog({
+      title: opt.title,
+      body: body,
+      actions: [
+        { text: 'Batal', kind: 'btn-secondary', value: null },
+        { text: opt.submitText || 'Simpan', value: 'ok', onClick: function (b) {
+          alertBox.hidden = true;
+          var values = {};
+          var missing = null;
+          opt.fields.forEach(function (f) {
+            var inp = inputs[f.name];
+            var v = f.type === 'checkbox' ? inp.checked : inp.value.trim();
+            if (f.type === 'number' && v !== '') v = Number(v);
+            if (v === '') v = null;
+            if (f.required && v === null && !missing) missing = f;
+            values[f.name] = v;
+          });
+          if (missing) { alertText.textContent = missing.label + ' wajib diisi.'; alertBox.hidden = false; inputs[missing.name].focus(); return false; }
+          b.disabled = true; b.textContent = 'Menyimpan...';
+          return Promise.resolve(opt.onSubmit(values)).then(function (r) { result = r; return true; }, function (e) {
+            alertText.textContent = e.message; alertBox.hidden = false;
+            b.disabled = false; b.textContent = opt.submitText || 'Simpan';
+            return false;
+          });
+        } }
+      ]
+    }).then(function (v) { return v === 'ok' ? result : null; });
+    setTimeout(function () { var first = inputs[opt.fields[0].name]; if (first && first.focus) first.focus(); }, 50);
+    return p;
+  }
+
+  function labelOf(list, kod) {
+    for (var i = 0; i < (list || []).length; i++) if (list[i].kod === kod) return list[i].label;
+    return kod || '';
+  }
+
   /** 2026-11-06T18:30:00+08:00 -> 06/11/2026, 6:30 ptg */
   function fmtDateTime(iso) {
     var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso || '');
@@ -176,6 +260,6 @@
 
   window.App = {
     icon: icon, nextPage: nextPage, guard: guard, updateSesi: updateSesi, logout: logout, mount: mount,
-    dialog: dialog, confirm: confirmDialog, fmtDateTime: fmtDateTime, LABEL_ROLE: LABEL_ROLE
+    dialog: dialog, confirm: confirmDialog, formDialog: formDialog, labelOf: labelOf, fmtDateTime: fmtDateTime, LABEL_ROLE: LABEL_ROLE
   };
 })();

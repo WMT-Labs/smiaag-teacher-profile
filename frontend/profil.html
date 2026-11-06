@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Profil guru — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard();
+      if (!sesi) return;
+      var el = UI.el, icon = App.icon;
+      var m = /[?&]id=([0-9a-f-]{36})/i.exec(location.search);
+      var guruId = m ? m[1] : null;
+      if (guruId === sesi.guru_id) guruId = null;
+      var orangLain = !!guruId;
+      var c = App.mount({ sesi: sesi, active: orangLain ? 'guru' : 'profil', title: orangLain ? 'Profil guru' : 'Profil saya' });
+      var P = null; // data profil semasa
+
+      function withGuru(params) { if (guruId) params.guru_id = guruId; return params; }
+      function call(action, params) { return Api.call(action, withGuru(params || {})); }
+
+      function section(o) {
+        var head = el('div', { class: 'card-head' }, [
+          el('div', { class: 'sec-title' }, [el('span', { class: 'ico' }, icon(o.icon)), el('h2', {}, o.title)])
+        ]);
+        if (o.action) {
+          var b = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, [icon(o.actionIcon || 'i-plus', 16), o.action]);
+          b.addEventListener('click', o.onAction);
+          head.appendChild(b);
+        }
+        return el('section', { class: 'card' + (o.wide ? ' wide' : ''), 'aria-label': o.title }, [head].concat(o.body));
+      }
+      function iconBtn(name, label, fn, danger) {
+        var b = el('button', { class: 'icon-btn' + (danger ? ' danger' : ''), type: 'button', 'aria-label': label, title: label }, icon(name));
+        b.addEventListener('click', fn);
+        return b;
+      }
+      function padam(jadual, id, nama) {
+        return App.confirm('Padam rekod?', 'Padam "' + nama + '"? Tindakan ini tidak boleh dibatalkan.', 'Padam', true).then(function (ok) {
+          if (!ok) return;
+          return call('REKOD_PADAM', { jadual: jadual, id: id }).then(function () { muat(); UI.toast('Rekod dipadam.'); }, function (e) { UI.toast(e.message); });
+        });
+      }
+      function simpanRekod(jadual, id) {
+        return function (data) {
+          var p = { jadual: jadual, data: data };
+          if (id) p.id = id;
+          return call('REKOD_SIMPAN', p);
+        };
+      }
+      function selepas(msg) { return function (r) { if (r) { UI.toast(msg); muat(); } }; }
+
+      // ---------------- kepala profil ----------------
+      function kepala() {
+        var g = P.guru;
+        var initials = g.nama_penuh.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
+        var img = P.gambar ? el('img', { src: P.gambar, alt: 'Gambar ' + g.nama_penuh }) : el('div', { class: 'ph', 'aria-hidden': 'true' }, initials);
+        var file = el('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', hidden: '' });
+        var cam = el('button', { class: 'cam', type: 'button', 'aria-label': 'Tukar gambar', title: 'Tukar gambar' }, icon('i-camera', 18));
+        cam.addEventListener('click', function () { file.click(); });
+        file.addEventListener('change', function () { if (file.files[0]) muatNaikGambar(file.files[0]); file.value = ''; });
+        var badges = el('div', { class: 'badges' }, [
+          el('span', { class: 'badge badge-neutral' }, App.labelOf(P.ref.status_lantikan, g.status_lantikan)),
+          g.aktif ? el('span', { class: 'badge badge-ok' }, 'Aktif') : el('span', { class: 'badge badge-over' }, 'Tidak aktif')
+        ]);
+        var meta = el('div', { class: 'meta' }, [
+          el('h2', {}, g.nama_penuh),
+          el('div', { class: 'muted' }, g.guru_kod + (g.jawatan ? ' · ' + g.jawatan : '')),
+          badges
+        ]);
+        var parts = [el('div', { class: 'photo' }, [img, cam, file]), meta];
+        if (P.gambar) {
+          var buang = el('button', { class: 'btn-link', type: 'button', style: 'font-size:.875rem' }, 'Buang gambar');
+          buang.addEventListener('click', function () {
+            App.confirm('Buang gambar?', 'Gambar profil akan dipadam.', 'Buang', true).then(function (ok) {
+              if (ok) call('GAMBAR_PADAM').then(function () { muat(); }, function (e) { UI.toast(e.message); });
+            });
+          });
+          meta.appendChild(el('div', {}, buang));
+        }
+        return el('section', { class: 'card wide' }, el('div', { class: 'profile-head' }, parts));
+      }
+
+      /** Kecilkan gambar di pelayar (320x320, JPEG) sebelum dihantar. Apps Script tidak boleh mengubah saiz gambar. */
+      function muatNaikGambar(f) {
+        if (!/^image\//.test(f.type)) { UI.toast('Pilih fail gambar.'); return; }
+        var url = URL.createObjectURL(f);
+        var im = new Image();
+        im.onload = function () {
+          var S = 320, side = Math.min(im.width, im.height);
+          var cv = document.createElement('canvas'); cv.width = S; cv.height = S;
+          cv.getContext('2d').drawImage(im, (im.width - side) / 2, (im.height - side) / 2, side, side, 0, 0, S, S);
+          URL.revokeObjectURL(url);
+          var data = cv.toDataURL('image/jpeg', 0.82).split(',')[1];
+          UI.toast('Memuat naik gambar...');
+          call('GAMBAR_SIMPAN', { data: data }).then(function () { UI.toast('Gambar dikemas kini.'); muat(); }, function (e) { UI.toast(e.message); });
+        };
+        im.onerror = function () { URL.revokeObjectURL(url); UI.toast('Gambar tidak dapat dibaca.'); };
+        im.src = url;
+      }
+
+      // ---------------- maklumat teras ----------------
+      function teras() {
+        var g = P.guru;
+        var tel = g.ada_telefon
+          ? [g.no_telefon, g.telefon_penuh ? null : el('span', { class: 'hint' }, 'Disembunyikan untuk privasi. Anda boleh menaip nombor baharu.')]
+          : [el('span', { class: 'muted' }, 'Belum diisi')];
+        var dl = el('dl', { class: 'kv-list' }, [
+          el('dt', {}, 'Nama penuh'), el('dd', {}, g.nama_penuh),
+          el('dt', {}, 'ID guru'), el('dd', {}, g.guru_kod),
+          el('dt', {}, 'Status lantikan'), el('dd', {}, App.labelOf(P.ref.status_lantikan, g.status_lantikan)),
+          el('dt', {}, 'Jawatan'), el('dd', {}, g.jawatan || '—'),
+          el('dt', {}, 'Tarikh lantikan'), el('dd', {}, UI.fmtDate(g.tarikh_lantikan) || '—'),
+          el('dt', {}, 'No. telefon'), el('dd', {}, tel.filter(Boolean))
+        ]);
+        return section({ title: 'Maklumat teras', icon: 'i-users', action: 'Sunting', actionIcon: 'i-edit', onAction: suntingTeras, body: [dl] });
+      }
+      function suntingTeras() {
+        var g = P.guru;
+        var fields = [
+          { name: 'nama_penuh', label: 'Nama penuh', required: true, value: g.nama_penuh, attrs: { maxlength: '150' } },
+          { name: 'status_lantikan', label: 'Status lantikan', type: 'select', required: true, options: P.ref.status_lantikan, value: g.status_lantikan },
+          { name: 'jawatan', label: 'Jawatan', value: g.jawatan, placeholder: 'contoh: Guru Akademik Biasa', attrs: { maxlength: '100' } },
+          { name: 'tarikh_lantikan', label: 'Tarikh lantikan', type: 'date', value: g.tarikh_lantikan },
+          { name: 'no_telefon_baru', label: g.ada_telefon ? 'Nombor telefon baharu' : 'Nombor telefon', type: 'tel', placeholder: 'contoh: 012-3456789',
+            hint: g.ada_telefon ? 'Biarkan kosong jika tiada perubahan. Nombor semasa: ' + g.no_telefon : null, attrs: { inputmode: 'tel', maxlength: '20' } }
+        ];
+        if (g.ada_telefon) fields.push({ name: 'padam_telefon', label: 'Padam nombor telefon', type: 'checkbox' });
+        App.formDialog({
+          title: 'Sunting maklumat teras', fields: fields,
+          onSubmit: function (v) { return call('PROFIL_SIMPAN_TERAS', v); }
+        }).then(selepas('Maklumat teras disimpan.'));
+      }
+
+      // ---------------- kelayakan ----------------
+      function kelayakan() {
+        var body = P.kelayakan.length ? el('ul', { class: 'items' }, P.kelayakan.map(function (k) {
+          var title = App.labelOf(P.ref.tahap_kelayakan, k.tahap) + (k.bidang ? ' · ' + k.bidang : '');
+          return el('li', {}, [
+            el('div', { class: 'grow' }, [el('b', {}, title), el('div', { class: 'sub' }, [k.institusi, k.tahun_tamat].filter(Boolean).join(' · ') || '—')]),
+            iconBtn('i-edit', 'Sunting', function () { borangKelayakan(k); }),
+            iconBtn('i-trash', 'Padam', function () { padam('kelayakan', k.id, title); }, true)
+          ]);
+        })) : el('p', { class: 'empty-sm' }, 'Belum ada kelayakan. Tambah ijazah atau diploma anda.');
+        return section({ title: 'Kelayakan akademik', icon: 'i-grad', action: 'Tambah', onAction: function () { borangKelayakan(null); }, body: [body] });
+      }
+      function borangKelayakan(k) {
+        k = k || {};
+        App.formDialog({
+          title: k.id ? 'Sunting kelayakan' : 'Tambah kelayakan',
+          fields: [
+            { name: 'tahap', label: 'Tahap', type: 'select', required: true, options: P.ref.tahap_kelayakan, value: k.tahap || 'ijazah_sarjana_muda' },
+            { name: 'bidang', label: 'Bidang', value: k.bidang, placeholder: 'contoh: Pengajian Al-Quran dan Sunnah', attrs: { maxlength: '200' } },
+            { name: 'institusi', label: 'Tempat belajar', value: k.institusi, placeholder: 'contoh: Universiti ...', attrs: { maxlength: '200' } },
+            { name: 'tahun_tamat', label: 'Tahun tamat', type: 'number', value: k.tahun_tamat, attrs: { min: '1950', max: '2100', inputmode: 'numeric' } }
+          ],
+          onSubmit: function (v) { if (v.tahun_tamat !== null) v.tahun_tamat = String(v.tahun_tamat); return simpanRekod('kelayakan', k.id)(v); }
+        }).then(selepas('Kelayakan disimpan.'));
+      }
+
+      // ---------------- opsyen ----------------
+      function opsyen() {
+        var body;
+        if (!P.ref.subjek.length) {
+          body = el('p', { class: 'empty-sm' }, sesi.role === 'superadmin'
+            ? 'Senarai subjek masih kosong. Isi dahulu di Data rujukan.'
+            : 'Senarai subjek belum diisi oleh superadmin. Cuba lagi kemudian.');
+        } else {
+          var group = function (jenis, label) {
+            var list = P.opsyen.filter(function (o) { return o.jenis === jenis; });
+            return el('div', {}, [
+              el('div', { class: 'group-label' }, label),
+              list.length ? el('div', { class: 'chips' }, list.map(function (o) {
+                var x = el('button', { type: 'button', 'aria-label': 'Buang ' + o.subjek_nama }, icon('i-trash'));
+                x.addEventListener('click', function () { padam('opsyen_guru', o.id, o.subjek_nama + ' (' + label + ')'); });
+                return el('span', { class: 'chip-tag' + (jenis === 'minor' ? ' minor' : '') }, [o.subjek_nama, x]);
+              })) : el('span', { class: 'muted', style: 'font-size:.875rem' }, 'Tiada')
+            ]);
+          };
+          body = el('div', { class: 'card-pad stack' }, [group('major', 'Major'), group('minor', 'Minor')]);
+        }
+        return section({ title: 'Opsyen subjek', icon: 'i-book', action: P.ref.subjek.length ? 'Tambah' : null, onAction: borangOpsyen, body: [body] });
+      }
+      function borangOpsyen() {
+        App.formDialog({
+          title: 'Tambah opsyen subjek',
+          fields: [
+            { name: 'jenis', label: 'Jenis', type: 'select', required: true, options: P.ref.jenis_opsyen, value: 'major' },
+            { name: 'subjek_id', label: 'Subjek', type: 'select', required: true, options: P.ref.subjek.map(function (s) { return { value: s.id, label: s.nama }; }), value: P.ref.subjek[0].id }
+          ],
+          onSubmit: simpanRekod('opsyen_guru')
+        }).then(selepas('Opsyen ditambah.'));
+      }
+
+      // ---------------- kursus ----------------
+      function kursus() {
+        var tahun = P.cerapan.tahun;
+        var tahunIni = P.kursus.filter(function (k) { return (k.tarikh_mula || '').slice(0, 4) === tahun; });
+        var jam = tahunIni.reduce(function (a, k) { return a + (k.jam || 0); }, 0);
+        var ringkas = el('div', { class: 'card-pad', style: 'padding-bottom:0' }, el('p', { class: 'muted', style: 'font-size:.875rem' },
+          tahunIni.length + ' kursus pada ' + tahun + ' · ' + (Math.round(jam * 10) / 10) + ' jam'));
+        var body = P.kursus.length ? el('ul', { class: 'items' }, P.kursus.map(function (k) {
+          var tarikh = UI.fmtDate(k.tarikh_mula) + (k.tarikh_tamat && k.tarikh_tamat !== k.tarikh_mula ? ' – ' + UI.fmtDate(k.tarikh_tamat) : '');
+          var sub = [k.penganjur, tarikh, k.jam != null ? k.jam + ' jam' : null, App.labelOf(P.ref.peringkat_kursus, k.tahap)].filter(Boolean).join(' · ');
+          return el('li', {}, [
+            el('div', { class: 'grow' }, [el('b', {}, k.tajuk), el('div', { class: 'sub' }, sub)]),
+            iconBtn('i-edit', 'Sunting', function () { borangKursus(k); }),
+            iconBtn('i-trash', 'Padam', function () { padam('kursus', k.id, k.tajuk); }, true)
+          ]);
+        })) : el('p', { class: 'empty-sm' }, 'Belum ada rekod kursus atau latihan.');
+        return section({ title: 'Kursus dan latihan', icon: 'i-award', action: 'Tambah', onAction: function () { borangKursus(null); }, wide: true, body: [ringkas, body] });
+      }
+      function borangKursus(k) {
+        k = k || {};
+        App.formDialog({
+          title: k.id ? 'Sunting kursus' : 'Tambah kursus',
+          fields: [
+            { name: 'tajuk', label: 'Tajuk kursus', required: true, value: k.tajuk, attrs: { maxlength: '200' } },
+            { name: 'penganjur', label: 'Penganjur', value: k.penganjur, placeholder: 'contoh: PPD Gombak', attrs: { maxlength: '200' } },
+            { name: 'tarikh_mula', label: 'Tarikh mula', type: 'date', value: k.tarikh_mula },
+            { name: 'tarikh_tamat', label: 'Tarikh tamat', type: 'date', value: k.tarikh_tamat },
+            { name: 'jam', label: 'Bilangan jam', type: 'number', value: k.jam, attrs: { min: '0', max: '1000', step: '0.5', inputmode: 'decimal' } },
+            { name: 'tahap', label: 'Peringkat', type: 'select', required: true, options: P.ref.peringkat_kursus, value: k.tahap || 'sekolah' }
+          ],
+          onSubmit: simpanRekod('kursus', k.id)
+        }).then(selepas('Kursus disimpan.'));
+      }
+
+      // ---------------- cerapan ----------------
+      function cerapan() {
+        var C = P.cerapan, s = C.semasa;
+        var n = s ? s.bilangan_dicerap : 0;
+        var atas = el('div', { class: 'card-pad stack' }, [
+          el('div', { class: 'row', style: 'align-items:flex-end;gap:12px' }, [
+            el('span', { class: 'big-num' }, String(n)),
+            el('span', { class: 'muted', style: 'padding-bottom:4px' }, 'kali dicerap pada ' + C.tahun)
+          ]),
+          n === 0 ? el('div', { class: 'notice notice-warn' }, el('span', {}, 'Belum dicerap tahun ini.')) : null,
+          el('dl', { class: 'kv', style: 'margin:0' }, [el('dt', {}, 'Pencerap'), el('dd', {}, (s && s.pencerap) || '—')].concat(s && s.catatan ? [el('dt', {}, 'Catatan'), el('dd', {}, s.catatan)] : [])),
+          P.boleh.cerapan ? null : el('p', { class: 'muted', style: 'font-size:.8125rem' }, 'Rekod cerapan dicatat oleh pentadbir.')
+        ].filter(Boolean));
+        var lepas = C.sejarah.filter(function (x) { return x.tahun_akademik !== C.tahun; });
+        var body = [atas];
+        if (lepas.length) {
+          body.push(el('div', { class: 'group-label', style: 'padding:0 24px' }, 'Tahun lepas'));
+          body.push(el('ul', { class: 'items' }, lepas.map(function (x) {
+            return el('li', {}, [el('div', { class: 'grow' }, [el('b', {}, x.tahun_akademik), el('div', { class: 'sub' }, x.bilangan_dicerap + ' kali' + (x.pencerap ? ' · ' + x.pencerap : ''))])]);
+          })));
+        }
+        return section({ title: 'Cerapan', icon: 'i-clipboard', action: P.boleh.cerapan ? 'Kemas kini' : null, actionIcon: 'i-edit', onAction: borangCerapan, body: body });
+      }
+      function borangCerapan() {
+        var s = P.cerapan.semasa || {};
+        App.formDialog({
+          title: 'Kemas kini cerapan',
+          fields: [
+            { name: 'tahun_akademik', label: 'Tahun', required: true, value: P.cerapan.tahun, attrs: { inputmode: 'numeric', maxlength: '4' } },
+            { name: 'bilangan_dicerap', label: 'Bilangan kali dicerap', type: 'number', required: true, value: s.bilangan_dicerap || 0, attrs: { min: '0', max: '50' } },
+            { name: 'pencerap', label: 'Pencerap', value: s.pencerap, placeholder: 'contoh: Pengetua, Ketua Panitia', attrs: { maxlength: '200' } },
+            { name: 'catatan', label: 'Catatan', type: 'textarea', value: s.catatan }
+          ],
+          onSubmit: function (v) { v.guru_id = P.guru.id; return Api.call('CERAPAN_SIMPAN', v); }
+        }).then(selepas('Cerapan disimpan.'));
+      }
+
+      // ---------------- muat ----------------
+      function render() {
+        c.textContent = '';
+        if (orangLain) c.appendChild(el('a', { class: 'back', href: 'guru.html' }, [icon('i-back', 18), 'Senarai guru']));
+        c.appendChild(el('div', { class: 'profile-grid' }, [kepala(), teras(), cerapan(), kelayakan(), opsyen(), kursus()]));
+      }
+      function muat() {
+        return call('PROFIL_LIHAT').then(function (d) { P = d; render(); }, function (e) {
+          c.textContent = '';
+          c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message)));
+        });
+      }
+      c.appendChild(el('p', { class: 'muted' }, 'Memuatkan profil...'));
+      muat();
+    })();
+  </script>
+</body>
+</html>

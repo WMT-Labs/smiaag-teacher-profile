@@ -59,6 +59,15 @@ function createEnv(opts = {}) {
   const props = {};
   const logs = [];
   const cache = new Map();
+  const drive = { folders: new Map(), files: new Map() };
+  const makeFolder = (id, name) => ({
+    id, name, getId: () => id,
+    createFile: (blob) => {
+      const fid = 'file-' + (drive.files.size + 1);
+      const f = { id: fid, folder: id, blob, trashed: false, getId: () => fid, getBlob: () => blob, setTrashed(t) { this.trashed = t; } };
+      drive.files.set(fid, f); return f;
+    }
+  });
   const now = () => (clock ? clock.getTime() : Date.now());
   let clock = new Date('2026-11-06T10:30:00Z');
   const env = {
@@ -71,6 +80,12 @@ function createEnv(opts = {}) {
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => props[k] || null, setProperty: (k, v) => { props[k] = v; }, deleteProperty: (k) => { delete props[k]; } }) },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     cache,
+    drive,
+    DriveApp: {
+      createFolder: (name) => { const id = 'folder-' + (drive.folders.size + 1); const f = makeFolder(id, name); drive.folders.set(id, f); return f; },
+      getFolderById: (id) => { const f = drive.folders.get(id); if (!f) throw new Error('tiada folder'); return f; },
+      getFileById: (id) => { const f = drive.files.get(id); if (!f) throw new Error('tiada fail'); return f; }
+    },
     CacheService: { getScriptCache: () => ({
       get: (k) => { const e = cache.get(k); return e && e.until > now() ? e.v : null; },
       put: (k, v, ttl = 600) => { cache.set(k, { v: String(v), until: now() + Math.min(ttl, 21600) * 1000 }); },
@@ -79,6 +94,9 @@ function createEnv(opts = {}) {
     ContentService: { MimeType: { JSON: 'JSON' }, createTextOutput: (t) => ({ text: t, setMimeType() { return this; } }) },
     Utilities: {
       getUuid: () => crypto.randomUUID(),
+      base64Decode: (str) => { if (!/^[A-Za-z0-9+/=]*$/.test(str)) throw new Error('base64'); return [...Buffer.from(str, 'base64')].map((b) => (b > 127 ? b - 256 : b)); },
+      base64Encode: (bytes) => Buffer.from(bytes.map((b) => (b + 256) % 256)).toString('base64'),
+      newBlob: (bytes, type, name) => ({ bytes, type, name, getBytes: () => bytes, getContentType: () => type }),
       DigestAlgorithm: { SHA_256: 'sha256' },
       Charset: { UTF_8: 'utf8' },
       // Apps Script memulangkan bait bertanda (-128..127)
