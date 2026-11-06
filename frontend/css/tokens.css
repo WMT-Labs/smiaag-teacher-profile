@@ -1,0 +1,62 @@
+/*
+ * tokens.css — palet dan ukuran asas sistem.
+ * Warna diambil daripada logo sekolah: biru #00548d dan hijau #008c21.
+ * Untuk permukaan besar (latar, kad, banner) digunakan versi lembut; warna logo tepat
+ * hanya untuk jenama, tajuk dan butang utama supaya paparan tidak terasa berat.
+ */
+:root {
+  /* Biru (jenama) */
+  --blue-900: #0b3a5c;
+  --blue-700: #00548d;   /* warna logo */
+  --blue-600: #1a6396;
+  --blue-500: #3b7fae;
+  --blue-200: #cfe0ec;
+  --blue-100: #e1edf5;
+  --blue-50:  #f0f6fa;
+
+  /* Hijau (jenama, status baik) */
+  --green-700: #1b7a37;
+  --green-600: #008c21;  /* warna logo */
+  --green-200: #cfe9d6;
+  --green-100: #e2f3e7;
+  --green-50:  #f1f9f3;
+
+  /* Status */
+  --amber-700: #8a5a0b;
+  --amber-200: #f1deb0;
+  --amber-100: #fbf1d6;
+  --amber-500: #d9a02b;
+  --red-700:   #a63d36;
+  --red-200:   #f1cdca;
+  --red-100:   #fae9e7;
+  --red-500:   #cf6b63;
+
+  /* Neutral bernada biru-kelabu */
+  --bg:        #f4f7f9;
+  --surface:   #ffffff;
+  --surface-2: #f8fafb;
+  --border:    #dfe7ec;
+  --border-strong: #c7d3db;
+  --text:      #1c2b36;
+  --text-muted:#566873;
+  --text-faint:#7c8d98;
+
+  /* Semantik */
+  --primary: var(--blue-600);
+  --primary-hover: var(--blue-700);
+  --primary-soft: var(--blue-50);
+  --focus: #2b88c8;
+
+  /* Bentuk */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(16, 42, 61, .06);
+  --shadow: 0 1px 3px rgba(16, 42, 61, .08), 0 4px 14px rgba(16, 42, 61, .05);
+
+  /* Jarak (skala 4px) */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px;
+
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sidebar-w: 248px;
+}

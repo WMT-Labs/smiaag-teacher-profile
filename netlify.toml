@@ -1,0 +1,10 @@
+# Netlify: hanya folder frontend diterbitkan. Tiada langkah build diperlukan.
+[build]
+  publish = "frontend"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    X-Frame-Options = "DENY"

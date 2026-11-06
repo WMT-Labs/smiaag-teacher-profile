@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log masuk — Profil Guru SMIAAG</title>
+  <meta name="description" content="Sistem profil guru Sekolah Menengah Islam Al-Amin Gombak">
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <main class="auth">
+    <section class="auth-brand" aria-hidden="true">
+      <div>
+        <img class="logo" src="assets/logo-96.png" alt="" width="84" height="84">
+        <h1>Profil Guru<br>SMIAAG</h1>
+        <p>Satu tempat untuk maklumat guru, beban tugas dan kegiatan sekolah.</p>
+        <ul>
+          <li><svg class="icon"><use href="assets/icons.svg#i-check"/></svg> Kemas kini profil sendiri dari telefon</li>
+          <li><svg class="icon"><use href="assets/icons.svg#i-check"/></svg> Jam kredit dikira dan disemak automatik</li>
+          <li><svg class="icon"><use href="assets/icons.svg#i-check"/></svg> Data guru hanya dilihat oleh yang berhak</li>
+        </ul>
+      </div>
+      <small>Sekolah Menengah Islam Al-Amin Gombak</small>
+    </section>
+
+    <section class="auth-panel">
+      <div class="auth-card">
+        <div class="mobile-brand">
+          <img src="assets/logo-96.png" alt="Logo SMIAAG" width="64" height="64">
+          <div><h1>Profil Guru</h1><p class="muted">SMI Al-Amin Gombak</p></div>
+        </div>
+
+        <div>
+          <h2 style="font-size:1.5rem">Log masuk</h2>
+          <p class="muted" style="margin-top:6px">Guna ID guru dan kata laluan yang diberi oleh pentadbir sistem.</p>
+        </div>
+
+        <div id="alert" class="notice notice-error" role="alert" hidden>
+          <svg class="icon"><use href="assets/icons.svg#i-alert"/></svg><span id="alert-text"></span>
+        </div>
+
+        <form id="login-form" novalidate autocomplete="on">
+          <div class="field">
+            <label for="guru_kod">ID guru</label>
+            <input class="input" id="guru_kod" name="username" type="text" inputmode="text" autocomplete="username"
+                   autocapitalize="characters" spellcheck="false" placeholder="contoh: SM216" maxlength="20" required>
+          </div>
+          <div class="field">
+            <label for="password">Kata laluan</label>
+            <div class="input-wrap">
+              <input class="input" id="password" name="password" type="password" autocomplete="current-password" maxlength="100" required>
+              <button type="button" class="toggle" id="toggle-pw" aria-label="Tunjuk kata laluan" aria-pressed="false">
+                <svg class="icon"><use href="assets/icons.svg#i-eye"/></svg>
+              </button>
+            </div>
+            <span class="hint">Lupa kata laluan? Hubungi pentadbir sistem untuk set semula.</span>
+          </div>
+          <button class="btn btn-block" type="submit" id="submit">Log masuk</button>
+        </form>
+
+        <p class="auth-foot">Data anda dilindungi mengikut PDPA 2010. Notis privasi dipaparkan semasa log masuk pertama.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (function () {
+      var form = document.getElementById('login-form');
+      var alertBox = document.getElementById('alert');
+      var alertText = document.getElementById('alert-text');
+      var btn = document.getElementById('submit');
+      var pw = document.getElementById('password');
+      var toggle = document.getElementById('toggle-pw');
+
+      function showError(msg) { alertText.textContent = msg; alertBox.hidden = false; }
+
+      toggle.addEventListener('click', function () {
+        var show = pw.type === 'password';
+        pw.type = show ? 'text' : 'password';
+        toggle.setAttribute('aria-pressed', String(show));
+        toggle.setAttribute('aria-label', show ? 'Sembunyi kata laluan' : 'Tunjuk kata laluan');
+        toggle.querySelector('use').setAttribute('href', 'assets/icons.svg#' + (show ? 'i-eye-off' : 'i-eye'));
+      });
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        alertBox.hidden = true;
+        var kod = form.guru_kod.value.trim().toUpperCase();
+        var pass = pw.value;
+        if (!kod) { showError('Masukkan ID guru anda, contoh SM216.'); form.guru_kod.focus(); return; }
+        if (!pass) { showError('Masukkan kata laluan anda.'); pw.focus(); return; }
+        btn.disabled = true; btn.textContent = 'Sila tunggu...';
+        Api.call('LOGIN', { guru_kod: kod, password: pass })
+          .then(function () { /* Fasa 1: simpan sesi dan alih ke halaman profil / dashboard */ })
+          .catch(function (err) { showError(err.message); })
+          .then(function () { btn.disabled = false; btn.textContent = 'Log masuk'; });
+      });
+    })();
+  </script>
+</body>
+</html>
