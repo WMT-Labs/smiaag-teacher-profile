@@ -11,15 +11,30 @@ Dikemas kini pada penghujung setiap fasa. Rujuk dokumen arahan projek (Seksyen 1
 | 06/11/2026 | Kata laluan: minimum 8 aksara, tidak sama dengan ID guru. |
 | 06/11/2026 | Sesi kekal walaupun tab ditutup (guru guna peranti sendiri). |
 | 06/11/2026 | Data yang diubah guru terus disimpan, tanpa kelulusan pentadbir. |
+| 06/11/2026 | Ciri gambar guru dibuang sepenuhnya. Sistem tidak lagi memerlukan akses Google Drive. |
+| 06/11/2026 | Cerapan boleh dikemas kini oleh guru sendiri; GK, PK dan Pengetua (peranan pentadbir) boleh mengemas kini bagi pihak guru. |
+| 06/11/2026 | Status "Dalam percubaan" selama 6 bulan dari tarikh lantikan. Pentadbir dimaklumkan bila tamat dan mengesahkan ke guru tetap. |
+| 06/11/2026 | Jadual: guna jadual sekolah (PDF aSc Timetables, satu halaman setiap guru). Kaedah ekstrak: tidak berbayar (Claude API ditolak). |
 | 06/11/2026 | Cerapan dipermudahkan: hanya bilangan dicerap setahun dan nama pencerap. Tiada sasaran, tiada tarikh dirancang. Jadual `sasaran_cerapan` dan `ref_status_cerapan` dibuang. |
+
+## Fasa 3: andaian dan perkara yang dibangkitkan
+
+1. **OCR Google Drive tidak sesuai untuk jadual ini (dibangkitkan, menunggu keputusan).** PDF jadual sekolah ialah imej imbasan (300 dpi, tiada teks). OCR Google Drive hanya memulangkan teks biasa tanpa kedudukan, jadi sistem tidak dapat tahu sesuatu subjek berada pada hari dan waktu mana, terutama slot yang merentas beberapa waktu. Hasilnya hampir semua slot perlu ditaip semula. Alternatif percuma yang dicadangkan: eksport terus daripada aSc Timetables (fail XML atau Excel), yang 100% tepat. Import PDF belum dibina sehingga keputusan dibuat.
+2. **Satu slot boleh ada beberapa kelas** (kelas gabungan seperti dalam jadual sebenar), jadi `jadual_slot.kelas_id` digantikan dengan jadual penghubung `jadual_slot_kelas`. Ditambah lajur `label` untuk slot bukan subjek (Perhimpunan, Usrah, KOKU, Mesyuarat).
+3. **Jadual `waktu` baharu**: templat waktu persekolahan setiap tahun, diisi lalai dengan 18 waktu daripada jadual sekolah 2026 (07:30 hingga 15:30). Waktu khas Jumaat boleh dipilih terus semasa mengisi slot.
+4. **Pertindihan kelas** (kelas sama, guru berbeza) dipaparkan sebagai amaran kuning sahaja, kerana kelas elektif yang dipecahkan (contoh KMA/EKO, ASK/RBT) adalah sah. Pertindihan guru sendiri dipaparkan merah.
+5. **Status beban:** hijau di bawah 80% had, kuning 80% hingga had, merah melebihi had.
+6. **Tugasan** diisi oleh guru sendiri daripada surat tugasan (pentadbir boleh membetulkan). Jam kredit ikut surat; bilangan slot jadual hanya untuk semakan silang.
+7. **Carian guru ganti** menyusun guru mengikut jam kredit berjadual paling rendah dahulu. Tapisan jabatan berdasarkan jabatan dalam tugasan tidak berjadual guru itu (guru tidak mempunyai medan jabatan sendiri). Bilangan ganti yang sudah dibuat belum direkod (tidak wajib fasa pertama).
+8. **Pengesahan percubaan:** guru boleh menukar status lantikan sendiri, kecuali daripada "Dalam percubaan" kepada "Tetap"; itu dibuat oleh pentadbir. Tarikh pengesahan disimpan dalam `guru.tarikh_disahkan`. Pentadbir boleh mengesahkan lebih awal dengan amaran.
+9. **PDF jadual tidak disimpan dalam repo** kerana mengandungi nama guru sebenar. Data demo menggunakan nama kelas rekaan.
 
 ## Fasa 2: andaian yang saya buat
 
 1. **Guru boleh mengubah semua maklumat teras sendiri** (nama, status lantikan, jawatan, tarikh lantikan, telefon), terus disimpan. ID guru hanya boleh diubah oleh superadmin (belum ada skrin, jarang diperlukan).
-2. **Cerapan dicatat oleh pentadbir sahaja.** Guru boleh lihat rekod sendiri. Beritahu saya jika mahu guru boleh mencatat sendiri.
+2. ~~Cerapan dicatat oleh pentadbir sahaja~~ Diubah pada Fasa 3: guru boleh mengemas kini sendiri.
 3. **Telefon:** guru menaip nombor baharu untuk menggantikan yang lama, atau tanda "Padam nombor telefon". Nombor disimpan sebagai digit sahaja (`0123456789`).
-4. **Gambar** dipotong segi empat dan dikecilkan ke 320x320 piksel di telefon guru sebelum dihantar (maksimum 150 KB). Apps Script tidak boleh mengubah saiz gambar sendiri. Gambar lama dibuang ke Trash Drive bila diganti.
-5. **Kebenaran Drive.** Untuk menyimpan gambar, Apps Script kini meminta akses Google Drive. Google hanya menawarkan akses penuh untuk DriveApp, walaupun skrip hanya menggunakan satu folder. Anda akan diminta membenarkan semula selepas kod dikemas kini.
+4. ~~Gambar guru~~ dibuang pada Fasa 3 atas permintaan pemilik.
 6. **Senarai guru** untuk pentadbir ditambah (bukan dalam dokumen asal untuk Fasa 2), supaya pentadbir boleh membuka profil guru sebelum dashboard siap pada Fasa 6.
 7. **Data rujukan subjek** boleh diisi superadmin sekarang, kerana opsyen guru memerlukan senarai subjek. Senarai tetap subjek masih perlu anda sahkan (Fasa 3).
 8. **Pentadbir menyunting profil guru lain** direkod dalam `audit_log` (`SUNTING_PROFIL_GURU`).
@@ -55,5 +70,6 @@ Dikemas kini pada penghujung setiap fasa. Rujuk dokumen arahan projek (Seksyen 1
 | Perkara | Diperlukan pada |
 |---|---|
 | Tempoh simpanan data guru yang berpindah atau bersara (notis privasi kini menyebut "mengikut tempoh yang ditetapkan oleh pihak sekolah") | Fasa 7 |
-| Kaedah ekstrak PDF (Claude API atau OCR Drive) dan format PDF jadual sebenar | Fasa 3 |
-| Senarai tetap subjek, kelas, unit kokurikulum dan rumah sukan | Fasa 3 dan 4 |
+| Kaedah import jadual: eksport aSc Timetables (dicadangkan) atau OCR Google Drive dengan had yang dinyatakan | Sebelum import jadual dibina |
+| Senarai tetap subjek dan kelas (superadmin boleh isi sendiri di Data rujukan, tambah pukal) | Sebelum guna sebenar |
+| Senarai unit kokurikulum dan rumah sukan | Fasa 4 |

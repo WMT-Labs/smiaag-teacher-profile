@@ -4,8 +4,6 @@ const assert = require('node:assert/strict');
 const { loadReady } = require('./helpers/load-gas');
 const { setupWithSuperadmin } = require('./helpers/auth-helpers');
 
-// JPEG 1x1 yang sah (data ujian)
-const JPEG = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
 
 function dunia() {
   const w = setupWithSuperadmin();
@@ -56,9 +54,9 @@ test('guru A tidak boleh membaca atau menyunting profil guru B melalui API terus
   assert.equal(call('PROFIL_LIHAT', { guru_id: gidB }, A.token).code, 'TIADA_KEBENARAN');
   assert.equal(call('PROFIL_SIMPAN_TERAS', { guru_id: gidB, nama_penuh: 'Diubah', status_lantikan: 'tetap' }, A.token).code, 'TIADA_KEBENARAN');
   assert.equal(call('REKOD_SIMPAN', { jadual: 'kursus', guru_id: gidB, data: { tajuk: 'X', tahap: 'sekolah' } }, A.token).code, 'TIADA_KEBENARAN');
-  assert.equal(call('GAMBAR_SIMPAN', { guru_id: gidB, data: JPEG }, A.token).code, 'TIADA_KEBENARAN');
   assert.equal(call('GURU_SENARAI', {}, A.token).code, 'TIADA_KEBENARAN');
   assert.equal(call('CERAPAN_SIMPAN', { guru_id: gidB, tahun_akademik: '2026', bilangan_dicerap: 5 }, A.token).code, 'TIADA_KEBENARAN');
+  assert.equal(call('PERCUBAAN_SAHKAN', { guru_id: gidB }, A.token).code, 'TIADA_KEBENARAN');
 });
 
 test('guru A tidak boleh menyunting atau memadam rekod milik B walaupun tahu id rekod', () => {
@@ -104,7 +102,8 @@ test('profil penuh: kelayakan, opsyen, kursus, cerapan dan data rujukan', () => 
 
   const p = call('PROFIL_LIHAT', {}, A.token).data;
   assert.equal(p.milik_sendiri, true);
-  assert.equal(p.boleh.cerapan, false, 'guru tidak boleh mencatat cerapan');
+  assert.equal(p.boleh.cerapan, true, 'guru boleh mengemas kini cerapan sendiri');
+  assert.equal(p.boleh.sahkan_percubaan, false);
   assert.equal(p.kelayakan.length, 1);
   assert.equal(p.opsyen[0].subjek_nama, 'Pendidikan Islam');
   assert.equal(p.kursus[0].jam, 12);
@@ -113,7 +112,8 @@ test('profil penuh: kelayakan, opsyen, kursus, cerapan dan data rujukan', () => 
   assert.equal(p.cerapan.sejarah.length, 1);
   assert.ok(p.ref.status_lantikan.length >= 3);
   assert.equal(p.ref.subjek[0].nama, 'Pendidikan Islam');
-  assert.doesNotMatch(JSON.stringify(p), /password_hash|salt|gambar_ref/);
+  assert.doesNotMatch(JSON.stringify(p), /password_hash|salt/);
+  assert.equal(p.gambar, undefined, 'ciri gambar telah dibuang');
 
   const k = p.kursus[0];
   assert.equal(call('REKOD_SIMPAN', { jadual: 'kursus', id: k.id, data: { jam: 14 } }, A.token).data.jam, 14);
@@ -128,24 +128,6 @@ test('tarikh lantikan masa depan ditolak; nama wajib', () => {
   assert.equal(call('PROFIL_SIMPAN_TERAS', { nama_penuh: 'Guru Sah', status_lantikan: 'bos' }, A.token).code, 'VALIDASI');
 });
 
-// ---------------------------------------------------------------- gambar
-test('gambar: simpan dalam folder Drive peribadi, ganti yang lama, tolak bukan imej', () => {
-  const { ctx, env, call, A, gidA } = dunia();
-  const r = call('GAMBAR_SIMPAN', { data: JPEG }, A.token);
-  assert.equal(r.ok, true);
-  assert.match(r.data.gambar, /^data:image\/jpeg;base64,/);
-  assert.ok(env.props.DRIVE_FOLDER_ID, 'folder dicipta automatik');
-  const ref1 = ctx.getById('guru', gidA).gambar_ref;
-  assert.match(call('PROFIL_LIHAT', {}, A.token).data.gambar, /^data:image\/jpeg;base64,/);
-  call('GAMBAR_SIMPAN', { data: JPEG }, A.token);
-  assert.equal(env.drive.files.get(ref1).trashed, true, 'gambar lama dibuang');
-  const bukan = Buffer.from('<script>alert(1)</script>'.repeat(10)).toString('base64');
-  assert.equal(call('GAMBAR_SIMPAN', { data: bukan }, A.token).code, 'VALIDASI');
-  assert.equal(call('GAMBAR_SIMPAN', { data: 'A'.repeat(300000) }, A.token).code, 'PERMINTAAN_TIDAK_SAH');
-  assert.equal(call('GAMBAR_PADAM', {}, A.token).data.gambar, null);
-  assert.equal(call('PROFIL_LIHAT', {}, A.token).data.gambar, null);
-});
-
 // ---------------------------------------------------------------- senarai & subjek
 test('senarai guru (pentadbir) tidak mengandungi telefon; subjek diurus superadmin sahaja', () => {
   const { call, A, ADM, superToken } = dunia();
@@ -158,4 +140,48 @@ test('senarai guru (pentadbir) tidak mengandungi telefon; subjek diurus superadm
   assert.equal(call('SUBJEK_SIMPAN', { nama: 'Pendidikan Islam', kategori: 'subjek' }, superToken).code, 'DUPLIKAT');
   assert.equal(call('SUBJEK_SIMPAN', { nama: 'Tahfiz', kategori: 'bukan' }, superToken).code, 'VALIDASI');
   assert.equal(call('SUBJEK_SENARAI', {}, A.token).data.subjek.length, 1);
+});
+
+// ---------------------------------------------------------------- cerapan oleh guru sendiri
+test('cerapan: guru kemas kini sendiri; pentadbir boleh bagi pihak guru (direkod)', () => {
+  const { ctx, call, A, ADM, gidA } = dunia();
+  assert.equal(call('CERAPAN_SIMPAN', { tahun_akademik: '2026', bilangan_dicerap: 1, pencerap: 'Guru Kanan Contoh' }, A.token).data.bilangan_dicerap, 1);
+  assert.equal(call('CERAPAN_SIMPAN', { guru_id: gidA, tahun_akademik: '2026', bilangan_dicerap: 2, pencerap: 'Pengetua Contoh' }, ADM.token).data.bilangan_dicerap, 2);
+  assert.equal(ctx.query('cerapan', { guru_id: gidA }).length, 1);
+  assert.ok(ctx.query('audit_log', { tindakan: 'CERAPAN_SIMPAN' }).some((x) => /bagi pihak/.test(x.butiran)));
+});
+
+// ---------------------------------------------------------------- tempoh percubaan
+test('tarikh tamat percubaan: +6 bulan, dihadkan kepada hujung bulan', () => {
+  const { ctx } = loadReady();
+  assert.equal(ctx.tarikhTamatPercubaan('2026-01-15'), '2026-07-15');
+  assert.equal(ctx.tarikhTamatPercubaan('2026-08-31'), '2027-02-28');
+  assert.equal(ctx.tarikhTamatPercubaan('2027-08-31'), '2028-02-29', 'tahun lompat');
+  assert.equal(ctx.tarikhTamatPercubaan('2026-12-01'), '2027-06-01');
+  assert.equal(ctx.tarikhTamatPercubaan(null), null);
+  assert.equal(ctx.statusPercubaan({ status_lantikan: 'tetap' }, '2026-11-06'), null);
+  const s1 = ctx.statusPercubaan({ status_lantikan: 'percubaan', tarikh_lantikan: '2026-05-06' }, '2026-11-06');
+  assert.equal(s1.tamat, true, 'tepat 6 bulan = tamat');
+  assert.equal(ctx.statusPercubaan({ status_lantikan: 'percubaan', tarikh_lantikan: '2026-05-07' }, '2026-11-06').tamat, false);
+  assert.equal(ctx.statusPercubaan({ status_lantikan: 'percubaan' }, '2026-11-06').perlu_tarikh_lantikan, true);
+});
+
+test('percubaan: guru boleh tukar status sendiri tetapi tidak boleh sahkan diri sebagai tetap; pentadbir sahkan', () => {
+  const { ctx, call, A, ADM, gidA } = dunia();
+  const r = call('PROFIL_SIMPAN_TERAS', { nama_penuh: 'Guru Contoh SMA01', status_lantikan: 'percubaan', tarikh_lantikan: '2026-04-01' }, A.token);
+  assert.equal(r.data.status_lantikan, 'percubaan');
+  assert.equal(call('PROFIL_SIMPAN_TERAS', { nama_penuh: 'Guru Contoh SMA01', status_lantikan: 'tetap', tarikh_lantikan: '2026-04-01' }, A.token).code, 'VALIDASI');
+  assert.equal(call('PROFIL_SIMPAN_TERAS', { nama_penuh: 'Guru Contoh SMA01', status_lantikan: 'kontrak', tarikh_lantikan: '2026-04-01' }, A.token).ok, true, 'status lain boleh');
+  call('PROFIL_SIMPAN_TERAS', { nama_penuh: 'Guru Contoh SMA01', status_lantikan: 'percubaan', tarikh_lantikan: '2026-04-01' }, A.token);
+  const senarai = call('GURU_SENARAI', {}, ADM.token).data.guru.find((g) => g.id === gidA);
+  assert.equal(senarai.percubaan.tamat, true, 'tamat 01/10/2026, hari ini 06/11/2026');
+  assert.equal(senarai.percubaan.tarikh_tamat, '2026-10-01');
+  const p = call('PROFIL_LIHAT', { guru_id: gidA }, ADM.token).data;
+  assert.equal(p.boleh.sahkan_percubaan, true);
+  assert.equal(p.percubaan.tamat, true);
+  const s = call('PERCUBAAN_SAHKAN', { guru_id: gidA }, ADM.token);
+  assert.equal(s.data.status_lantikan, 'tetap');
+  assert.equal(s.data.tarikh_disahkan, '2026-11-06');
+  assert.equal(call('PERCUBAAN_SAHKAN', { guru_id: gidA }, ADM.token).code, 'VALIDASI', 'sudah tetap');
+  assert.ok(ctx.query('audit_log', { tindakan: 'SAHKAN_GURU_TETAP' }).length === 1);
 });

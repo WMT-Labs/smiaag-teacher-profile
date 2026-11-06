@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cari guru ganti — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard({ roles: ['pentadbir', 'superadmin'] });
+      if (!sesi) return;
+      var el = UI.el;
+      var c = App.mount({ sesi: sesi, active: 'ganti', title: 'Cari guru ganti' });
+      var R = null;
+      var pilihan = { hari: null, dari: null, hingga: null };
+
+      var hariBox = el('div', { class: 'pill-group', role: 'group', 'aria-label': 'Hari' });
+      var waktuBox = el('div', { class: 'pill-group', role: 'group', 'aria-label': 'Waktu' });
+      var fSubjek = el('select', { class: 'select', id: 'f-subjek' }, el('option', { value: '' }, 'Semua guru'));
+      var fJab = el('select', { class: 'select', id: 'f-jab' }, el('option', { value: '' }, 'Semua jabatan'));
+      var info = el('p', { class: 'muted', style: 'font-size:.875rem' }, 'Pilih hari, kemudian tekan waktu mula dan waktu tamat.');
+      var hasil = el('div');
+      c.appendChild(el('section', { class: 'card' }, [
+        el('div', { class: 'card-head' }, el('h2', {}, 'Bila guru ganti diperlukan?')),
+        el('div', { class: 'card-pad stack' }, [
+          el('div', { class: 'field' }, [el('span', { class: 'field-label' }, 'Hari'), hariBox]),
+          el('div', { class: 'field' }, [el('span', { class: 'field-label' }, 'Waktu'), waktuBox, info]),
+          el('div', { class: 'filters' }, [
+            el('div', { class: 'field', style: 'flex:1 1 220px' }, [el('label', { for: 'f-subjek' }, 'Opsyen subjek'), fSubjek]),
+            el('div', { class: 'field', style: 'flex:1 1 180px' }, [el('label', { for: 'f-jab' }, 'Jabatan'), fJab])
+          ])
+        ])
+      ]));
+      c.appendChild(hasil);
+      [fSubjek, fJab].forEach(function (x) { x.addEventListener('change', cari); });
+
+      function renderPilihan() {
+        hariBox.textContent = '';
+        R.hari.slice(0, 5).forEach(function (h) {
+          var b = el('button', { type: 'button', 'aria-pressed': String(pilihan.hari === h.kod) }, h.label);
+          b.addEventListener('click', function () { pilihan.hari = h.kod; renderPilihan(); cari(); });
+          hariBox.appendChild(b);
+        });
+        waktuBox.textContent = '';
+        R.waktu.forEach(function (w) {
+          var dalam = pilihan.dari !== null && w.nombor >= pilihan.dari && w.nombor <= (pilihan.hingga || pilihan.dari);
+          var b = el('button', { type: 'button', 'aria-pressed': String(dalam), title: w.masa_mula + '–' + w.masa_akhir }, w.nombor + ' · ' + w.masa_mula);
+          b.addEventListener('click', function () {
+            if (pilihan.dari === null || pilihan.hingga !== null || w.nombor < pilihan.dari) { pilihan.dari = w.nombor; pilihan.hingga = null; }
+            else pilihan.hingga = w.nombor;
+            renderPilihan(); cari();
+          });
+          waktuBox.appendChild(b);
+        });
+      }
+
+      function julat() {
+        if (pilihan.dari === null) return null;
+        var a = R.waktu.filter(function (w) { return w.nombor === pilihan.dari; })[0];
+        var b = R.waktu.filter(function (w) { return w.nombor === (pilihan.hingga || pilihan.dari); })[0];
+        return { mula: a.masa_mula, akhir: b.masa_akhir };
+      }
+
+      function cari() {
+        var j = julat();
+        info.textContent = j ? 'Dipilih: ' + j.mula + '–' + j.akhir + '. Tekan waktu lain untuk melanjutkan julat.' : 'Pilih hari, kemudian tekan waktu mula dan waktu tamat.';
+        hasil.textContent = '';
+        if (!pilihan.hari || !j) return;
+        hasil.appendChild(el('p', { class: 'muted' }, 'Mencari...'));
+        var p = { hari: pilihan.hari, masa_mula: j.mula, masa_akhir: j.akhir };
+        if (fSubjek.value) p.subjek_id = fSubjek.value;
+        if (fJab.value) p.jabatan = fJab.value;
+        Api.call('SLOT_KOSONG', p).then(function (d) {
+          hasil.textContent = '';
+          var hariLabel = App.labelOf(R.hari, pilihan.hari);
+          var list = d.guru.length ? el('ul', { class: 'result-list' }, d.guru.map(function (g) {
+            var initial = g.nama_penuh.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
+            return el('li', {}, [
+              el('span', { class: 'avatar', style: 'width:34px;height:34px;font-size:.75rem' }, initial),
+              el('div', { class: 'grow' }, [el('a', { href: 'profil.html?id=' + encodeURIComponent(g.id), style: 'font-weight:600;text-decoration:none' }, g.nama_penuh),
+                el('div', { class: 'muted', style: 'font-size:.75rem' }, g.guru_kod + (g.jawatan ? ' · ' + g.jawatan : ''))]),
+              g.opsyen ? el('span', { class: 'badge badge-ok' }, 'Opsyen ' + g.opsyen) : null,
+              el('span', { class: 'num muted', style: 'font-size:.8125rem;white-space:nowrap' }, g.jam_berjadual + ' jam')
+            ].filter(Boolean));
+          })) : el('p', { class: 'empty-sm' }, 'Tiada guru yang kosong pada waktu ini dengan tapisan dipilih.');
+          hasil.appendChild(el('section', { class: 'card' }, [
+            el('div', { class: 'card-head' }, [el('h2', {}, d.guru.length + ' guru kosong'), el('span', { class: 'muted', style: 'font-size:.8125rem' }, hariLabel + ', ' + j.mula + '–' + j.akhir)]),
+            el('p', { class: 'muted', style: 'font-size:.8125rem;padding:12px 24px 0' }, 'Disusun mengikut jam kredit berjadual paling rendah dahulu. Hanya slot jadual yang disahkan dikira.'),
+            list
+          ]));
+        }, function (e) { hasil.textContent = ''; hasil.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message))); });
+      }
+
+      Api.call('SLOT_KOSONG_RUJUKAN').then(function (d) {
+        R = d;
+        d.subjek.forEach(function (s) { fSubjek.appendChild(el('option', { value: s.id }, 'Opsyen: ' + s.nama)); });
+        d.jabatan.forEach(function (j) { fJab.appendChild(el('option', { value: j.kod }, j.label)); });
+        var hariIni = ['ahad', 'isnin', 'selasa', 'rabu', 'khamis', 'jumaat', 'sabtu'][new Date().getDay()];
+        if (d.hari.slice(0, 5).some(function (h) { return h.kod === hariIni; })) pilihan.hari = hariIni;
+        if (!d.waktu.length) waktuBox.appendChild(el('span', { class: 'muted' }, 'Templat waktu belum ditetapkan.'));
+        renderPilihan(); cari();
+      }, function (e) { UI.toast(e.message); });
+    })();
+  </script>
+</body>
+</html>

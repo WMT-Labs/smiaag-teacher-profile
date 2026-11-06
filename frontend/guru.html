@@ -26,6 +26,12 @@
       var fCerap = el('select', { class: 'select', 'aria-label': 'Cerapan', style: 'width:auto' }, [
         el('option', { value: '' }, 'Semua cerapan'), el('option', { value: 'belum' }, 'Belum dicerap'), el('option', { value: 'sudah' }, 'Sudah dicerap')
       ]);
+      var fPercubaan = el('select', { class: 'select', 'aria-label': 'Percubaan', style: 'width:auto' }, [
+        el('option', { value: '' }, 'Semua'), el('option', { value: 'tamat' }, 'Tamat percubaan (perlu disahkan)'), el('option', { value: 'dalam' }, 'Dalam percubaan')
+      ]);
+      var fBeban = el('select', { class: 'select', 'aria-label': 'Beban', style: 'width:auto' }, [
+        el('option', { value: '' }, 'Semua beban'), el('option', { value: 'lebih' }, 'Melebihi had'), el('option', { value: 'hampir' }, 'Hampir had'), el('option', { value: 'dalam' }, 'Dalam had')
+      ]);
       var fAktif = el('select', { class: 'select', 'aria-label': 'Aktif', style: 'width:auto' }, [
         el('option', { value: 'aktif' }, 'Guru aktif'), el('option', { value: '' }, 'Termasuk tidak aktif')
       ]);
@@ -33,27 +39,40 @@
       var count = el('span', { class: 'muted', style: 'font-size:.8125rem' });
       c.appendChild(el('section', { class: 'card' }, [
         el('div', { class: 'card-head' }, [el('h2', {}, 'Guru'), count]),
-        el('div', { class: 'toolbar' }, [el('div', { class: 'grow' }, cari), fStatus, fCerap, fAktif]),
+        el('div', { class: 'toolbar' }, [el('div', { class: 'grow' }, cari), fStatus, fPercubaan, fBeban, fCerap, fAktif]),
         el('div', { class: 'table-wrap' }, el('table', { class: 'data cards' }, [
-          el('thead', {}, el('tr', {}, ['Guru', 'Jawatan', 'Status lantikan', 'Cerapan tahun ini'].map(function (h) { return el('th', {}, h); }))),
+          el('thead', {}, el('tr', {}, ['Guru', 'Status lantikan', 'Berjadual', 'Tidak berjadual', 'Cerapan tahun ini'].map(function (h) { return el('th', {}, h); }))),
           tbody
         ]))
       ]));
-      [cari, fStatus, fCerap, fAktif].forEach(function (x) { x.addEventListener('input', render); });
+      [cari, fStatus, fPercubaan, fBeban, fCerap, fAktif].forEach(function (x) { x.addEventListener('input', render); });
 
+      function beban(j, h) { return j > h ? 'lebih' : j >= h * 0.8 ? 'hampir' : 'dalam'; }
+      function statusSel(g) {
+        var t = App.labelOf(D.ref.status_lantikan, g.status_lantikan);
+        if (!g.percubaan) return t;
+        var pc = g.percubaan;
+        var b = pc.tamat ? el('span', { class: 'badge badge-over' }, 'Tamat ' + UI.fmtDate(pc.tarikh_tamat) + ', perlu disahkan')
+          : pc.perlu_tarikh_lantikan ? el('span', { class: 'badge badge-near' }, 'Tarikh lantikan belum diisi')
+          : el('span', { class: 'badge badge-neutral' }, 'Hingga ' + UI.fmtDate(pc.tarikh_tamat));
+        return el('div', { style: 'display:grid;gap:4px;justify-items:start' }, [t, b]);
+      }
       function render() {
         var q = cari.value.trim().toLowerCase();
         var rows = D.guru.filter(function (g) {
           if (fAktif.value === 'aktif' && !g.aktif) return false;
           if (q && (g.nama_penuh + ' ' + g.guru_kod + ' ' + (g.jawatan || '')).toLowerCase().indexOf(q) === -1) return false;
           if (fStatus.value && g.status_lantikan !== fStatus.value) return false;
+          if (fPercubaan.value === 'tamat' && !(g.percubaan && g.percubaan.tamat)) return false;
+          if (fPercubaan.value === 'dalam' && !(g.percubaan && !g.percubaan.tamat)) return false;
+          if (fBeban.value && g.status_beban !== fBeban.value) return false;
           if (fCerap.value === 'belum' && g.cerapan_tahun_ini > 0) return false;
           if (fCerap.value === 'sudah' && g.cerapan_tahun_ini === 0) return false;
           return true;
         });
         count.textContent = rows.length + ' guru';
         tbody.textContent = '';
-        if (!rows.length) { tbody.appendChild(el('tr', {}, el('td', { colspan: '4', class: 'empty full' }, 'Tiada guru sepadan.'))); return; }
+        if (!rows.length) { tbody.appendChild(el('tr', {}, el('td', { colspan: '5', class: 'empty full' }, 'Tiada guru sepadan.'))); return; }
         rows.forEach(function (g) {
           var initial = g.nama_penuh.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
           tbody.appendChild(el('tr', {}, [
@@ -61,8 +80,9 @@
               el('span', { class: 'avatar', style: 'width:34px;height:34px;font-size:.75rem' }, initial),
               el('div', {}, [el('a', { href: 'profil.html?id=' + encodeURIComponent(g.id) }, g.nama_penuh), el('div', { class: 'muted', style: 'font-size:.75rem' }, g.guru_kod + (g.aktif ? '' : ' · tidak aktif'))])
             ])),
-            el('td', { 'data-label': 'Jawatan' }, g.jawatan || '—'),
-            el('td', { 'data-label': 'Status' }, App.labelOf(D.ref.status_lantikan, g.status_lantikan)),
+            el('td', { 'data-label': 'Status' }, statusSel(g)),
+            el('td', { 'data-label': 'Berjadual', class: 'num' }, el('a', { href: 'kurikulum.html?id=' + encodeURIComponent(g.id), class: 'badge badge-' + App.bebanBadge(beban(g.jam_berjadual, D.had.had_berjadual)).kind, style: 'text-decoration:none' }, g.jam_berjadual + ' / ' + D.had.had_berjadual)),
+            el('td', { 'data-label': 'Tidak berjadual', class: 'num' }, el('span', { class: 'badge badge-' + App.bebanBadge(beban(g.jam_tidak_berjadual, D.had.had_tidak_berjadual)).kind }, g.jam_tidak_berjadual + ' / ' + D.had.had_tidak_berjadual)),
             el('td', { 'data-label': 'Cerapan' }, g.cerapan_tahun_ini > 0
               ? el('span', { class: 'badge badge-ok' }, g.cerapan_tahun_ini + ' kali')
               : el('span', { class: 'badge badge-near' }, 'Belum dicerap'))
@@ -70,12 +90,13 @@
         });
       }
 
-      tbody.appendChild(el('tr', {}, el('td', { colspan: '4', class: 'empty full' }, 'Memuatkan...')));
+      tbody.appendChild(el('tr', {}, el('td', { colspan: '5', class: 'empty full' }, 'Memuatkan...')));
       Api.call('GURU_SENARAI').then(function (d) {
         D = d;
+        if (/[?&]tapis=percubaan/.test(location.search)) fPercubaan.value = 'tamat';
         d.ref.status_lantikan.forEach(function (r) { fStatus.appendChild(el('option', { value: r.kod }, r.label)); });
         render();
-      }, function (e) { tbody.textContent = ''; tbody.appendChild(el('tr', {}, el('td', { colspan: '4', class: 'empty full' }, e.message))); });
+      }, function (e) { tbody.textContent = ''; tbody.appendChild(el('tr', {}, el('td', { colspan: '5', class: 'empty full' }, e.message))); });
     })();
   </script>
 </body>

@@ -259,7 +259,7 @@ Unik: (kod)
 | jawatan | text |  |  |  |
 | tarikh_lantikan | date |  |  |  |
 | no_telefon | text |  |  |  |
-| gambar_ref | text |  |  |  |
+| tarikh_disahkan | date |  |  |  |
 | aktif | bool | ya |  | true |
 | created_at | datetime |  |  |  |
 | updated_at | datetime |  |  |  |
@@ -423,13 +423,41 @@ Unik: (nama, tahun_akademik)
 | masa_mula | time | ya |  |  |
 | masa_akhir | time | ya |  |  |
 | subjek_id | uuid |  | FK → subjek |  |
-| kelas_id | uuid |  | FK → kelas |  |
-| tempoh | int [1..20] |  |  |  |
+| label | text |  |  |  |
+| tempoh | int [1..30] |  |  |  |
 | sumber | text | ya | ref → ref_sumber_slot | manual |
 | disahkan | bool | ya |  | false |
 | created_at | datetime |  |  |  |
 | updated_at | datetime |  |  |  |
 | updated_by | text |  |  |  |
+
+### `jadual_slot_kelas`
+
+| Lajur | Jenis | Wajib | Rujukan | Lalai |
+|---|---|---|---|---|
+| id (PK) | uuid | ya |  |  |
+| slot_id | uuid | ya | FK → jadual_slot |  |
+| kelas_id | uuid | ya | FK → kelas |  |
+| created_at | datetime |  |  |  |
+| updated_at | datetime |  |  |  |
+| updated_by | text |  |  |  |
+
+Unik: (slot_id, kelas_id)
+
+### `waktu`
+
+| Lajur | Jenis | Wajib | Rujukan | Lalai |
+|---|---|---|---|---|
+| id (PK) | uuid | ya |  |  |
+| tahun_akademik | year | ya |  |  |
+| nombor | int [1..30] | ya |  |  |
+| masa_mula | time | ya |  |  |
+| masa_akhir | time | ya |  |  |
+| created_at | datetime |  |  |  |
+| updated_at | datetime |  |  |  |
+| updated_by | text |  |  |  |
+
+Unik: (tahun_akademik, nombor)
 
 ### `had_jam_kredit`
 
@@ -620,7 +648,7 @@ Unik: (usrah_guru_id, guru_id, tarikh)
 
 ## Nilai rujukan asal
 
-- `ref_status_lantikan`: tetap, kontrak, lain_lain
+- `ref_status_lantikan`: tetap, percubaan, kontrak, lain_lain
 - `ref_role`: guru, pentadbir, superadmin
 - `ref_tahap_kelayakan`: sijil, diploma, ijazah_sarjana_muda, ijazah_sarjana, doktor_falsafah, lain_lain
 - `ref_jenis_opsyen`: major, minor

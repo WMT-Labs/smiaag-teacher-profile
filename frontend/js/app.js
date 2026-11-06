@@ -70,7 +70,7 @@
       { key: 'utama', href: 'utama.html', text: 'Laman utama', icon: 'i-dashboard' },
       { key: 'profil', href: 'profil.html', text: 'Profil saya', icon: 'i-users' },
       { label: 'Bahagian' },
-      { key: 'kuri', text: 'Kurikulum', icon: 'i-book', soon: 'Fasa 3' },
+      { key: 'kuri', href: 'kurikulum.html', text: 'Kurikulum', icon: 'i-book' },
       { key: 'koku', text: 'Kokurikulum', icon: 'i-trophy', soon: 'Fasa 4' },
       { key: 'hem', text: 'HEM', icon: 'i-heart', soon: 'Fasa 5' }
     ];
@@ -78,6 +78,7 @@
       items.push({ label: 'Pentadbiran' });
       items.push({ key: 'dashboard', text: 'Dashboard sekolah', icon: 'i-dashboard', soon: 'Fasa 6' });
       items.push({ key: 'guru', href: 'guru.html', text: 'Senarai guru', icon: 'i-clipboard' });
+      items.push({ key: 'ganti', href: 'slot-kosong.html', text: 'Cari guru ganti', icon: 'i-search' });
       items.push({ key: 'akaun', href: 'akaun.html', text: 'Urus akaun', icon: 'i-shield' });
       if (role === 'superadmin') items.push({ key: 'rujukan', href: 'rujukan.html', text: 'Data rujukan', icon: 'i-sliders' });
     }
@@ -195,6 +196,22 @@
       } else if (f.type === 'textarea') {
         input = el('textarea', { class: 'input', id: id, maxlength: '1000' });
         input.value = f.value || '';
+      } else if (f.type === 'multicheck') {
+        var box = el('div', { class: 'multicheck', role: 'group', 'aria-label': f.label });
+        var chosen = (f.value || []).map(String);
+        var checks = (f.options || []).map(function (o) {
+          var v = String(o.value !== undefined ? o.value : (o.id !== undefined ? o.id : o.kod));
+          var cb = el('input', { type: 'checkbox', value: v });
+          cb.checked = chosen.indexOf(v) !== -1;
+          box.appendChild(el('label', {}, [cb, o.label || o.nama]));
+          return cb;
+        });
+        if (!checks.length) box.appendChild(el('span', { class: 'muted', style: 'font-size:.875rem' }, f.emptyText || 'Tiada pilihan.'));
+        inputs[f.name] = { multi: checks, focus: function () { if (checks[0]) checks[0].focus(); } };
+        var mparts = [el('span', { class: 'field-label' }, f.label + (f.required ? '' : ' (pilihan)')), box];
+        if (f.hint) mparts.push(el('span', { class: 'hint' }, f.hint));
+        body.push(el('div', { class: 'field' }, mparts));
+        return;
       } else if (f.type === 'checkbox') {
         input = el('input', { type: 'checkbox', id: id });
         input.checked = !!f.value;
@@ -224,13 +241,24 @@
           var missing = null;
           opt.fields.forEach(function (f) {
             var inp = inputs[f.name];
-            var v = f.type === 'checkbox' ? inp.checked : inp.value.trim();
+            var v;
+            if (f.type === 'multicheck') {
+              v = inp.multi.filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+              if (f.required && !v.length && !missing) missing = f;
+              values[f.name] = v;
+              return;
+            }
+            v = f.type === 'checkbox' ? inp.checked : inp.value.trim();
             if (f.type === 'number' && v !== '') v = Number(v);
             if (v === '') v = null;
             if (f.required && v === null && !missing) missing = f;
             values[f.name] = v;
           });
           if (missing) { alertText.textContent = missing.label + ' wajib diisi.'; alertBox.hidden = false; inputs[missing.name].focus(); return false; }
+          if (opt.validate) {
+            var vm = opt.validate(values);
+            if (vm) { alertText.textContent = vm; alertBox.hidden = false; return false; }
+          }
           b.disabled = true; b.textContent = 'Menyimpan...';
           return Promise.resolve(opt.onSubmit(values)).then(function (r) { result = r; return true; }, function (e) {
             alertText.textContent = e.message; alertBox.hidden = false;
@@ -242,6 +270,13 @@
     }).then(function (v) { return v === 'ok' ? result : null; });
     setTimeout(function () { var first = inputs[opt.fields[0].name]; if (first && first.focus) first.focus(); }, 50);
     return p;
+  }
+
+  var HARI_PENDEK = { isnin: 'ISN', selasa: 'SEL', rabu: 'RAB', khamis: 'KHA', jumaat: 'JUM', sabtu: 'SAB', ahad: 'AHD' };
+
+  /** Status beban -> { kelas lencana, teks } */
+  function bebanBadge(st) {
+    return st === 'lebih' ? { kind: 'over', text: 'Melebihi had' } : st === 'hampir' ? { kind: 'near', text: 'Hampir had' } : { kind: 'ok', text: 'Dalam had' };
   }
 
   function labelOf(list, kod) {
@@ -260,6 +295,6 @@
 
   window.App = {
     icon: icon, nextPage: nextPage, guard: guard, updateSesi: updateSesi, logout: logout, mount: mount,
-    dialog: dialog, confirm: confirmDialog, formDialog: formDialog, labelOf: labelOf, fmtDateTime: fmtDateTime, LABEL_ROLE: LABEL_ROLE
+    dialog: dialog, confirm: confirmDialog, formDialog: formDialog, labelOf: labelOf, bebanBadge: bebanBadge, HARI_PENDEK: HARI_PENDEK, fmtDateTime: fmtDateTime, LABEL_ROLE: LABEL_ROLE
   };
 })();

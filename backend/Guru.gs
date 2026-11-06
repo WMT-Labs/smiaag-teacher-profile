@@ -6,12 +6,11 @@
  *  - Pentadbir dan superadmin boleh membaca dan mengubah profil mana-mana guru.
  *  - Nombor telefon: guru (termasuk pemiliknya) menerima versi bertutup. Pentadbir menerima
  *    nombor penuh, dan setiap bacaan direkod dalam audit_log.
- *  - Cerapan dicatat oleh pentadbir. Guru boleh melihat rekod sendiri.
+ *  - Cerapan boleh dikemas kini oleh guru sendiri, atau oleh pentadbir (GK, PK, Pengetua) bagi pihak guru.
+ *  - Status "percubaan": tamat 6 bulan selepas tarikh lantikan. Pengesahan ke guru tetap dibuat oleh pentadbir.
  *  - Perubahan oleh guru terus disimpan (keputusan pemilik). Sunting oleh pentadbir ke atas
  *    profil guru lain direkod dalam audit_log.
  */
-
-var GAMBAR_MAX_BYTES = 150 * 1024;
 
 function _isAdmin(ctx) { return ctx.role === 'pentadbir' || ctx.role === 'superadmin'; }
 
@@ -37,7 +36,7 @@ function _guruUntukPelayar(ctx, guru) {
   var admin = _isAdmin(ctx);
   var out = {
     id: guru.id, guru_kod: guru.guru_kod, nama_penuh: guru.nama_penuh, status_lantikan: guru.status_lantikan,
-    jawatan: guru.jawatan, tarikh_lantikan: guru.tarikh_lantikan, aktif: guru.aktif,
+    jawatan: guru.jawatan, tarikh_lantikan: guru.tarikh_lantikan, tarikh_disahkan: guru.tarikh_disahkan, aktif: guru.aktif,
     ada_telefon: !!guru.no_telefon,
     no_telefon: guru.no_telefon ? (admin ? formatPhone(guru.no_telefon) : maskPhone(guru.no_telefon)) : null,
     telefon_penuh: admin,
@@ -78,8 +77,8 @@ function aksiProfilLihat(ctx, params) {
   return {
     guru: _guruUntukPelayar(ctx, guru),
     milik_sendiri: guru.id === ctx.guruId,
-    boleh: { sunting: true, cerapan: _isAdmin(ctx) },
-    gambar: _bacaGambar(guru.gambar_ref),
+    boleh: { sunting: true, cerapan: true, sahkan_percubaan: _isAdmin(ctx) },
+    percubaan: statusPercubaan(guru, hariIni()),
     kelayakan: query('kelayakan', { guru_id: guru.id }, { orderBy: 'tahun_tamat', desc: true }).map(_pilih(['id', 'tahap', 'bidang', 'institusi', 'tahun_tamat'])),
     opsyen: opsyen,
     kursus: query('kursus', { guru_id: guru.id }, { orderBy: 'tarikh_mula', desc: true }).map(_pilih(['id', 'tajuk', 'penganjur', 'tarikh_mula', 'tarikh_tamat', 'jam', 'tahap'])),
@@ -106,8 +105,14 @@ function aksiProfilSimpanTeras(ctx, params) {
     jawatan: pStr(params, 'jawatan', { label: 'Jawatan', max: 100, optional: true }),
     tarikh_lantikan: pStr(params, 'tarikh_lantikan', { label: 'Tarikh lantikan', max: 10, optional: true })
   };
-  if (patch.tarikh_lantikan && patch.tarikh_lantikan > Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd')) {
+  if (patch.tarikh_lantikan && patch.tarikh_lantikan > hariIni()) {
     throw new AppError('VALIDASI', 'Tarikh lantikan tidak boleh pada masa depan.', { field: 'tarikh_lantikan' });
+  }
+  if (guru.status_lantikan === 'percubaan' && patch.status_lantikan === 'tetap') {
+    if (!_isAdmin(ctx)) {
+      throw new AppError('VALIDASI', 'Pengesahan ke guru tetap dibuat oleh pentadbir selepas tempoh percubaan 6 bulan.', { field: 'status_lantikan' });
+    }
+    patch.tarikh_disahkan = hariIni();
   }
   if (params.padam_telefon === true) {
     patch.no_telefon = null;
@@ -128,6 +133,7 @@ function aksiProfilSimpanTeras(ctx, params) {
 /** Lajur yang boleh diisi oleh pengguna bagi setiap jadual. guru_id SENTIASA ditentukan oleh server. */
 var REKOD_GURU = {
   kelayakan: ['tahap', 'bidang', 'institusi', 'tahun_tamat'],
+  tugasan_guru: ['tahun_akademik', 'jenis_tugasan', 'kumpulan', 'nama_tugasan', 'subjek_id', 'bilangan_kelas', 'jabatan', 'jam_kredit'],
   kursus: ['tajuk', 'penganjur', 'tarikh_mula', 'tarikh_tamat', 'jam', 'tahap'],
   opsyen_guru: ['jenis', 'subjek_id']
 };
@@ -149,6 +155,14 @@ function _dataRekod(jadual, data) {
 }
 
 function _semakRekod(jadual, row) {
+  if (jadual === 'tugasan_guru') {
+    if (row.jenis_tugasan === 'tidak_berjadual') {
+      if (row.kumpulan !== 'tugasan_tidak_berjadual') throw new AppError('VALIDASI', 'Tugasan tidak berjadual mesti dalam kumpulan "Tugasan tidak berjadual".', { field: 'kumpulan' });
+      if (!row.jabatan) throw new AppError('VALIDASI', 'Pilih jabatan untuk tugasan tidak berjadual.', { field: 'jabatan' });
+    } else if (row.kumpulan === 'tugasan_tidak_berjadual') {
+      throw new AppError('VALIDASI', 'Kumpulan ini hanya untuk tugasan tidak berjadual.', { field: 'kumpulan' });
+    }
+  }
   if (jadual === 'kursus' && row.tarikh_mula && row.tarikh_tamat && row.tarikh_tamat < row.tarikh_mula) {
     throw new AppError('VALIDASI', 'Tarikh tamat tidak boleh sebelum tarikh mula.', { field: 'tarikh_tamat' });
   }
@@ -197,11 +211,48 @@ function aksiRekodPadam(ctx, params) {
 }
 
 // ---------------------------------------------------------------------------
-// Cerapan (pentadbir)
+// Tempoh percubaan
+// ---------------------------------------------------------------------------
+
+var BULAN_PERCUBAAN = 6;
+
+/** Tarikh hari ini (ISO) dalam zon Malaysia. */
+function hariIni() {
+  return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+}
+
+/** "2026-01-31" + 6 bulan -> "2026-07-31"; "2026-08-31" -> "2027-02-28" (hari dihadkan kepada hujung bulan). */
+function tarikhTamatPercubaan(tarikhLantikan) {
+  if (!tarikhLantikan || !isIsoDate(tarikhLantikan)) return null;
+  var y = +tarikhLantikan.slice(0, 4), m = +tarikhLantikan.slice(5, 7) + BULAN_PERCUBAAN, d = +tarikhLantikan.slice(8, 10);
+  y += Math.floor((m - 1) / 12);
+  m = ((m - 1) % 12) + 1;
+  var akhirBulan = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  d = Math.min(d, akhirBulan);
+  return y + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
+}
+
+/** null jika bukan percubaan; jika ya { tarikh_tamat, tamat, perlu_tarikh_lantikan }. */
+function statusPercubaan(guru, hari) {
+  if (!guru || guru.status_lantikan !== 'percubaan') return null;
+  var tamat = tarikhTamatPercubaan(guru.tarikh_lantikan);
+  return { tarikh_tamat: tamat, tamat: !!tamat && hari >= tamat, perlu_tarikh_lantikan: !tamat };
+}
+
+function aksiPercubaanSahkan(ctx, params) {
+  var guru = _sasaranGuru(ctx, pUuid(params, 'guru_id', 'Guru'));
+  if (guru.status_lantikan !== 'percubaan') throw new AppError('VALIDASI', 'Guru ini bukan dalam tempoh percubaan.');
+  var baru = update('guru', guru.id, { status_lantikan: 'tetap', tarikh_disahkan: hariIni() }, { actorId: ctx.akaunId });
+  logAudit(ctx.akaunId, 'SAHKAN_GURU_TETAP', guru.guru_kod, 'tamat percubaan: ' + (tarikhTamatPercubaan(guru.tarikh_lantikan) || '-'));
+  return _guruUntukPelayar(ctx, baru);
+}
+
+// ---------------------------------------------------------------------------
+// Cerapan: guru sendiri, atau pentadbir (GK, PK, Pengetua) bagi pihak guru
 // ---------------------------------------------------------------------------
 
 function aksiCerapanSimpan(ctx, params) {
-  var guru = _sasaranGuru(ctx, pUuid(params, 'guru_id', 'Guru'));
+  var guru = _sasaranGuru(ctx, params.guru_id);
   var tahun = pStr(params, 'tahun_akademik', { label: 'Tahun', max: 4, re: /^\d{4}$/ });
   var row = {
     bilangan_dicerap: params.bilangan_dicerap,
@@ -212,67 +263,8 @@ function aksiCerapanSimpan(ctx, params) {
   var hasil = ada
     ? update('cerapan', ada.id, row, { actorId: ctx.akaunId })
     : insert('cerapan', { guru_id: guru.id, tahun_akademik: tahun, bilangan_dicerap: row.bilangan_dicerap, pencerap: row.pencerap, catatan: row.catatan }, { actorId: ctx.akaunId });
-  logAudit(ctx.akaunId, 'CERAPAN_SIMPAN', guru.guru_kod, tahun + ': ' + hasil.bilangan_dicerap + ' kali');
+  logAudit(ctx.akaunId, 'CERAPAN_SIMPAN', guru.guru_kod, tahun + ': ' + hasil.bilangan_dicerap + ' kali' + (guru.id !== ctx.guruId ? ' (bagi pihak guru)' : ''));
   return _pilih(['id', 'tahun_akademik', 'bilangan_dicerap', 'pencerap', 'catatan'])(hasil);
-}
-
-// ---------------------------------------------------------------------------
-// Gambar (Drive peribadi, tiada pautan awam)
-// ---------------------------------------------------------------------------
-
-function _folderGambar() {
-  var props = PropertiesService.getScriptProperties();
-  var id = props.getProperty(PROP.DRIVE_FOLDER_ID);
-  if (id) { try { return DriveApp.getFolderById(id); } catch (e) { /* folder dipadam: cipta baharu */ } }
-  var f = DriveApp.createFolder('SMIAAG - Gambar Guru (PERIBADI, jangan kongsi)');
-  props.setProperty(PROP.DRIVE_FOLDER_ID, f.getId());
-  return f;
-}
-
-function _bacaGambar(ref) {
-  if (!ref) return null;
-  try {
-    var blob = DriveApp.getFileById(ref).getBlob();
-    return 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes());
-  } catch (e) {
-    return null;
-  }
-}
-
-function _jenisImej(bytes) {
-  var b = function (i) { return (bytes[i] + 256) % 256; };
-  if (bytes.length > 3 && b(0) === 0xFF && b(1) === 0xD8 && b(2) === 0xFF) return 'image/jpeg';
-  if (bytes.length > 8 && b(0) === 0x89 && b(1) === 0x50 && b(2) === 0x4E && b(3) === 0x47) return 'image/png';
-  return null;
-}
-
-function aksiGambarSimpan(ctx, params) {
-  var guru = _sasaranGuru(ctx, params.guru_id);
-  var data = params.data;
-  if (typeof data !== 'string' || data.length < 100 || data.length > Math.ceil(GAMBAR_MAX_BYTES * 4 / 3) + 8 || !/^[A-Za-z0-9+/=]+$/.test(data)) {
-    throw new AppError('VALIDASI', 'Gambar tidak sah atau terlalu besar.');
-  }
-  var bytes;
-  try { bytes = Utilities.base64Decode(data); } catch (e) { throw new AppError('VALIDASI', 'Gambar tidak sah.'); }
-  var mime = _jenisImej(bytes);
-  if (!mime) throw new AppError('VALIDASI', 'Hanya gambar JPEG atau PNG dibenarkan.');
-  if (bytes.length > GAMBAR_MAX_BYTES) throw new AppError('VALIDASI', 'Gambar terlalu besar.');
-
-  var file = _folderGambar().createFile(Utilities.newBlob(bytes, mime, 'guru_' + guru.id + (mime === 'image/png' ? '.png' : '.jpg')));
-  var lama = guru.gambar_ref;
-  update('guru', guru.id, { gambar_ref: file.getId() }, { actorId: ctx.akaunId });
-  if (lama) { try { DriveApp.getFileById(lama).setTrashed(true); } catch (e) { /* abaikan */ } }
-  _auditJikaOrangLain(ctx, guru, 'SUNTING_PROFIL_GURU', 'gambar');
-  return { gambar: 'data:' + mime + ';base64,' + data };
-}
-
-function aksiGambarPadam(ctx, params) {
-  var guru = _sasaranGuru(ctx, params.guru_id);
-  if (guru.gambar_ref) {
-    try { DriveApp.getFileById(guru.gambar_ref).setTrashed(true); } catch (e) { /* abaikan */ }
-    update('guru', guru.id, { gambar_ref: null }, { actorId: ctx.akaunId });
-  }
-  return { gambar: null };
 }
 
 // ---------------------------------------------------------------------------
@@ -280,15 +272,22 @@ function aksiGambarPadam(ctx, params) {
 // ---------------------------------------------------------------------------
 
 function aksiGuruSenarai(ctx) {
-  var tahun = tahunSemasa();
+  var tahun = tahunSemasa(), hari = hariIni();
   var cerap = {};
   query('cerapan', { tahun_akademik: tahun }).forEach(function (c) { cerap[c.guru_id] = c.bilangan_dicerap; });
+  var tugasan = {};
+  query('tugasan_guru', { tahun_akademik: tahun }).forEach(function (t) { (tugasan[t.guru_id] = tugasan[t.guru_id] || []).push(t); });
+  var had = hadJamKredit(tahun);
   return {
     tahun: tahun,
+    had: had,
     guru: query('guru', {}, { orderBy: 'nama_penuh' }).map(function (g) {
+      var jam = kiraJamKredit(tugasan[g.id] || []);
       return {
         id: g.id, guru_kod: g.guru_kod, nama_penuh: g.nama_penuh, jawatan: g.jawatan, status_lantikan: g.status_lantikan,
-        aktif: g.aktif, cerapan_tahun_ini: cerap[g.id] || 0
+        aktif: g.aktif, cerapan_tahun_ini: cerap[g.id] || 0, percubaan: statusPercubaan(g, hari),
+        jam_berjadual: jam.berjadual, jam_tidak_berjadual: jam.tidak_berjadual,
+        status_beban: statusBebanKeseluruhan(jam, had)
       };
     }),
     ref: { status_lantikan: _refSenarai('ref_status_lantikan') }

@@ -63,13 +63,8 @@
       function kepala() {
         var g = P.guru;
         var initials = g.nama_penuh.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
-        var img = P.gambar ? el('img', { src: P.gambar, alt: 'Gambar ' + g.nama_penuh }) : el('div', { class: 'ph', 'aria-hidden': 'true' }, initials);
-        var file = el('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', hidden: '' });
-        var cam = el('button', { class: 'cam', type: 'button', 'aria-label': 'Tukar gambar', title: 'Tukar gambar' }, icon('i-camera', 18));
-        cam.addEventListener('click', function () { file.click(); });
-        file.addEventListener('change', function () { if (file.files[0]) muatNaikGambar(file.files[0]); file.value = ''; });
         var badges = el('div', { class: 'badges' }, [
-          el('span', { class: 'badge badge-neutral' }, App.labelOf(P.ref.status_lantikan, g.status_lantikan)),
+          el('span', { class: 'badge ' + (g.status_lantikan === 'percubaan' ? 'badge-near' : 'badge-neutral') }, App.labelOf(P.ref.status_lantikan, g.status_lantikan)),
           g.aktif ? el('span', { class: 'badge badge-ok' }, 'Aktif') : el('span', { class: 'badge badge-over' }, 'Tidak aktif')
         ]);
         var meta = el('div', { class: 'meta' }, [
@@ -77,35 +72,33 @@
           el('div', { class: 'muted' }, g.guru_kod + (g.jawatan ? ' · ' + g.jawatan : '')),
           badges
         ]);
-        var parts = [el('div', { class: 'photo' }, [img, cam, file]), meta];
-        if (P.gambar) {
-          var buang = el('button', { class: 'btn-link', type: 'button', style: 'font-size:.875rem' }, 'Buang gambar');
-          buang.addEventListener('click', function () {
-            App.confirm('Buang gambar?', 'Gambar profil akan dipadam.', 'Buang', true).then(function (ok) {
-              if (ok) call('GAMBAR_PADAM').then(function () { muat(); }, function (e) { UI.toast(e.message); });
-            });
-          });
-          meta.appendChild(el('div', {}, buang));
+        var parts = [el('div', { class: 'photo' }, el('div', { class: 'ph', 'aria-hidden': 'true' }, initials)), meta];
+        var kad = [el('div', { class: 'profile-head' }, parts)];
+        var pc = P.percubaan;
+        if (pc) {
+          var msg, kind;
+          if (pc.perlu_tarikh_lantikan) { kind = 'notice-warn'; msg = 'Dalam tempoh percubaan. Isi tarikh lantikan supaya tarikh tamat percubaan (6 bulan) boleh dikira.'; }
+          else if (pc.tamat) { kind = 'notice-warn'; msg = 'Tempoh percubaan 6 bulan tamat pada ' + UI.fmtDate(pc.tarikh_tamat) + '. Menunggu pengesahan ke guru tetap oleh pentadbir.'; }
+          else { kind = 'notice-info'; msg = 'Dalam tempoh percubaan sehingga ' + UI.fmtDate(pc.tarikh_tamat) + '.'; }
+          var row = [el('span', { style: 'flex:1' }, msg)];
+          if (P.boleh.sahkan_percubaan && !pc.perlu_tarikh_lantikan) {
+            var sah = el('button', { class: 'btn btn-sm', type: 'button' }, 'Sahkan sebagai guru tetap');
+            sah.addEventListener('click', sahkanTetap);
+            row.push(sah);
+          }
+          kad.push(el('div', { style: 'padding:0 24px 24px' }, el('div', { class: 'notice ' + kind, style: 'align-items:center;flex-wrap:wrap' }, row)));
+        } else if (g.tarikh_disahkan) {
+          meta.appendChild(el('div', { class: 'muted', style: 'font-size:.8125rem' }, 'Disahkan sebagai guru tetap pada ' + UI.fmtDate(g.tarikh_disahkan)));
         }
-        return el('section', { class: 'card wide' }, el('div', { class: 'profile-head' }, parts));
+        return el('section', { class: 'card wide' }, kad);
       }
-
-      /** Kecilkan gambar di pelayar (320x320, JPEG) sebelum dihantar. Apps Script tidak boleh mengubah saiz gambar. */
-      function muatNaikGambar(f) {
-        if (!/^image\//.test(f.type)) { UI.toast('Pilih fail gambar.'); return; }
-        var url = URL.createObjectURL(f);
-        var im = new Image();
-        im.onload = function () {
-          var S = 320, side = Math.min(im.width, im.height);
-          var cv = document.createElement('canvas'); cv.width = S; cv.height = S;
-          cv.getContext('2d').drawImage(im, (im.width - side) / 2, (im.height - side) / 2, side, side, 0, 0, S, S);
-          URL.revokeObjectURL(url);
-          var data = cv.toDataURL('image/jpeg', 0.82).split(',')[1];
-          UI.toast('Memuat naik gambar...');
-          call('GAMBAR_SIMPAN', { data: data }).then(function () { UI.toast('Gambar dikemas kini.'); muat(); }, function (e) { UI.toast(e.message); });
-        };
-        im.onerror = function () { URL.revokeObjectURL(url); UI.toast('Gambar tidak dapat dibaca.'); };
-        im.src = url;
+      function sahkanTetap() {
+        var pc = P.percubaan;
+        var awal = !pc.tamat ? ' Tempoh percubaan belum tamat (' + UI.fmtDate(pc.tarikh_tamat) + ').' : '';
+        App.confirm('Sahkan sebagai guru tetap?', P.guru.nama_penuh + ' akan ditukar daripada "Dalam percubaan" kepada "Tetap".' + awal, 'Sahkan').then(function (ok) {
+          if (!ok) return;
+          Api.call('PERCUBAAN_SAHKAN', { guru_id: P.guru.id }).then(function () { UI.toast('Disahkan sebagai guru tetap.'); muat(); }, function (e) { UI.toast(e.message); });
+        });
       }
 
       // ---------------- maklumat teras ----------------
@@ -126,11 +119,16 @@
       }
       function suntingTeras() {
         var g = P.guru;
+        var statusPilihan = P.ref.status_lantikan;
+        if (g.status_lantikan === 'percubaan' && !P.boleh.sahkan_percubaan) {
+          statusPilihan = statusPilihan.filter(function (o) { return o.kod !== 'tetap'; }); // pengesahan oleh pentadbir
+        }
         var fields = [
           { name: 'nama_penuh', label: 'Nama penuh', required: true, value: g.nama_penuh, attrs: { maxlength: '150' } },
-          { name: 'status_lantikan', label: 'Status lantikan', type: 'select', required: true, options: P.ref.status_lantikan, value: g.status_lantikan },
+          { name: 'status_lantikan', label: 'Status lantikan', type: 'select', required: true, options: statusPilihan, value: g.status_lantikan,
+            hint: g.status_lantikan === 'percubaan' && !P.boleh.sahkan_percubaan ? 'Pengesahan ke guru tetap dibuat oleh pentadbir selepas 6 bulan.' : null },
           { name: 'jawatan', label: 'Jawatan', value: g.jawatan, placeholder: 'contoh: Guru Akademik Biasa', attrs: { maxlength: '100' } },
-          { name: 'tarikh_lantikan', label: 'Tarikh lantikan', type: 'date', value: g.tarikh_lantikan },
+          { name: 'tarikh_lantikan', label: 'Tarikh lantikan', type: 'date', value: g.tarikh_lantikan, hint: 'Untuk guru dalam percubaan, tempoh 6 bulan dikira dari tarikh ini.' },
           { name: 'no_telefon_baru', label: g.ada_telefon ? 'Nombor telefon baharu' : 'Nombor telefon', type: 'tel', placeholder: 'contoh: 012-3456789',
             hint: g.ada_telefon ? 'Biarkan kosong jika tiada perubahan. Nombor semasa: ' + g.no_telefon : null, attrs: { inputmode: 'tel', maxlength: '20' } }
         ];
@@ -246,7 +244,7 @@
           ]),
           n === 0 ? el('div', { class: 'notice notice-warn' }, el('span', {}, 'Belum dicerap tahun ini.')) : null,
           el('dl', { class: 'kv', style: 'margin:0' }, [el('dt', {}, 'Pencerap'), el('dd', {}, (s && s.pencerap) || '—')].concat(s && s.catatan ? [el('dt', {}, 'Catatan'), el('dd', {}, s.catatan)] : [])),
-          P.boleh.cerapan ? null : el('p', { class: 'muted', style: 'font-size:.8125rem' }, 'Rekod cerapan dicatat oleh pentadbir.')
+          el('p', { class: 'muted', style: 'font-size:.8125rem' }, P.milik_sendiri ? 'Anda boleh mengemas kini rekod ini sendiri. GK, PK atau Pengetua juga boleh mengemas kininya bagi pihak anda.' : 'Anda mengemas kini rekod ini bagi pihak guru.')
         ].filter(Boolean));
         var lepas = C.sejarah.filter(function (x) { return x.tahun_akademik !== C.tahun; });
         var body = [atas];
@@ -265,17 +263,20 @@
           fields: [
             { name: 'tahun_akademik', label: 'Tahun', required: true, value: P.cerapan.tahun, attrs: { inputmode: 'numeric', maxlength: '4' } },
             { name: 'bilangan_dicerap', label: 'Bilangan kali dicerap', type: 'number', required: true, value: s.bilangan_dicerap || 0, attrs: { min: '0', max: '50' } },
-            { name: 'pencerap', label: 'Pencerap', value: s.pencerap, placeholder: 'contoh: Pengetua, Ketua Panitia', attrs: { maxlength: '200' } },
+            { name: 'pencerap', label: 'Pencerap', value: s.pencerap, placeholder: 'contoh: Pengetua, PK Kurikulum, GK', hint: 'Jika lebih seorang, pisahkan dengan koma.', attrs: { maxlength: '200' } },
             { name: 'catatan', label: 'Catatan', type: 'textarea', value: s.catatan }
           ],
-          onSubmit: function (v) { v.guru_id = P.guru.id; return Api.call('CERAPAN_SIMPAN', v); }
+          onSubmit: function (v) { if (!P.milik_sendiri) v.guru_id = P.guru.id; return Api.call('CERAPAN_SIMPAN', v); }
         }).then(selepas('Cerapan disimpan.'));
       }
 
       // ---------------- muat ----------------
       function render() {
         c.textContent = '';
-        if (orangLain) c.appendChild(el('a', { class: 'back', href: 'guru.html' }, [icon('i-back', 18), 'Senarai guru']));
+        if (orangLain) c.appendChild(el('div', { class: 'row', style: 'justify-content:space-between' }, [
+          el('a', { class: 'back', href: 'guru.html' }, [icon('i-back', 18), 'Senarai guru']),
+          el('a', { class: 'btn btn-secondary btn-sm', href: 'kurikulum.html?id=' + encodeURIComponent(P.guru.id) }, 'Kurikulum dan jadual')
+        ]));
         c.appendChild(el('div', { class: 'profile-grid' }, [kepala(), teras(), cerapan(), kelayakan(), opsyen(), kursus()]));
       }
       function muat() {

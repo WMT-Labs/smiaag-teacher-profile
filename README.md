@@ -2,7 +2,7 @@
 
 Sistem profil guru untuk Sekolah Menengah Islam Al-Amin Gombak. Menyimpan maklumat guru dalam tiga bahagian (kurikulum, kokurikulum, HEM), dan memberi pentadbir gambaran beban kerja seluruh sekolah.
 
-**Status: Fasa 2 (Profil teras) siap.** Log masuk, urus akaun, dan profil guru (maklumat teras, gambar, kelayakan, opsyen, kursus, cerapan) sudah berfungsi. Kurikulum, kokurikulum, HEM dan dashboard dibina pada fasa seterusnya (lihat [Fasa pembinaan](#fasa-pembinaan)).
+**Status: Fasa 3 (Kurikulum) siap, kecuali import PDF jadual.** Log masuk, urus akaun, profil guru, tugasan dan jam kredit, jadual waktu manual, pengesanan pertindihan dan carian guru ganti sudah berfungsi. Import PDF menunggu keputusan kaedah (lihat `docs/KEPUTUSAN.md`). Kokurikulum, HEM dan dashboard dibina pada fasa seterusnya (lihat [Fasa pembinaan](#fasa-pembinaan)).
 
 ## Bagaimana ia berfungsi (ringkas)
 
@@ -29,7 +29,8 @@ backend/            Kod Apps Script (satu fail per kawasan)
   Setup.gs            setupTemplate(): bina semua tab dan nilai asal
   Auth.gs             log masuk, hash kata laluan, sesi, had percubaan, PDPA
   Akaun.gs            urus akaun (superadmin), cipta superadmin pertama
-  Guru.gs             profil guru, telefon bertutup, gambar, cerapan, subjek
+  Guru.gs             profil guru, telefon bertutup, cerapan, tempoh percubaan, subjek
+  Kurikulum.gs        jam kredit, jadual, pertindihan, slot kosong, kelas, waktu
   Api.gs              pintu masuk doPost + SENARAI SEMUA AKSI dan peranan
   appsscript.json     tetapan projek Apps Script
 frontend/           Laman web (diterbitkan)
@@ -40,7 +41,9 @@ frontend/           Laman web (diterbitkan)
   akaun.html          urus akaun (pentadbir, superadmin)
   profil.html         profil guru (sendiri, atau ?id= untuk pentadbir)
   guru.html           senarai guru (pentadbir)
-  rujukan.html        data rujukan: senarai subjek (superadmin)
+  kurikulum.html      tugasan, jam kredit dan jadual waktu
+  slot-kosong.html    cari guru ganti (pentadbir)
+  rujukan.html        data rujukan: subjek, kelas, waktu, had jam kredit (superadmin)
   pratonton.html      pratonton reka bentuk dashboard (data contoh)
   css/ js/ assets/
 dist/Code.gs        gabungan semua fail backend dalam satu fail (untuk salin-tampal)
@@ -131,7 +134,7 @@ Butiran penuh dalam dokumen arahan projek, Seksyen 3. Yang sudah berkuat kuasa p
 - Guru baharu wajib bersetuju dengan notis privasi dan tukar kata laluan sementara sebelum boleh buat apa-apa lagi.
 - Tindakan penting (log masuk, gagal log masuk, urus akaun, persetujuan PDPA) direkod dalam `audit_log`.
 - Profil: guru hanya boleh membaca dan mengubah rekod sendiri (disemak di server). Nombor telefon dihantar bertutup kepada guru; pentadbir menerima nombor penuh dan setiap bacaan direkod.
-- Gambar disimpan dalam folder Drive peribadi (dicipta automatik), tanpa pautan awam, dan hanya dihantar selepas token disahkan. Gambar dikecilkan di telefon guru sebelum dihantar.
+- Tiada gambar guru disimpan (dibuang atas permintaan pemilik), jadi sistem tidak memerlukan akses Google Drive.
 - Semua penulisan melalui `Repository.gs`: sahkan jenis, julat, nilai rujukan dan kunci asing, tambah awalan `'` pada nilai berbahaya (`= + - @`), dan buang nombor yang menyerupai IC daripada teks bebas.
 - Gaji dan IC tidak mempunyai lajur langsung (ada ujian yang menjaganya).
 - `PEPPER` dijana secara rawak dan disimpan dalam Script Properties sahaja.
@@ -146,11 +149,11 @@ Google (Sheets dan Apps Script) dan, pada masa depan, Supabase **mungkin menyimp
 |---|---|---|
 | 0 | Asas: struktur, template Sheets, repository, README, reka bentuk UI | Siap |
 | 1 | Auth: login, hash, session, had percubaan, tukar kata laluan, urus akaun, notis privasi | Siap |
-| 2 | Profil teras: guru, kelayakan, opsyen, kursus, cerapan (bilangan dan pencerap), telefon bertutup, gambar | **Siap** |
-| 3 | Kurikulum: subjek, kelas, tugasan, jadual, jam kredit, pertindihan, slot kosong, import PDF | Seterusnya |
-| 4 | Kokurikulum | |
+| 2 | Profil teras: guru, kelayakan, opsyen, kursus, cerapan, telefon bertutup, tempoh percubaan | Siap |
+| 3 | Kurikulum: subjek, kelas, tugasan, jadual, jam kredit, pertindihan, slot kosong | **Siap** (import PDF menunggu keputusan) |
+| 4 | Kokurikulum | Seterusnya |
 | 5 | HEM | |
 | 6 | Dashboard | |
 | 7 | Pengukuhan, audit keselamatan, `MIGRASI-SUPABASE.md` | |
 
-Lihat juga: [`docs/SKEMA.md`](docs/SKEMA.md), [`docs/SENARAI-SEMAK-FASA-0.md`](docs/SENARAI-SEMAK-FASA-0.md), [`docs/SENARAI-SEMAK-FASA-1.md`](docs/SENARAI-SEMAK-FASA-1.md), [`docs/SENARAI-SEMAK-FASA-2.md`](docs/SENARAI-SEMAK-FASA-2.md), [`docs/KEPUTUSAN.md`](docs/KEPUTUSAN.md).
+Lihat juga: [`docs/SKEMA.md`](docs/SKEMA.md), [`docs/SENARAI-SEMAK-FASA-0.md`](docs/SENARAI-SEMAK-FASA-0.md), [`docs/SENARAI-SEMAK-FASA-1.md`](docs/SENARAI-SEMAK-FASA-1.md), [`docs/SENARAI-SEMAK-FASA-2.md`](docs/SENARAI-SEMAK-FASA-2.md), [`docs/SENARAI-SEMAK-FASA-3.md`](docs/SENARAI-SEMAK-FASA-3.md), [`docs/KEPUTUSAN.md`](docs/KEPUTUSAN.md).

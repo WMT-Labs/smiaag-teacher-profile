@@ -44,12 +44,23 @@ function getActions() {
     PROFIL_SIMPAN_TERAS:  { roles: R_SEMUA, handler: aksiProfilSimpanTeras },
     REKOD_SIMPAN:         { roles: R_SEMUA, handler: aksiRekodSimpan },
     REKOD_PADAM:          { roles: R_SEMUA, handler: aksiRekodPadam },
-    GAMBAR_SIMPAN:        { roles: R_SEMUA, handler: aksiGambarSimpan },
-    GAMBAR_PADAM:         { roles: R_SEMUA, handler: aksiGambarPadam },
-    CERAPAN_SIMPAN:       { roles: R_ADMIN, handler: aksiCerapanSimpan },
+    CERAPAN_SIMPAN:       { roles: R_SEMUA, handler: aksiCerapanSimpan },
+    PERCUBAAN_SAHKAN:     { roles: R_ADMIN, handler: aksiPercubaanSahkan },
     GURU_SENARAI:         { roles: R_ADMIN, handler: aksiGuruSenarai },
     SUBJEK_SENARAI:       { roles: R_SEMUA, handler: aksiSubjekSenarai },
-    SUBJEK_SIMPAN:        { roles: R_SUPER, handler: aksiSubjekSimpan }
+    SUBJEK_SIMPAN:        { roles: R_SUPER, handler: aksiSubjekSimpan },
+    // ---- Kurikulum (Fasa 3) — pemilikan disemak dalam _sasaranGuru() ----
+    KURIKULUM_LIHAT:      { roles: R_SEMUA, handler: aksiKurikulumLihat },
+    SLOT_SIMPAN:          { roles: R_SEMUA, handler: aksiSlotSimpan },
+    SLOT_PADAM:           { roles: R_SEMUA, handler: aksiSlotPadam },
+    SLOT_KOSONG:          { roles: R_ADMIN, handler: aksiSlotKosong },
+    SLOT_KOSONG_RUJUKAN:  { roles: R_ADMIN, handler: aksiSlotKosongRujukan },
+    KURIKULUM_RUJUKAN:    { roles: R_SUPER, handler: aksiKurikulumRujukan },
+    KELAS_PUKAL:          { roles: R_SUPER, handler: aksiKelasPukal },
+    KELAS_PADAM:          { roles: R_SUPER, handler: aksiKelasPadam },
+    SUBJEK_PUKAL:         { roles: R_SUPER, handler: aksiSubjekPukal },
+    WAKTU_SIMPAN:         { roles: R_SUPER, handler: aksiWaktuSimpan },
+    HAD_SIMPAN:           { roles: R_SUPER, handler: aksiHadSimpan }
   };
   Object.keys(_ACTIONS).forEach(function (k) {
     var d = _ACTIONS[k];

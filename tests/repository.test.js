@@ -127,7 +127,8 @@ test('Sheets yang menukar tarikh/masa/boolean kepada jenis asalnya tetap dibaca 
   const g = ctx.insert('guru', GURU);
   const subj = ctx.insert('subjek', { nama: 'Fiqh' });
   const kls = ctx.insert('kelas', { nama: '1 Abu Bakar', tingkatan: 1, tahun_akademik: '2026' });
-  const sl = ctx.insert('jadual_slot', { guru_id: g.id, tahun_akademik: '2026', hari: 'isnin', masa_mula: '07:40', masa_akhir: '08:10', subjek_id: subj.id, kelas_id: kls.id, tempoh: 1 });
+  const sl = ctx.insert('jadual_slot', { guru_id: g.id, tahun_akademik: '2026', hari: 'isnin', masa_mula: '07:40', masa_akhir: '08:10', subjek_id: subj.id, tempoh: 1 });
+  ctx.insert('jadual_slot_kelas', { slot_id: sl.id, kelas_id: kls.id });
   assert.equal(sl.disahkan, false);
   assert.equal(sl.sumber, 'manual');
   // Simulasi Sheets menukar kepada objek Date dan teks "TRUE"

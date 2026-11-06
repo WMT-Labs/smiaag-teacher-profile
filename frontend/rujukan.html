@@ -17,48 +17,149 @@
     (function () {
       var sesi = App.guard({ roles: ['superadmin'] });
       if (!sesi) return;
-      var el = UI.el;
+      var el = UI.el, icon = App.icon;
       var c = App.mount({ sesi: sesi, active: 'rujukan', title: 'Data rujukan' });
-      var D = null;
-      var tbody = el('tbody');
-      var add = el('button', { class: 'btn btn-sm', type: 'button' }, [App.icon('i-plus', 16), 'Tambah subjek']);
-      add.addEventListener('click', function () { borang(null); });
-      c.appendChild(el('section', { class: 'card' }, [
-        el('div', { class: 'card-head' }, [el('div', {}, [el('h2', {}, 'Subjek'), el('p', { class: 'muted', style: 'font-size:.8125rem;margin-top:2px' }, 'Digunakan untuk opsyen guru dan (Fasa 3) tugasan serta jadual.')]), add]),
-        el('div', { class: 'table-wrap' }, el('table', { class: 'data cards' }, [
-          el('thead', {}, el('tr', {}, [el('th', {}, 'Nama'), el('th', {}, 'Kod'), el('th', {}, 'Kategori'), el('th', { class: 'r' }, '')])),
-          tbody
-        ]))
-      ]));
+      var tahun = String(new Date().getFullYear());
+      var S = null, K = null;
 
-      function render() {
-        tbody.textContent = '';
-        if (!D.subjek.length) { tbody.appendChild(el('tr', {}, el('td', { colspan: '4', class: 'empty full' }, 'Belum ada subjek. Tekan "Tambah subjek".'))); return; }
-        D.subjek.forEach(function (s) {
-          var b = el('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Sunting ' + s.nama }, App.icon('i-edit'));
-          b.addEventListener('click', function () { borang(s); });
-          tbody.appendChild(el('tr', {}, [
-            el('td', { 'data-label': 'Nama' }, el('b', {}, s.nama)),
-            el('td', { 'data-label': 'Kod' }, s.kod || '—'),
-            el('td', { 'data-label': 'Kategori' }, App.labelOf(D.kategori, s.kategori)),
-            el('td', { 'data-label': '', class: 'r' }, b)
-          ]));
-        });
+      function head(title, desc, actions) {
+        return el('div', { class: 'card-head' }, [el('div', {}, [el('h2', {}, title), desc ? el('p', { class: 'muted', style: 'font-size:.8125rem;margin-top:2px' }, desc) : null].filter(Boolean)), el('div', { class: 'row' }, actions || [])]);
       }
-      function borang(s) {
+      function btn(text, fn, kind, ic) { var b = el('button', { class: 'btn btn-sm ' + (kind || ''), type: 'button' }, [ic ? icon(ic, 16) : null, text].filter(Boolean)); b.addEventListener('click', fn); return b; }
+      function laporPukal(r, jenis) {
+        var msg = r.ditambah.length + ' ' + jenis + ' ditambah' + (r.dilangkau.length ? ', ' + r.dilangkau.length + ' sudah ada' : '') + (r.ralat && r.ralat.length ? ', ' + r.ralat.length + ' tidak sah: ' + r.ralat.join('; ') : '') + '.';
+        UI.toast(msg);
+      }
+
+      var tahunSel = el('select', { class: 'select', 'aria-label': 'Tahun akademik', style: 'width:auto' });
+      var y = new Date().getFullYear();
+      [y + 1, y, y - 1].forEach(function (t) { var o = el('option', { value: String(t) }, 'Tahun ' + t); if (String(t) === tahun) o.selected = true; tahunSel.appendChild(o); });
+      tahunSel.addEventListener('change', function () { tahun = tahunSel.value; muatK(); });
+      var subjekSec = el('div'), kelasSec = el('div'), waktuSec = el('div'), hadSec = el('div');
+      c.appendChild(subjekSec);
+      c.appendChild(el('div', { class: 'row', style: 'justify-content:space-between' }, [el('h2', {}, 'Mengikut tahun akademik'), tahunSel]));
+      c.appendChild(el('div', { class: 'profile-grid' }, [kelasSec, hadSec, waktuSec]));
+
+      // ---------------- subjek ----------------
+      function renderSubjek() {
+        var tbody = el('tbody');
+        if (!S.subjek.length) tbody.appendChild(el('tr', {}, el('td', { colspan: '4', class: 'empty full' }, 'Belum ada subjek.')));
+        S.subjek.forEach(function (s) {
+          var b = el('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Sunting ' + s.nama }, icon('i-edit'));
+          b.addEventListener('click', function () { borangSubjek(s); });
+          tbody.appendChild(el('tr', {}, [el('td', { 'data-label': 'Kod' }, s.kod || '—'), el('td', { 'data-label': 'Nama' }, el('b', {}, s.nama)),
+            el('td', { 'data-label': 'Kategori' }, App.labelOf(S.kategori, s.kategori)), el('td', { 'data-label': '', class: 'r' }, b)]));
+        });
+        subjekSec.textContent = '';
+        subjekSec.appendChild(el('section', { class: 'card' }, [
+          head('Subjek', 'Digunakan untuk opsyen guru, tugasan dan jadual. Kod sepadan dengan singkatan dalam jadual (contoh PI, DQH).',
+            [btn('Tambah pukal', pukalSubjek, 'btn-secondary'), btn('Tambah', function () { borangSubjek(null); }, '', 'i-plus')]),
+          el('div', { class: 'table-wrap' }, el('table', { class: 'data cards' }, [el('thead', {}, el('tr', {}, [el('th', {}, 'Kod'), el('th', {}, 'Nama'), el('th', {}, 'Kategori'), el('th', {}, '')])), tbody]))
+        ]));
+      }
+      function borangSubjek(s) {
         s = s || {};
         App.formDialog({
           title: s.id ? 'Sunting subjek' : 'Tambah subjek',
           fields: [
-            { name: 'nama', label: 'Nama subjek', required: true, value: s.nama, placeholder: 'contoh: Pendidikan Islam', attrs: { maxlength: '120' } },
             { name: 'kod', label: 'Kod', value: s.kod, placeholder: 'contoh: PI', attrs: { maxlength: '20' } },
-            { name: 'kategori', label: 'Kategori', type: 'select', required: true, options: D.kategori, value: s.kategori || 'subjek' }
+            { name: 'nama', label: 'Nama subjek', required: true, value: s.nama, placeholder: 'contoh: Pendidikan Islam', attrs: { maxlength: '120' } },
+            { name: 'kategori', label: 'Kategori', type: 'select', required: true, options: S.kategori, value: s.kategori || 'subjek' }
           ],
           onSubmit: function (v) { if (s.id) v.id = s.id; return Api.call('SUBJEK_SIMPAN', v); }
-        }).then(function (r) { if (r) { UI.toast('Subjek disimpan.'); muat(); } });
+        }).then(function (r) { if (r) { UI.toast('Subjek disimpan.'); muatS(); } });
       }
-      function muat() { return Api.call('SUBJEK_SENARAI').then(function (d) { D = d; render(); }, function (e) { UI.toast(e.message); }); }
-      muat();
+      function pukalSubjek() {
+        App.formDialog({
+          title: 'Tambah subjek secara pukal',
+          fields: [{ name: 'teks', label: 'Satu subjek setiap baris', type: 'textarea', required: true, placeholder: 'PI - Pendidikan Islam\nDQH - Dirasat Al-Quran Hafazan\nGEO - Geografi',
+            hint: 'Format: KOD - Nama subjek. Kod boleh ditinggalkan. Subjek yang sudah ada dilangkau.' }],
+          submitText: 'Tambah',
+          onSubmit: function (v) { return Api.call('SUBJEK_PUKAL', v); }
+        }).then(function (r) { if (r) { laporPukal(r, 'subjek'); muatS(); } });
+      }
+
+      // ---------------- kelas ----------------
+      function renderKelas() {
+        var byT = {};
+        K.kelas.forEach(function (k) { (byT[k.tingkatan] = byT[k.tingkatan] || []).push(k); });
+        var body = K.kelas.length ? el('div', { class: 'card-pad stack' }, Object.keys(byT).sort().map(function (t) {
+          return el('div', {}, [el('div', { class: 'group-label' }, 'Tingkatan ' + t), el('div', { class: 'chips' }, byT[t].map(function (k) {
+            var x = el('button', { type: 'button', 'aria-label': 'Padam ' + k.nama }, icon('i-trash'));
+            x.addEventListener('click', function () {
+              App.confirm('Padam kelas?', 'Padam kelas ' + k.nama + ' (' + tahun + ')?', 'Padam', true).then(function (ok) {
+                if (ok) Api.call('KELAS_PADAM', { id: k.id }).then(function () { UI.toast('Kelas dipadam.'); muatK(); }, function (e) { UI.toast(e.message); });
+              });
+            });
+            return el('span', { class: 'chip-tag' }, [k.nama, x]);
+          }))]);
+        })) : el('p', { class: 'empty-sm' }, 'Belum ada kelas untuk ' + tahun + '.');
+        kelasSec.textContent = '';
+        kelasSec.appendChild(el('section', { class: 'card' }, [head('Kelas ' + tahun, K.kelas.length + ' kelas', [btn('Tambah kelas', pukalKelas, '', 'i-plus')]), body]));
+      }
+      function pukalKelas() {
+        App.formDialog({
+          title: 'Tambah kelas ' + tahun,
+          fields: [{ name: 'teks', label: 'Satu kelas setiap baris', type: 'textarea', required: true, placeholder: '1 Tabari\n1 Qurtubi\n2 Uthman\n3 Ar-Razi',
+            hint: 'Mesti bermula dengan nombor tingkatan (1 hingga 6). Kelas yang sudah ada dilangkau.' }],
+          submitText: 'Tambah',
+          onSubmit: function (v) { v.tahun = tahun; return Api.call('KELAS_PUKAL', v); }
+        }).then(function (r) { if (r) { laporPukal(r, 'kelas'); muatK(); } });
+      }
+
+      // ---------------- had jam kredit ----------------
+      function renderHad() {
+        hadSec.textContent = '';
+        hadSec.appendChild(el('section', { class: 'card' }, [
+          head('Had jam kredit ' + tahun, 'Digunakan untuk status beban setiap guru.', [btn('Ubah', borangHad, 'btn-secondary', 'i-edit')]),
+          el('dl', { class: 'kv-list' }, [el('dt', {}, 'Berjadual'), el('dd', {}, K.had.had_berjadual + ' jam'), el('dt', {}, 'Tidak berjadual'), el('dd', {}, K.had.had_tidak_berjadual + ' jam')])
+        ]));
+      }
+      function borangHad() {
+        App.formDialog({
+          title: 'Had jam kredit ' + tahun,
+          fields: [
+            { name: 'had_berjadual', label: 'Had berjadual', type: 'number', required: true, value: K.had.had_berjadual, attrs: { min: '0', max: '80', step: '0.5' } },
+            { name: 'had_tidak_berjadual', label: 'Had tidak berjadual', type: 'number', required: true, value: K.had.had_tidak_berjadual, attrs: { min: '0', max: '80', step: '0.5' } }
+          ],
+          onSubmit: function (v) { v.tahun = tahun; return Api.call('HAD_SIMPAN', v); }
+        }).then(function (r) { if (r) { UI.toast('Had disimpan.'); muatK(); } });
+      }
+
+      // ---------------- templat waktu ----------------
+      function renderWaktu() {
+        var rows = (K.waktu.length ? K.waktu : []).map(function (w) { return { masa_mula: w.masa_mula, masa_akhir: w.masa_akhir }; });
+        var tbody = el('tbody');
+        function draw() {
+          tbody.textContent = '';
+          rows.forEach(function (w, i) {
+            var a = el('input', { class: 'input', type: 'time', value: w.masa_mula, 'aria-label': 'Mula waktu ' + (i + 1), style: 'min-height:38px' });
+            var b = el('input', { class: 'input', type: 'time', value: w.masa_akhir, 'aria-label': 'Tamat waktu ' + (i + 1), style: 'min-height:38px' });
+            a.addEventListener('change', function () { w.masa_mula = a.value; });
+            b.addEventListener('change', function () { w.masa_akhir = b.value; });
+            var x = el('button', { class: 'icon-btn danger', type: 'button', 'aria-label': 'Buang waktu ' + (i + 1) }, icon('i-trash'));
+            x.addEventListener('click', function () { rows.splice(i, 1); draw(); });
+            tbody.appendChild(el('tr', {}, [el('td', { 'data-label': 'Waktu' }, el('b', {}, String(i + 1))), el('td', { 'data-label': 'Mula' }, a), el('td', { 'data-label': 'Tamat' }, b), el('td', { 'data-label': '', class: 'r' }, x)]));
+          });
+        }
+        draw();
+        var tambah = btn('Tambah waktu', function () {
+          var last = rows[rows.length - 1];
+          rows.push({ masa_mula: last ? last.masa_akhir : '07:30', masa_akhir: last ? last.masa_akhir : '08:00' }); draw();
+        }, 'btn-secondary', 'i-plus');
+        var simpan = btn('Simpan templat', function () {
+          Api.call('WAKTU_SIMPAN', { tahun: tahun, waktu: rows }).then(function () { UI.toast('Templat waktu disimpan.'); muatK(); }, function (e) { UI.toast(e.message); });
+        });
+        waktuSec.textContent = '';
+        waktuSec.appendChild(el('section', { class: 'card wide' }, [
+          head('Waktu persekolahan ' + tahun, 'Templat untuk borang jadual dan carian guru ganti. Waktu khas (contoh Jumaat) boleh diisi terus pada slot.', [tambah, simpan]),
+          el('div', { class: 'table-wrap' }, el('table', { class: 'data cards' }, [el('thead', {}, el('tr', {}, [el('th', {}, 'Waktu'), el('th', {}, 'Mula'), el('th', {}, 'Tamat'), el('th', {}, '')])), tbody]))
+        ]));
+      }
+
+      function muatS() { return Api.call('SUBJEK_SENARAI').then(function (d) { S = d; renderSubjek(); }, function (e) { UI.toast(e.message); }); }
+      function muatK() { return Api.call('KURIKULUM_RUJUKAN', { tahun: tahun }).then(function (d) { K = d; renderKelas(); renderHad(); renderWaktu(); }, function (e) { UI.toast(e.message); }); }
+      muatS(); muatK();
     })();
   </script>
 </body>

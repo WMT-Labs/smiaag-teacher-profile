@@ -1,8 +1,7 @@
 # Senarai semak manual: Fasa 2 (Profil teras)
 
 ## 0. Kemas kini kod
-- [ ] Tampal semula `backend/appsscript.json` dan `dist/Code.gs`. Save.
-- [ ] Jalankan `verifySetup` sekali. Google akan meminta kebenaran baharu (Google Drive) untuk gambar. Benarkan.
+- [ ] (Jika terus ke Fasa 3, ikut senarai semak Fasa 3 untuk langkah kemas kini kod.)
 - [ ] **Deploy > Manage deployments > edit > New version > Deploy.**
 
 ## 1. Data rujukan (superadmin)
@@ -14,11 +13,10 @@
 - [ ] **Sunting** maklumat teras: isi jawatan, tarikh lantikan, nombor telefon. Simpan.
 - [ ] Nombor telefon dipaparkan bertutup (contoh `012-***-**78`), walaupun anda pemiliknya.
 - [ ] Cuba nombor telefon `abc`: mesej ralat jelas. Cuba tarikh lantikan masa depan: ditolak.
-- [ ] Tekan ikon kamera, pilih gambar dari galeri. Gambar muncul. Dalam Drive anda ada folder "SMIAAG - Gambar Guru (PERIBADI, jangan kongsi)", dan fail di dalamnya **tidak** dikongsi.
 - [ ] Tambah, sunting dan padam satu kelayakan.
 - [ ] Tambah opsyen major dan minor. Tambah opsyen yang sama dua kali: ditolak.
 - [ ] Tambah kursus dengan tarikh tamat sebelum tarikh mula: ditolak. Tambah kursus yang betul: jumlah jam tahun ini dikemas kini.
-- [ ] Bahagian Cerapan tiada butang "Kemas kini" untuk guru.
+- [ ] Bahagian Cerapan: guru boleh tekan "Kemas kini" dan simpan bilangan serta pencerap sendiri.
 
 ## 3. Pentadbir
 - [ ] Menu **Senarai guru**: semua guru disenaraikan. Tapis "Belum dicerap" berfungsi.

@@ -25,7 +25,7 @@ var _TABLE_DEFS = {
   // ---- Teras ----
   guru: {
     cols: ['id:uuid!', 'guru_kod:text!', 'nama_penuh:text!', 'status_lantikan:enum(ref_status_lantikan)!',
-      'jawatan:text', 'tarikh_lantikan:date', 'no_telefon:text', 'gambar_ref:text', 'aktif:bool!=true'],
+      'jawatan:text', 'tarikh_lantikan:date', 'no_telefon:text', 'tarikh_disahkan:date', 'aktif:bool!=true'],
     unique: [['guru_kod']]
   },
   akaun: {
@@ -74,8 +74,19 @@ var _TABLE_DEFS = {
       'jabatan:enum(ref_jabatan)', 'jam_kredit:num[0..40]!']
   },
   jadual_slot: {
+    // label: untuk slot bukan subjek (contoh Perhimpunan, Usrah, KOKU, Mesyuarat).
+    // Kelas disimpan dalam jadual_slot_kelas kerana satu slot boleh ada beberapa kelas (kelas gabungan).
     cols: ['id:uuid!', 'guru_id:fk(guru)!', 'tahun_akademik:year!', 'hari:enum(ref_hari)!', 'masa_mula:time!', 'masa_akhir:time!',
-      'subjek_id:fk(subjek)', 'kelas_id:fk(kelas)', 'tempoh:int[1..20]', 'sumber:enum(ref_sumber_slot)!=manual', 'disahkan:bool!=false']
+      'subjek_id:fk(subjek)', 'label:text', 'tempoh:int[1..30]', 'sumber:enum(ref_sumber_slot)!=manual', 'disahkan:bool!=false']
+  },
+  jadual_slot_kelas: {
+    cols: ['id:uuid!', 'slot_id:fk(jadual_slot)!', 'kelas_id:fk(kelas)!'],
+    unique: [['slot_id', 'kelas_id']]
+  },
+  waktu: {
+    // Templat waktu persekolahan bagi setiap tahun (waktu 1 = 07:30-07:40, ...). Digunakan untuk borang jadual.
+    cols: ['id:uuid!', 'tahun_akademik:year!', 'nombor:int[1..30]!', 'masa_mula:time!', 'masa_akhir:time!'],
+    unique: [['tahun_akademik', 'nombor']]
   },
   had_jam_kredit: {
     cols: ['id:uuid!', 'tahun_akademik:year!', 'had_berjadual:num[0..80]!=22', 'had_tidak_berjadual:num[0..80]!=10'],
@@ -140,7 +151,7 @@ var _TABLE_DEFS = {
  * Superadmin boleh menambah/menyahaktifkan nilai (diurus pada Fasa 1+).
  */
 var REF_SEEDS = {
-  ref_status_lantikan: [['tetap', 'Tetap'], ['kontrak', 'Kontrak'], ['lain_lain', 'Lain-lain']],
+  ref_status_lantikan: [['tetap', 'Tetap'], ['percubaan', 'Dalam percubaan'], ['kontrak', 'Kontrak'], ['lain_lain', 'Lain-lain']],
   ref_role: [['guru', 'Guru'], ['pentadbir', 'Pentadbir'], ['superadmin', 'Superadmin']],
   ref_tahap_kelayakan: [['sijil', 'Sijil'], ['diploma', 'Diploma'], ['ijazah_sarjana_muda', 'Ijazah Sarjana Muda'],
     ['ijazah_sarjana', 'Ijazah Sarjana'], ['doktor_falsafah', 'Doktor Falsafah'], ['lain_lain', 'Lain-lain']],
