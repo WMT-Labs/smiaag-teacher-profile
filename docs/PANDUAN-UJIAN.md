@@ -111,7 +111,7 @@ Gunakan **nama palsu** untuk akaun ujian, contoh "Guru Ujian Satu".
 
 ### C3. Pentadbir (inkognito lain, UJI03)
 1. **Import tugasan > Muat turun templat**. Buka dalam Excel, tukar `SM216` kepada `UJI01`, salin semua sel, tampal, **Semak**, **Simpan**.
-   **Jangkaan:** UJI01 kini 9.5 berjadual dan 6 tidak berjadual. Guru UJI01 nampak tugasan tetapi tidak boleh menyuntingnya.
+   **Jangkaan:** UJI01 kini 8.5 berjadual dan 6 tidak berjadual. Guru UJI01 nampak tugasan tetapi tidak boleh menyuntingnya.
 2. **Senarai guru**: buka profil UJI01. **Jangkaan:** nombor telefon penuh dipaparkan (dan direkod dalam tab `audit_log`).
 3. **Urus HEM > Kumpulan baharu**: murabbi UJI03 (diri anda), ahli UJI01 dan UJI02.
 4. **HEM > Kumpulan yang saya bimbing > Rekod kehadiran > Sesi baharu**: tandakan UJI02 tidak hadir.
