@@ -20,7 +20,7 @@ Ikut mengikut urutan. Tandakan setiap satu. Jika ada yang gagal, catat apa yang 
 - [ ] `frontend/js/config.js` diisi dengan URL tadi dan laman diterbitkan.
 - [ ] `index.html`: logo kelihatan, tekan "Log masuk" tanpa isi apa-apa memberi mesej "Masukkan ID guru anda".
 - [ ] Isi ID dan kata laluan rawak, tekan Log masuk. Mesej: "Log masuk belum diaktifkan..." (bermakna frontend dan backend bersambung).
-- [ ] Buka `pratonton.html` pada telefon. Menu (ikon tiga garis) membuka sidebar dan tiada skrol ke tepi.
+- [ ] Buka laman pada telefon. Menu (ikon tiga garis) membuka sidebar dan tiada skrol ke tepi. (`pratonton.html` dibuang pada Fasa 6; diganti `dashboard.html`.)
 - [ ] Warna dan logo sesuai dengan imej sekolah? Catat apa-apa yang anda mahu ubah (terutama warna biru dan hijau).
 
 ## 4. Ujian automatik (jika Node dipasang)

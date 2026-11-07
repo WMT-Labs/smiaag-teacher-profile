@@ -40,7 +40,7 @@
       if (admin) links.appendChild(card({ icon: 'i-trophy', title: 'Urus kokurikulum', href: 'koku-urus.html', desc: 'Kelab, unit, rumah sukan, juara dan pertandingan.' }));
       if (admin) links.appendChild(card({ icon: 'i-heart', title: 'Urus HEM', href: 'hem-urus.html', desc: 'Kumpulan usrah guru, murabbi, ahli dan kehadiran.' }));
       if (admin) links.appendChild(card({ icon: 'i-shield', title: 'Urus akaun', href: 'akaun.html', desc: sesi.role === 'superadmin' ? 'Cipta akaun, reset kata laluan, nyahaktif.' : 'Lihat akaun dan buka kunci akaun guru.' }));
-      if (admin) links.appendChild(card({ icon: 'i-dashboard', title: 'Dashboard sekolah', desc: 'Akan datang (Fasa 6).' }));
+      if (admin) links.insertBefore(card({ icon: 'i-dashboard', title: 'Dashboard sekolah', href: 'dashboard.html', desc: 'Beban kerja, cerapan, kokurikulum dan HEM seluruh sekolah. Eksport CSV.' }), links.firstChild);
       if (sesi.role === 'superadmin') links.appendChild(card({ icon: 'i-sliders', title: 'Data rujukan', href: 'rujukan.html', desc: 'Subjek, kelas, waktu persekolahan dan had jam kredit.' }));
       c.appendChild(links);
 

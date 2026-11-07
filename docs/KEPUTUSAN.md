@@ -23,6 +23,17 @@ Dikemas kini pada penghujung setiap fasa. Rujuk dokumen arahan projek (Seksyen 1
 | 07/11/2026 | Kehadiran usrah guru diisi oleh murabbi kumpulan, mengikut sesi yang dijalankan (bukan semestinya mingguan). |
 | 06/11/2026 | Cerapan dipermudahkan: hanya bilangan dicerap setahun dan nama pencerap. Tiada sasaran, tiada tarikh dirancang. Jadual `sasaran_cerapan` dan `ref_status_cerapan` dibuang. |
 
+## Fasa 6: andaian
+
+1. **Penapisan di pelayar.** Server menghantar satu baris ringkasan bagi setiap guru aktif (tanpa telefon, hash atau data peribadi lain), dan penapis berjalan di pelayar supaya pantas. Ini selaras dengan Seksyen 3.4 kerana hanya pentadbir dan superadmin boleh memanggil `DASHBOARD`, dan mereka memang berhak melihat semua guru.
+2. **Penapis "Jabatan"** berdasarkan jabatan dalam tugasan tidak berjadual guru. **"Subjek"** daripada tugasan dan jadual. **"Tingkatan"** daripada kelas dalam jadual guru.
+3. **Chart.js 4.4.1 dihos sendiri** dalam `frontend/vendor/` (lesen MIT disertakan), bukan dari CDN. Tiada kebergantungan pada pelayan luar dan tiada risiko fail CDN diubah. Jika Chart.js gagal dimuat, carta bertukar kepada bar CSS ringkas.
+4. **Eksport CSV** mengikut penapis dan susunan yang sedang dipaparkan, dengan lebih banyak lajur daripada jadual (subjek, tingkatan, unit, usrah, peranan HEM). Nilai yang bermula dengan `= + - @` diawali `'` supaya Excel tidak menjalankannya sebagai formula. Fail mempunyai BOM supaya huruf dipaparkan betul dalam Excel.
+5. **"Cerapan akan datang"** dalam dokumen asal tidak dipaparkan kerana cerapan telah dipermudahkan (tiada tarikh dirancang). Dashboard memaparkan sudah / belum dicerap dan jumlah cerapan.
+6. **Tambahan di luar dokumen:** kad tamat percubaan, ringkasan HEM (usrah guru, kehadiran bawah 50%, Guru Tarbiah, kelas tanpa guru kelas).
+7. **`pratonton.html` dibuang** kerana digantikan oleh dashboard sebenar.
+8. **Prestasi:** dashboard membaca setiap tab Sheet sekali sahaja (kira-kira 28 bacaan tetap, tidak bertambah mengikut bilangan guru). Jika terasa lambat dengan data sebenar, Fasa 7 boleh menambah cache ringkas.
+
 ## Fasa 5: andaian
 
 1. **Jadual `sesi_usrah_guru` ditambah.** Dokumen asal menyimpan kehadiran dengan `usrah_guru_id` dan `tarikh` sahaja. Kini setiap sesi ada rekod sendiri (tarikh, tajuk, catatan), dan kehadiran merujuk sesi (`sesi_id`). Ini lebih tepat untuk "sesi dijalankan" dan membolehkan sesi tanpa kehadiran direkod. Satu sesi bagi setiap kumpulan pada satu tarikh.

@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard sekolah — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/dashboard-kira.js"></script>
+  <script src="vendor/chart.umd.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard({ roles: ['pentadbir', 'superadmin'] });
+      if (!sesi) return;
+      var el = UI.el, icon = App.icon;
+      var c = App.mount({ sesi: sesi, active: 'dashboard', title: 'Dashboard sekolah' });
+      var D = null, carta = null;
+      var tahun = String(new Date().getFullYear());
+      var f = { jabatan: '', status: '', subjek: '', tingkatan: '', unit: '', cari: '' };
+      var susunJadual = { kunci: 'nama', turun: false };
+      var mod = { jenis: 'berjadual', susun: 'tinggi' };
+      var WARNA = { dalam: '#2e9e4f', hampir: '#d9a02b', lebih: '#cf6b63' };
+      var LABEL = { dalam: 'Dalam had', hampir: 'Hampir had', lebih: 'Melebihi had' };
+
+      function pilih(id, label, opsi, nilai) {
+        var s = el('select', { class: 'select', id: id }, [el('option', { value: '' }, 'Semua')].concat(opsi.map(function (o) { var e = el('option', { value: o.value }, o.label); if (String(o.value) === String(nilai)) e.selected = true; return e; })));
+        return { box: el('div', { class: 'field' }, [el('label', { for: id }, label), s]), el: s };
+      }
+      function kad(label, nilai, sub, kelas, onClick) {
+        var k = el(onClick ? 'button' : 'div', { class: 'card stat ' + (kelas || '') + (onClick ? ' stat-btn' : ''), type: onClick ? 'button' : undefined }, [el('span', { class: 'label' }, label), el('span', { class: 'value' }, String(nilai)), el('span', { class: 'sub' }, sub)]);
+        if (onClick) k.addEventListener('click', onClick);
+        return k;
+      }
+      function guruLink(g) { return el('a', { href: 'profil.html?id=' + encodeURIComponent(g.id) }, g.nama_penuh); }
+
+      // ---------------- rangka ----------------
+      var filterBox = el('section', { class: 'card', 'aria-label': 'Penapis' });
+      var statsBox = el('section', { class: 'stats', 'aria-label': 'Ringkasan' });
+      var chartCard = el('section', { class: 'card' });
+      var tableCard = el('section', { class: 'card' });
+      var bawah = el('div', { class: 'grid-3' });
+      var kokuCard = el('section', { class: 'card' });
+      [filterBox, statsBox, chartCard, tableCard, bawah, kokuCard].forEach(function (x) { c.appendChild(x); });
+
+      function binaPenapis() {
+        filterBox.textContent = '';
+        var y = new Date().getFullYear();
+        var t = el('select', { class: 'select', id: 'f-tahun' }, [y + 1, y, y - 1, y - 2].map(function (v) { var o = el('option', { value: String(v) }, String(v)); if (String(v) === tahun) o.selected = true; return o; }));
+        t.addEventListener('change', function () { tahun = t.value; muat(); });
+        var R = D.ref;
+        var jab = pilih('f-jab', 'Jabatan', R.jabatan.map(function (j) { return { value: j.kod, label: j.label }; }), f.jabatan);
+        var st = pilih('f-status', 'Status lantikan', R.status_lantikan.map(function (j) { return { value: j.kod, label: j.label }; }), f.status);
+        var sb = pilih('f-subjek', 'Subjek', R.subjek.map(function (s) { return { value: s.id, label: (s.kod ? s.kod + ' · ' : '') + s.nama }; }), f.subjek);
+        var tg = pilih('f-ting', 'Tingkatan', R.tingkatan.map(function (x) { return { value: x, label: 'Tingkatan ' + x }; }), f.tingkatan);
+        var un = pilih('f-unit', 'Unit kokurikulum', R.unit.map(function (u) { return { value: u.id, label: u.nama }; }), f.unit);
+        var cari = el('input', { class: 'input', id: 'f-cari', type: 'search', placeholder: 'Nama atau ID guru', value: f.cari });
+        [[jab, 'jabatan'], [st, 'status'], [sb, 'subjek'], [tg, 'tingkatan'], [un, 'unit']].forEach(function (p) { p[0].el.addEventListener('change', function () { f[p[1]] = p[0].el.value; lukis(); }); });
+        cari.addEventListener('input', function () { f.cari = cari.value; lukis(); });
+        var reset = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, 'Kosongkan penapis');
+        reset.addEventListener('click', function () { f = { jabatan: '', status: '', subjek: '', tingkatan: '', unit: '', cari: '' }; binaPenapis(); lukis(); });
+        var muatSemula = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, 'Muat semula data');
+        muatSemula.addEventListener('click', muat);
+        var csv = el('button', { class: 'btn btn-sm', type: 'button' }, [icon('i-download', 16), 'Eksport CSV']);
+        csv.addEventListener('click', eksport);
+        filterBox.appendChild(el('div', { class: 'dash-filters' }, [el('div', { class: 'field' }, [el('label', { for: 'f-tahun' }, 'Tahun akademik'), t]), jab.box, st.box, sb.box, tg.box, un.box,
+          el('div', { class: 'field', style: 'grid-column:span 2' }, [el('label', { for: 'f-cari' }, 'Cari guru'), cari])]));
+        filterBox.appendChild(el('div', { class: 'dash-actions' }, [el('span', { class: 'info', id: 'dash-info' }), reset, muatSemula, csv]));
+      }
+
+      function rowsTapis() { return DashKira.tapis(D.guru, f); }
+
+      // ---------------- kad ----------------
+      function lukisKad(rows) {
+        var r = DashKira.ringkasan(rows), H = D.had;
+        statsBox.textContent = '';
+        statsBox.appendChild(kad('Jumlah guru', r.jumlah, r.tiada_tugasan ? r.tiada_tugasan + ' belum ada tugasan' : 'semua ada tugasan', r.tiada_tugasan ? 'warn' : ''));
+        statsBox.appendChild(kad('Purata jam berjadual', r.purata_berjadual, 'had ' + H.had_berjadual + ' jam', r.purata_berjadual > H.had_berjadual ? 'bad' : 'good'));
+        statsBox.appendChild(kad('Purata jam tidak berjadual', r.purata_tidak_berjadual, 'had ' + H.had_tidak_berjadual + ' jam', r.purata_tidak_berjadual > H.had_tidak_berjadual ? 'bad' : ''));
+        statsBox.appendChild(kad('Melebihi had', r.melebihi, r.hampir + ' lagi hampir had', r.melebihi ? 'bad' : 'good', function () { susunJadual = { kunci: 'status', turun: false }; lukisJadual(rowsTapis()); tableCard.scrollIntoView({ behavior: 'smooth' }); }));
+        statsBox.appendChild(kad('Belum dicerap', r.belum_dicerap, 'tahun ' + D.tahun, r.belum_dicerap ? 'warn' : 'good', function () { document.getElementById('kad-cerapan').scrollIntoView({ behavior: 'smooth' }); }));
+        statsBox.appendChild(kad('Tamat percubaan', r.tamat_percubaan, 'menunggu pengesahan', r.tamat_percubaan ? 'warn' : 'good', function () { location.href = 'guru.html?tapis=percubaan'; }));
+      }
+
+      // ---------------- carta ----------------
+      function lukisCarta(rows) {
+        chartCard.textContent = '';
+        var pill = el('div', { class: 'pill-group', role: 'group', 'aria-label': 'Jenis jam' }, [['berjadual', 'Berjadual'], ['tidak_berjadual', 'Tidak berjadual']].map(function (p) {
+          var b = el('button', { type: 'button', 'aria-pressed': String(mod.jenis === p[0]) }, p[1]);
+          b.addEventListener('click', function () { mod.jenis = p[0]; lukisCarta(rowsTapis()); });
+          return b;
+        }));
+        var sus = el('select', { class: 'select select-sm', 'aria-label': 'Susunan carta' }, [['tinggi', 'Jam tertinggi'], ['rendah', 'Jam terendah'], ['nama', 'Nama']].map(function (p) { var o = el('option', { value: p[0] }, p[1]); if (mod.susun === p[0]) o.selected = true; return o; }));
+        sus.addEventListener('change', function () { mod.susun = sus.value; lukisCarta(rowsTapis()); });
+        var had = mod.jenis === 'berjadual' ? D.had.had_berjadual : D.had.had_tidak_berjadual;
+        var kunci = mod.jenis === 'berjadual' ? 'jam_berjadual' : 'jam_tidak_berjadual';
+        var stKunci = mod.jenis === 'berjadual' ? 'status_berjadual' : 'status_tidak_berjadual';
+        var data = mod.susun === 'nama' ? DashKira.susun(rows, 'nama') : DashKira.susun(rows, mod.jenis === 'berjadual' ? 'berjadual' : 'tidak_berjadual', mod.susun === 'tinggi');
+        chartCard.appendChild(el('div', { class: 'card-head' }, [el('div', {}, [el('h2', {}, 'Beban kerja setiap guru'), el('p', { class: 'muted', style: 'font-size:.8125rem;margin-top:2px' }, 'Garisan menegak = had ' + had + ' jam. Tekan bar untuk membuka kurikulum guru.')]), el('div', { class: 'row' }, [pill, sus])]));
+        var legend = el('div', { class: 'legend', style: 'padding-top:0' }, ['dalam', 'hampir', 'lebih'].map(function (k) { return el('span', {}, [el('i', { style: 'background:' + WARNA[k] }), LABEL[k]]); }));
+        if (!data.length) { chartCard.appendChild(el('p', { class: 'empty-sm' }, 'Tiada guru sepadan dengan penapis.')); return; }
+        var tinggi = Math.max(160, data.length * 26 + 50);
+        var box = el('div', { class: 'chart-box', style: 'height:' + tinggi + 'px' });
+        chartCard.appendChild(box);
+        chartCard.appendChild(legend);
+        if (carta) { carta.destroy(); carta = null; }
+        if (typeof Chart === 'undefined') { // sandaran tanpa Chart.js
+          box.style.height = 'auto';
+          box.appendChild(el('div', { class: 'bars', style: 'padding:0' }, data.map(function (g) {
+            var j = g[kunci], st = g[stKunci];
+            return el('div', { class: 'bar-row' }, [el('span', { class: 'name' }, g.nama_penuh), el('div', { class: 'track' }, [el('div', { class: 'fill', style: 'width:' + Math.min(100, had ? j / had * 100 : 0) + '%;background:' + WARNA[st] }), el('div', { class: 'limit', style: 'left:100%' })]), el('span', { class: 'num' }, String(j))]);
+          })));
+          return;
+        }
+        var canvas = el('canvas', { role: 'img', 'aria-label': 'Carta bar jam kredit ' + mod.jenis.replace('_', ' ') + ' setiap guru berbanding had ' + had + ' jam' });
+        box.appendChild(canvas);
+        var garisHad = {
+          id: 'garisHad',
+          afterDatasetsDraw: function (ch) {
+            var x = ch.scales.x.getPixelForValue(had), a = ch.chartArea, ctx2 = ch.ctx;
+            ctx2.save(); ctx2.strokeStyle = '#0b3a5c'; ctx2.lineWidth = 2; ctx2.setLineDash([5, 4]);
+            ctx2.beginPath(); ctx2.moveTo(x, a.top); ctx2.lineTo(x, a.bottom); ctx2.stroke();
+            ctx2.setLineDash([]); ctx2.fillStyle = '#0b3a5c'; ctx2.font = '600 11px system-ui, sans-serif'; ctx2.textAlign = 'center';
+            ctx2.fillText('Had ' + had, x, a.top - 6); ctx2.restore();
+          }
+        };
+        var maks = Math.max(had * 1.15, Math.max.apply(null, data.map(function (g) { return g[kunci]; })) + 1);
+        carta = new Chart(canvas, {
+          type: 'bar',
+          data: { labels: data.map(function (g) { return g.nama_penuh; }), datasets: [{ data: data.map(function (g) { return g[kunci]; }), backgroundColor: data.map(function (g) { return WARNA[g[stKunci]]; }), borderRadius: 4, barThickness: 16 }] },
+          options: {
+            indexAxis: 'y', maintainAspectRatio: false, animation: false,
+            layout: { padding: { top: 18 } },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (t) { var g = data[t.dataIndex]; return t.raw + ' / ' + had + ' jam · ' + LABEL[g[stKunci]]; } } } },
+            scales: { x: { min: 0, max: Math.ceil(maks), grid: { color: '#e9eff2' }, ticks: { color: '#566873' } }, y: { grid: { display: false }, ticks: { color: '#1c2b36', autoSkip: false, font: { size: 12 } } } },
+            onClick: function (e, els) { if (els.length) location.href = 'kurikulum.html?id=' + encodeURIComponent(data[els[0].index].id); },
+            onHover: function (e, els) { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; }
+          },
+          plugins: [garisHad]
+        });
+      }
+
+      // ---------------- jadual ----------------
+      function lukisJadual(rows) {
+        tableCard.textContent = '';
+        var data = DashKira.susun(rows, susunJadual.kunci, susunJadual.turun);
+        var cols = [['nama', 'Guru'], [null, 'Status lantikan'], ['berjadual', 'Berjadual'], ['tidak_berjadual', 'Tidak berjadual'], ['status', 'Keadaan'], ['cerapan', 'Cerapan']];
+        var thead = el('tr', {}, cols.map(function (cdef) {
+          var th = el('th', cdef[0] ? { class: 'sortable', tabindex: '0', 'aria-sort': susunJadual.kunci === cdef[0] ? (susunJadual.turun ? 'descending' : 'ascending') : 'none' } : {}, cdef[1]);
+          if (cdef[0]) {
+            var go = function () { susunJadual = { kunci: cdef[0], turun: susunJadual.kunci === cdef[0] ? !susunJadual.turun : cdef[0] !== 'nama' && cdef[0] !== 'status' }; lukisJadual(rowsTapis()); };
+            th.addEventListener('click', go);
+            th.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+          }
+          return th;
+        }));
+        var tb = el('tbody');
+        data.forEach(function (g) {
+          var b = App.bebanBadge(g.status_beban);
+          tb.appendChild(el('tr', {}, [
+            el('td', { 'data-label': 'Guru' }, el('div', { class: 'who' }, [el('div', {}, [guruLink(g), el('div', { class: 'muted', style: 'font-size:.75rem' }, g.guru_kod + (g.jawatan ? ' · ' + g.jawatan : ''))])])),
+            el('td', { 'data-label': 'Status' }, App.labelOf(D.ref.status_lantikan, g.status_lantikan)),
+            el('td', { 'data-label': 'Berjadual', class: 'num' }, el('a', { href: 'kurikulum.html?id=' + encodeURIComponent(g.id), class: 'badge badge-' + App.bebanBadge(g.status_berjadual).kind, style: 'text-decoration:none' }, g.jam_berjadual + ' / ' + D.had.had_berjadual)),
+            el('td', { 'data-label': 'Tidak berjadual', class: 'num' }, el('span', { class: 'badge badge-' + App.bebanBadge(g.status_tidak_berjadual).kind }, g.jam_tidak_berjadual + ' / ' + D.had.had_tidak_berjadual)),
+            el('td', { 'data-label': 'Keadaan' }, el('span', { class: 'badge badge-' + b.kind }, b.text)),
+            el('td', { 'data-label': 'Cerapan', class: 'num' }, g.cerapan ? g.cerapan + ' kali' : el('span', { class: 'badge badge-near' }, 'Belum'))
+          ]));
+        });
+        if (!data.length) tb.appendChild(el('tr', {}, el('td', { colspan: '6', class: 'empty full' }, 'Tiada guru sepadan dengan penapis.')));
+        tableCard.appendChild(el('div', { class: 'card-head' }, [el('h2', {}, 'Jadual guru'), el('span', { class: 'muted', style: 'font-size:.8125rem' }, data.length + ' guru · tekan tajuk lajur untuk menyusun')]));
+        tableCard.appendChild(el('div', { class: 'table-wrap' }, el('table', { class: 'data cards' }, [el('thead', {}, thead), tb])));
+      }
+
+      // ---------------- cerapan, percubaan, HEM ----------------
+      function lukisBawah(rows) {
+        bawah.textContent = '';
+        var sudah = rows.filter(function (g) { return g.cerapan > 0; }), belum = rows.filter(function (g) { return !g.cerapan; });
+        var jumCerapan = rows.reduce(function (a, g) { return a + g.cerapan; }, 0);
+        var pc = rows.length ? Math.round(sudah.length / rows.length * 100) : 0;
+        bawah.appendChild(el('section', { class: 'card', id: 'kad-cerapan' }, [
+          el('div', { class: 'card-head' }, el('h2', {}, 'Cerapan ' + D.tahun)),
+          el('div', { class: 'card-pad stack' }, [
+            el('div', { class: 'row', style: 'justify-content:space-between' }, [el('span', {}, el('b', {}, sudah.length + ' sudah dicerap')), el('span', { class: 'muted' }, belum.length + ' belum · ' + jumCerapan + ' cerapan')]),
+            el('div', { class: 'prog', role: 'img', 'aria-label': pc + '% guru sudah dicerap' }, el('i', { style: 'width:' + pc + '%' })),
+            belum.length ? el('div', {}, [el('div', { class: 'group-label' }, 'Belum dicerap'), el('div', { class: 'name-list' }, belum.map(guruLink))]) : el('p', { class: 'muted' }, 'Semua guru sudah dicerap.')
+          ])
+        ]));
+        var tamat = rows.filter(function (g) { return g.percubaan && g.percubaan.tamat; }), dalam = rows.filter(function (g) { return g.percubaan && !g.percubaan.tamat; });
+        bawah.appendChild(el('section', { class: 'card' }, [
+          el('div', { class: 'card-head' }, el('h2', {}, 'Tempoh percubaan')),
+          el('div', { class: 'card-pad stack' }, [
+            tamat.length ? el('div', { class: 'notice notice-warn' }, el('span', {}, tamat.length + ' guru tamat 6 bulan dan menunggu pengesahan ke guru tetap.')) : el('p', { class: 'muted' }, 'Tiada guru menunggu pengesahan.'),
+            tamat.length ? el('div', { class: 'name-list' }, tamat.map(guruLink)) : null,
+            dalam.length ? el('div', {}, [el('div', { class: 'group-label' }, 'Masih dalam percubaan (' + dalam.length + ')'), el('div', { class: 'name-list' }, dalam.map(function (g) { return el('span', {}, [guruLink(g), g.percubaan.tarikh_tamat ? ' (' + UI.fmtDate(g.percubaan.tarikh_tamat) + ')' : '']); }))]) : null
+          ].filter(Boolean))
+        ]));
+        var dalamUsrah = rows.filter(function (g) { return g.usrah_guru; });
+        var pcts = rows.filter(function (g) { return g.usrah_guru && g.usrah_guru.peratus != null; }).map(function (g) { return g.usrah_guru.peratus; });
+        var purata = pcts.length ? Math.round(pcts.reduce(function (a, b) { return a + b; }, 0) / pcts.length) : null;
+        var rendah = rows.filter(function (g) { return g.usrah_guru && g.usrah_guru.peratus != null && g.usrah_guru.peratus < 50; });
+        var tarbiah = rows.filter(function (g) { return g.peranan_hem.indexOf('guru_tarbiah') !== -1; }).length;
+        var murid = rows.reduce(function (a, g) { return a + g.murid_usrah; }, 0);
+        bawah.appendChild(el('section', { class: 'card' }, [
+          el('div', { class: 'card-head' }, [el('h2', {}, 'HEM'), el('a', { class: 'btn btn-secondary btn-sm', href: 'hem-urus.html' }, 'Urus HEM')]),
+          el('dl', { class: 'kv-list' }, [
+            el('dt', {}, 'Guru dalam usrah guru'), el('dd', {}, dalamUsrah.length + ' / ' + rows.length),
+            el('dt', {}, 'Purata kehadiran usrah'), el('dd', {}, purata == null ? '—' : purata + '%'),
+            el('dt', {}, 'Kehadiran bawah 50%'), el('dd', {}, rendah.length ? el('div', { class: 'name-list' }, rendah.map(guruLink)) : 'Tiada'),
+            el('dt', {}, 'Guru Tarbiah'), el('dd', {}, String(tarbiah)),
+            el('dt', {}, 'Murid usrah pelajar'), el('dd', {}, String(murid)),
+            el('dt', {}, 'Kelas tanpa guru kelas'), el('dd', {}, String(D.kelas_tanpa_guru_kelas))
+          ])
+        ]));
+      }
+
+      // ---------------- kokurikulum ----------------
+      function lukisKoku(rows) {
+        kokuCard.textContent = '';
+        var u = DashKira.ringkasanUnit(rows, D.ref.unit);
+        var tb = el('tbody');
+        D.ref.jenis_unit.forEach(function (j) {
+          u.filter(function (x) { return x.jenis === j.kod; }).forEach(function (x) {
+            tb.appendChild(el('tr', {}, [
+              el('td', { 'data-label': 'Unit' }, el('b', {}, x.nama)), el('td', { 'data-label': 'Jenis' }, j.label),
+              el('td', { 'data-label': 'Guru', class: 'num' }, x.jumlah ? String(x.jumlah) : el('span', { class: 'badge badge-near' }, 'Tiada guru')),
+              el('td', { 'data-label': 'Penasihat', class: 'num' }, String(x.jawatan.penasihat || 0)),
+              el('td', { 'data-label': 'Penyelaras', class: 'num' }, String(x.jawatan.penyelaras || 0)),
+              el('td', { 'data-label': 'AJK', class: 'num' }, String(x.jawatan.ajk || 0)),
+              el('td', { 'data-label': 'Lain-lain', class: 'num' }, String(x.jawatan.lain_lain || 0))
+            ]));
+          });
+        });
+        if (!u.length) tb.appendChild(el('tr', {}, el('td', { colspan: '7', class: 'empty full' }, 'Tiada unit untuk ' + D.tahun + '.')));
+        var tanpa = rows.filter(function (g) { return !g.unit.length; });
+        kokuCard.appendChild(el('div', { class: 'card-head' }, [el('div', {}, [el('h2', {}, 'Ringkasan kokurikulum'), el('p', { class: 'muted', style: 'font-size:.8125rem;margin-top:2px' }, tanpa.length + ' guru belum dalam mana-mana unit.')]), el('a', { class: 'btn btn-secondary btn-sm', href: 'koku-urus.html' }, 'Urus kokurikulum')]));
+        kokuCard.appendChild(el('div', { class: 'table-wrap' }, el('table', { class: 'data', style: 'min-width:640px' }, [el('thead', {}, el('tr', {}, ['Unit', 'Jenis', 'Guru', 'Penasihat', 'Penyelaras', 'AJK', 'Lain-lain'].map(function (h) { return el('th', {}, h); }))), tb])));
+      }
+
+      function lukis() {
+        var rows = rowsTapis();
+        var info = document.getElementById('dash-info');
+        var aktif = Object.keys(f).filter(function (k) { return f[k]; }).length;
+        if (info) info.textContent = rows.length + ' daripada ' + D.guru.length + ' guru aktif' + (aktif ? ' (' + aktif + ' penapis)' : '') + ' · data pada ' + App.fmtDateTime(D.dijana);
+        lukisKad(rows); lukisCarta(rows); lukisJadual(rows); lukisBawah(rows); lukisKoku(rows);
+      }
+      function eksport() {
+        var rows = DashKira.susun(rowsTapis(), susunJadual.kunci, susunJadual.turun);
+        var blob = new Blob([DashKira.keCsv(rows, D.ref, D.had)], { type: 'text/csv;charset=utf-8' });
+        var a = el('a', { href: URL.createObjectURL(blob), download: 'dashboard-guru-' + D.tahun + '.csv' });
+        document.body.appendChild(a); a.click(); a.remove();
+        UI.toast(rows.length + ' guru dieksport.');
+      }
+      function muat() {
+        statsBox.textContent = '';
+        statsBox.appendChild(el('p', { class: 'muted' }, 'Memuatkan data sekolah...'));
+        return Api.call('DASHBOARD', { tahun: tahun }).then(function (d) { D = d; binaPenapis(); lukis(); }, function (e) { statsBox.textContent = ''; statsBox.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message))); });
+      }
+      muat();
+    })();
+  </script>
+</body>
+</html>

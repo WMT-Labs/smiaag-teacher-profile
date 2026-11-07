@@ -76,7 +76,7 @@
     ];
     if (admin) {
       items.push({ label: 'Pentadbiran' });
-      items.push({ key: 'dashboard', text: 'Dashboard sekolah', icon: 'i-dashboard', soon: 'Fasa 6' });
+      items.push({ key: 'dashboard', href: 'dashboard.html', text: 'Dashboard sekolah', icon: 'i-dashboard' });
       items.push({ key: 'guru', href: 'guru.html', text: 'Senarai guru', icon: 'i-clipboard' });
       items.push({ key: 'ganti', href: 'slot-kosong.html', text: 'Cari guru ganti', icon: 'i-search' });
       items.push({ key: 'koku-urus', href: 'koku-urus.html', text: 'Urus kokurikulum', icon: 'i-trophy' });

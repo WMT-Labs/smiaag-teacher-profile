@@ -86,7 +86,9 @@ function getActions() {
     HEM_URUS:             { roles: R_ADMIN, handler: aksiHemUrus },
     USRAH_GURU_SIMPAN:    { roles: R_ADMIN, handler: aksiUsrahGuruSimpan },
     USRAH_AHLI_SIMPAN:    { roles: R_ADMIN, handler: aksiUsrahAhliSimpan },
-    USRAH_GURU_PADAM:     { roles: R_ADMIN, handler: aksiUsrahGuruPadam }
+    USRAH_GURU_PADAM:     { roles: R_ADMIN, handler: aksiUsrahGuruPadam },
+    // ---- Dashboard (Fasa 6) ----
+    DASHBOARD:            { roles: R_ADMIN, handler: aksiDashboard }
   };
   Object.keys(_ACTIONS).forEach(function (k) {
     var d = _ACTIONS[k];
