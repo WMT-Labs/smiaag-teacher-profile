@@ -77,7 +77,16 @@ function getActions() {
     UNIT_SALIN:           { roles: R_ADMIN, handler: aksiUnitSalin },
     RUMAH_SIMPAN:         { roles: R_ADMIN, handler: aksiRumahSimpan },
     JUARA_SIMPAN:         { roles: R_ADMIN, handler: aksiJuaraSimpan },
-    JUARA_IMPORT:         { roles: R_ADMIN, handler: aksiJuaraImport }
+    JUARA_IMPORT:         { roles: R_ADMIN, handler: aksiJuaraImport },
+    // ---- HEM (Fasa 5) — usrah pelajar & peranan HEM guna REKOD_SIMPAN/REKOD_PADAM ----
+    HEM_LIHAT:            { roles: R_SEMUA, handler: aksiHemLihat },
+    USRAH_SESI_LIHAT:     { roles: R_SEMUA, handler: aksiUsrahSesiLihat },   // murabbi, ahli (diri sendiri) atau pentadbir
+    USRAH_SESI_SIMPAN:    { roles: R_SEMUA, handler: aksiUsrahSesiSimpan },  // murabbi kumpulan sahaja
+    USRAH_SESI_PADAM:     { roles: R_SEMUA, handler: aksiUsrahSesiPadam },   // murabbi kumpulan sahaja
+    HEM_URUS:             { roles: R_ADMIN, handler: aksiHemUrus },
+    USRAH_GURU_SIMPAN:    { roles: R_ADMIN, handler: aksiUsrahGuruSimpan },
+    USRAH_AHLI_SIMPAN:    { roles: R_ADMIN, handler: aksiUsrahAhliSimpan },
+    USRAH_GURU_PADAM:     { roles: R_ADMIN, handler: aksiUsrahGuruPadam }
   };
   Object.keys(_ACTIONS).forEach(function (k) {
     var d = _ACTIONS[k];

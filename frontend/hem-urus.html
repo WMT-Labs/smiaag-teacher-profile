@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Urus HEM — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard({ roles: ['pentadbir', 'superadmin'] });
+      if (!sesi) return;
+      var el = UI.el, icon = App.icon;
+      var c = App.mount({ sesi: sesi, active: 'hem-urus', title: 'Urus HEM' });
+      var H = null, tahun = String(new Date().getFullYear());
+
+      function head(title, desc, actions) {
+        return el('div', { class: 'card-head' }, [el('div', {}, [el('h2', {}, title), desc ? el('p', { class: 'muted', style: 'font-size:.8125rem;margin-top:2px' }, desc) : null].filter(Boolean)), el('div', { class: 'row' }, actions || [])]);
+      }
+      function iconBtn(name, label, fn, danger) { var b = el('button', { class: 'icon-btn' + (danger ? ' danger' : ''), type: 'button', 'aria-label': label, title: label }, icon(name)); b.addEventListener('click', fn); return b; }
+      function selepas(msg) { return function (r) { if (r) { UI.toast(msg); muat(); } }; }
+      function peratus(p) { return p == null ? el('span', { class: 'badge badge-neutral' }, 'Belum ada sesi') : el('span', { class: 'badge badge-' + (p >= 80 ? 'ok' : p >= 50 ? 'near' : 'over') }, p + '% hadir'); }
+
+      function ringkasan() {
+        var tarbiah = H.peranan.filter(function (p) { return p.jenis === 'guru_tarbiah'; }).length;
+        return el('section', { class: 'stats' }, [
+          el('div', { class: 'card stat' }, [el('span', { class: 'label' }, 'Kumpulan usrah guru'), el('span', { class: 'value' }, String(H.usrah_guru.length)), el('span', { class: 'sub' }, H.usrah_guru.reduce(function (a, u) { return a + u.ahli.length; }, 0) + ' ahli')]),
+          el('div', { class: 'card stat ' + (H.guru_tanpa_usrah.length ? 'warn' : 'good') }, [el('span', { class: 'label' }, 'Guru tanpa kumpulan usrah'), el('span', { class: 'value' }, String(H.guru_tanpa_usrah.length)), el('span', { class: 'sub' }, 'perlu dimasukkan')]),
+          el('div', { class: 'card stat' }, [el('span', { class: 'label' }, 'Usrah murabbi pelajar'), el('span', { class: 'value' }, String(H.usrah_pelajar.kumpulan)), el('span', { class: 'sub' }, H.usrah_pelajar.murid + ' murid, ' + H.usrah_pelajar.guru + ' guru')]),
+          el('div', { class: 'card stat good' }, [el('span', { class: 'label' }, 'Guru Tarbiah'), el('span', { class: 'value' }, String(tarbiah)), el('span', { class: 'sub' }, 'guru')]),
+          el('div', { class: 'card stat ' + (H.kelas_tanpa_guru_kelas.length ? 'warn' : 'good') }, [el('span', { class: 'label' }, 'Kelas tanpa guru kelas'), el('span', { class: 'value' }, String(H.kelas_tanpa_guru_kelas.length)), el('span', { class: 'sub' }, 'kelas ' + H.tahun)])
+        ]);
+      }
+
+      function usrahGuru() {
+        var add = el('button', { class: 'btn btn-sm', type: 'button' }, [icon('i-plus', 16), 'Kumpulan baharu']);
+        add.addEventListener('click', function () { borangKumpulan(null); });
+        var body = H.usrah_guru.length ? el('ul', { class: 'items' }, H.usrah_guru.map(function (u) {
+          var ahliBtn = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, 'Ahli (' + u.ahli.length + ')');
+          ahliBtn.addEventListener('click', function () { borangAhli(u); });
+          return el('li', {}, [
+            el('div', { class: 'grow' }, [
+              el('b', {}, u.nama_kumpulan),
+              el('div', { class: 'sub' }, 'Murabbi: ' + u.murabbi + (u.hari ? ' · ' + App.labelOf(H.ref.hari, u.hari) : '') + ' · ' + u.bilangan_sesi + ' sesi' + (u.sesi_terakhir ? ', terakhir ' + UI.fmtDate(u.sesi_terakhir) : '')),
+              el('div', { class: 'peserta', style: 'margin-top:2px' }, u.ahli.length ? u.ahli.map(function (a) { return a.nama + (a.kehadiran.peratus != null ? ' (' + a.kehadiran.peratus + '%)' : ''); }).join(', ') : 'Belum ada ahli')
+            ]),
+            peratus(u.peratus_kumpulan),
+            el('a', { class: 'icon-btn', href: 'usrah-sesi.html?id=' + encodeURIComponent(u.id), 'aria-label': 'Lihat kehadiran', title: 'Lihat kehadiran' }, icon('i-clipboard')),
+            ahliBtn,
+            iconBtn('i-edit', 'Sunting', function () { borangKumpulan(u); }),
+            iconBtn('i-trash', 'Padam', function () { padamKumpulan(u); }, true)
+          ]);
+        })) : el('p', { class: 'empty-sm' }, 'Belum ada kumpulan usrah guru untuk ' + H.tahun + '.');
+        var parts = [head('Usrah guru ' + H.tahun, 'Murabbi setiap kumpulan merekod sesi dan kehadiran sendiri.', [add]), body];
+        if (H.guru_tanpa_usrah.length) parts.push(el('div', { style: 'padding:12px 24px 18px;border-top:1px solid var(--border)' }, [el('div', { class: 'group-label' }, 'Belum dalam mana-mana kumpulan'), el('div', { class: 'peserta' }, H.guru_tanpa_usrah.map(function (g) { return g.nama_penuh; }).join(', '))]));
+        return el('section', { class: 'card wide' }, parts);
+      }
+      function borangKumpulan(u) {
+        u = u || {};
+        App.formDialog({
+          title: u.id ? 'Sunting kumpulan' : 'Kumpulan usrah guru baharu',
+          fields: [
+            { name: 'nama_kumpulan', label: 'Nama kumpulan', required: true, value: u.nama_kumpulan, placeholder: 'contoh: Usrah Al-Ikhlas', attrs: { maxlength: '100' } },
+            { name: 'murabbi_guru_id', label: 'Murabbi', type: 'select', required: true, options: H.ref.guru.map(function (g) { return { value: g.id, label: g.nama_penuh }; }), value: u.murabbi_guru_id || (H.ref.guru[0] || {}).id },
+            { name: 'hari', label: 'Hari biasa', type: 'select', options: H.ref.hari, value: u.hari }
+          ],
+          onSubmit: function (v) { v.tahun = H.tahun; if (u.id) v.id = u.id; return Api.call('USRAH_GURU_SIMPAN', v); }
+        }).then(selepas('Kumpulan disimpan.'));
+      }
+      function borangAhli(u) {
+        var lain = {};
+        H.usrah_guru.forEach(function (x) { if (x.id !== u.id) { lain[x.murabbi_guru_id] = false; x.ahli.forEach(function (a) { lain[a.guru_id] = x.nama_kumpulan; }); } });
+        var opsi = H.ref.guru.filter(function (g) { return g.id !== u.murabbi_guru_id && !lain[g.id]; }).map(function (g) { return { value: g.id, label: g.nama_penuh }; });
+        App.formDialog({
+          title: 'Ahli ' + u.nama_kumpulan,
+          fields: [{ name: 'guru_ids', label: 'Ahli kumpulan', type: 'multicheck', options: opsi, value: u.ahli.map(function (a) { return a.guru_id; }),
+            hint: 'Guru yang sudah dalam kumpulan lain tidak disenaraikan. Murabbi tidak perlu ditanda.' }],
+          onSubmit: function (v) { return Api.call('USRAH_AHLI_SIMPAN', { usrah_guru_id: u.id, guru_ids: v.guru_ids }); }
+        }).then(selepas('Ahli disimpan.'));
+      }
+      function padamKumpulan(u) {
+        App.confirm('Padam kumpulan?', 'Padam "' + u.nama_kumpulan + '"? Kumpulan yang sudah ada rekod sesi tidak boleh dipadam.', 'Padam', true).then(function (ok) {
+          if (ok) Api.call('USRAH_GURU_PADAM', { id: u.id }).then(function () { UI.toast('Dipadam.'); muat(); }, function (e) { UI.toast(e.message); });
+        });
+      }
+
+      function peranan() {
+        var groups = H.ref.jenis_peranan.map(function (j) {
+          var list = H.peranan.filter(function (p) { return p.jenis === j.kod; }).sort(function (a, b) { return (a.kelas_nama || a.nama) < (b.kelas_nama || b.nama) ? -1 : 1; });
+          return el('div', { class: 'unit-group' }, [el('div', { class: 'group-label' }, j.label + ' (' + list.length + ')'),
+            el('div', { class: 'peserta' }, list.length ? list.map(function (p) { return (p.kelas_nama ? p.kelas_nama + ': ' : '') + p.nama + (p.butiran ? ' (' + p.butiran + ')' : ''); }).join(' · ') : 'Tiada')]);
+        });
+        if (H.kelas_tanpa_guru_kelas.length) groups.push(el('div', { class: 'unit-group' }, el('div', { class: 'notice notice-warn' }, el('span', {}, 'Kelas tanpa guru kelas: ' + H.kelas_tanpa_guru_kelas.join(', ')))));
+        return el('section', { class: 'card wide' }, [head('Guru Tarbiah, Guru Kelas dan Disiplin ' + H.tahun, 'Diisi oleh guru di menu HEM, atau oleh pentadbir melalui profil guru.')].concat(groups));
+      }
+
+      function render() {
+        c.textContent = '';
+        var sel = el('select', { class: 'select', 'aria-label': 'Tahun', style: 'width:auto' });
+        var y = new Date().getFullYear();
+        [y + 1, y, y - 1].forEach(function (t) { var o = el('option', { value: String(t) }, 'Tahun ' + t); if (String(t) === H.tahun) o.selected = true; sel.appendChild(o); });
+        sel.addEventListener('change', function () { tahun = sel.value; muat(); });
+        c.appendChild(el('div', { class: 'row end' }, sel));
+        c.appendChild(ringkasan());
+        c.appendChild(usrahGuru());
+        c.appendChild(peranan());
+      }
+      function muat() { return Api.call('HEM_URUS', { tahun: tahun }).then(function (d) { H = d; render(); }, function (e) { UI.toast(e.message); }); }
+      c.appendChild(el('p', { class: 'muted' }, 'Memuatkan...'));
+      muat();
+    })();
+  </script>
+</body>
+</html>

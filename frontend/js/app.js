@@ -72,7 +72,7 @@
       { label: 'Bahagian' },
       { key: 'kuri', href: 'kurikulum.html', text: 'Kurikulum', icon: 'i-book' },
       { key: 'koku', href: 'koku.html', text: 'Kokurikulum', icon: 'i-trophy' },
-      { key: 'hem', text: 'HEM', icon: 'i-heart', soon: 'Fasa 5' }
+      { key: 'hem', href: 'hem.html', text: 'HEM', icon: 'i-heart' }
     ];
     if (admin) {
       items.push({ label: 'Pentadbiran' });
@@ -80,6 +80,7 @@
       items.push({ key: 'guru', href: 'guru.html', text: 'Senarai guru', icon: 'i-clipboard' });
       items.push({ key: 'ganti', href: 'slot-kosong.html', text: 'Cari guru ganti', icon: 'i-search' });
       items.push({ key: 'koku-urus', href: 'koku-urus.html', text: 'Urus kokurikulum', icon: 'i-trophy' });
+      items.push({ key: 'hem-urus', href: 'hem-urus.html', text: 'Urus HEM', icon: 'i-heart' });
       items.push({ key: 'import-jadual', href: 'import-jadual.html', text: 'Import jadual (aSc)', icon: 'i-download' });
       items.push({ key: 'import-tugasan', href: 'import-tugasan.html', text: 'Import tugasan', icon: 'i-download' });
       items.push({ key: 'akaun', href: 'akaun.html', text: 'Urus akaun', icon: 'i-shield' });

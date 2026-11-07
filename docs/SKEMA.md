@@ -603,6 +603,8 @@ Unik: (pertandingan_id, guru_id)
 | updated_at | datetime |  |  |  |
 | updated_by | text |  |  |  |
 
+Unik: (tahun_akademik, nama_kumpulan)
+
 ### `keahlian_usrah_guru`
 
 | Lajur | Jenis | Wajib | Rujukan | Lalai |
@@ -616,21 +618,35 @@ Unik: (pertandingan_id, guru_id)
 
 Unik: (usrah_guru_id, guru_id)
 
-### `kehadiran_usrah_guru`
+### `sesi_usrah_guru`
 
 | Lajur | Jenis | Wajib | Rujukan | Lalai |
 |---|---|---|---|---|
 | id (PK) | uuid | ya |  |  |
 | usrah_guru_id | uuid | ya | FK → usrah_guru |  |
-| guru_id | uuid | ya | FK → guru |  |
 | tarikh | date | ya |  |  |
+| tajuk | text |  |  |  |
+| catatan | text |  |  |  |
+| created_at | datetime |  |  |  |
+| updated_at | datetime |  |  |  |
+| updated_by | text |  |  |  |
+
+Unik: (usrah_guru_id, tarikh)
+
+### `kehadiran_usrah_guru`
+
+| Lajur | Jenis | Wajib | Rujukan | Lalai |
+|---|---|---|---|---|
+| id (PK) | uuid | ya |  |  |
+| sesi_id | uuid | ya | FK → sesi_usrah_guru |  |
+| guru_id | uuid | ya | FK → guru |  |
 | hadir | bool | ya |  |  |
 | catatan | text |  |  |  |
 | created_at | datetime |  |  |  |
 | updated_at | datetime |  |  |  |
 | updated_by | text |  |  |  |
 
-Unik: (usrah_guru_id, guru_id, tarikh)
+Unik: (sesi_id, guru_id)
 
 ### `peranan_hem`
 
@@ -645,6 +661,8 @@ Unik: (usrah_guru_id, guru_id, tarikh)
 | created_at | datetime |  |  |  |
 | updated_at | datetime |  |  |  |
 | updated_by | text |  |  |  |
+
+Unik: (guru_id, tahun_akademik, jenis, kelas_id)
 
 ## Nilai rujukan asal
 

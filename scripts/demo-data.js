@@ -69,6 +69,21 @@ function seedDemo(ctx, a) {
   [['2023', ['Falah', 'Fatah', 'Solah', 'Najah']], ['2024', ['Fatah', 'Najah', 'Falah', 'Solah']], ['2025', ['Najah', 'Fatah', 'Solah', 'Falah']]]
     .forEach(([t, susun]) => susun.forEach((r, i) => ctx.insert('juara_rumah_sukan', { tahun_akademik: t, rumah_sukan_id: H[r], kedudukan: i + 1 })));
 
+  // HEM: usrah pelajar, peranan, usrah guru (murabbi = Pentadbir Contoh; ahli = Guru Contoh Satu, Dua)
+  ctx.insert('kumpulan_usrah_pelajar', { guru_id: g1, tahun_akademik: '2026', nama_kumpulan: 'Kumpulan Contoh Al-Fajr', tingkatan: 2, hari: 'rabu', bilangan_murid: 12 });
+  ctx.insert('kumpulan_usrah_pelajar', { guru_id: g1, tahun_akademik: '2026', nama_kumpulan: 'Kumpulan Contoh An-Nur', tingkatan: 4, hari: 'rabu', bilangan_murid: 10 });
+  ctx.insert('peranan_hem', { guru_id: g1, tahun_akademik: '2026', jenis: 'guru_tarbiah' });
+  ctx.insert('peranan_hem', { guru_id: g1, tahun_akademik: '2026', jenis: 'guru_kelas', kelas_id: K['2 Uthman'] });
+  ctx.insert('peranan_hem', { guru_id: a.ad.guru.id, tahun_akademik: '2026', jenis: 'bidang_disiplin', butiran: 'Lembaga Disiplin (contoh)' });
+  const ug = ctx.insert('usrah_guru', { tahun_akademik: '2026', murabbi_guru_id: a.ad.guru.id, nama_kumpulan: 'Usrah Contoh Al-Ikhlas', hari: 'khamis' });
+  [g1, a.g2.guru.id].forEach((gid) => ctx.insert('keahlian_usrah_guru', { usrah_guru_id: ug.id, guru_id: gid }));
+  [['2026-09-03', 'Tafsir Surah Al-Asr', true, true], ['2026-09-24', 'Adab menuntut ilmu', true, false], ['2026-10-15', 'Sirah: Hijrah', false, true], ['2026-10-29', 'Tazkiyah an-nafs', true, true]]
+    .forEach(([tarikh, tajuk, h1, h2]) => {
+      const s = ctx.insert('sesi_usrah_guru', { usrah_guru_id: ug.id, tarikh, tajuk });
+      ctx.insert('kehadiran_usrah_guru', { sesi_id: s.id, guru_id: g1, hadir: h1, catatan: h1 ? null : 'Kursus luar' });
+      ctx.insert('kehadiran_usrah_guru', { sesi_id: s.id, guru_id: a.g2.guru.id, hadir: h2 });
+    });
+
   // Guru baharu dalam percubaan (tamat 02/09/2026, perlu disahkan)
   ctx.update('guru', a.g2.guru.id, { status_lantikan: 'percubaan', tarikh_lantikan: '2026-03-02', jawatan: 'Guru Akademik Biasa' });
   ctx.insert('tugasan_guru', { guru_id: a.g2.guru.id, tahun_akademik: '2026', jenis_tugasan: 'berjadual', kumpulan: 'subjek', nama_tugasan: 'Sains T1', subjek_id: S.SNS, bilangan_kelas: 4, jam_kredit: 23 });

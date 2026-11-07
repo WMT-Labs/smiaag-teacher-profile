@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kehadiran usrah — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard();
+      if (!sesi) return;
+      var el = UI.el, icon = App.icon;
+      var m = /[?&]id=([0-9a-f-]{36})/i.exec(location.search);
+      var c = App.mount({ sesi: sesi, active: 'hem', title: 'Kehadiran usrah guru' });
+      if (!m) { c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, 'Kumpulan tidak dinyatakan.'))); return; }
+      var id = m[1], U = null;
+
+      function hariIni() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+      function hadirMap() { var o = {}; U.kehadiran.forEach(function (k) { o[k.sesi_id + '|' + k.guru_id] = k; }); return o; }
+
+      /** Borang sesi: tarikh, tajuk, senarai ahli (tanda = hadir), catatan bagi yang tidak hadir. */
+      function borangSesi(s) {
+        s = s || {};
+        var hm = hadirMap();
+        var alertText = el('span'), alertBox = el('div', { class: 'notice notice-error', role: 'alert' }, alertText);
+        alertBox.hidden = true;
+        var tarikh = el('input', { class: 'input', type: 'date', id: 'f-tarikh', value: s.tarikh || hariIni(), max: hariIni() });
+        var tajuk = el('input', { class: 'input', type: 'text', id: 'f-tajuk', value: s.tajuk || '', maxlength: '200', placeholder: 'contoh: Tafsir Surah Al-Asr' });
+        var rows = U.ahli.map(function (a) {
+          var k = s.id ? hm[s.id + '|' + a.guru_id] : null;
+          var cb = el('input', { type: 'checkbox', 'aria-label': 'Hadir: ' + a.nama });
+          cb.checked = k ? k.hadir : true;
+          var note = el('input', { class: 'input', type: 'text', maxlength: '200', placeholder: 'Sebab (pilihan)', value: k && k.catatan ? k.catatan : '' });
+          var lab = el('label', {}, [cb, el('span', { style: 'flex:1' }, a.nama), note]);
+          function sync() { lab.classList.toggle('absent', !cb.checked); note.hidden = cb.checked; }
+          cb.addEventListener('change', sync); sync();
+          return { a: a, cb: cb, note: note };
+        });
+        var semua = el('button', { class: 'btn-link', type: 'button', style: 'padding:0;min-height:auto' }, 'Tandakan semua hadir');
+        semua.addEventListener('click', function () { rows.forEach(function (r) { r.cb.checked = true; r.cb.dispatchEvent(new Event('change')); }); });
+        App.dialog({
+          title: s.id ? 'Sunting sesi ' + UI.fmtDate(s.tarikh) : 'Sesi usrah baharu',
+          body: [alertBox,
+            el('div', { class: 'field' }, [el('label', { for: 'f-tarikh' }, 'Tarikh sesi'), tarikh, el('span', { class: 'hint' }, 'Tarikh sesi dijalankan. Tidak semestinya mingguan.')]),
+            el('div', { class: 'field' }, [el('label', { for: 'f-tajuk' }, 'Tajuk (pilihan)'), tajuk]),
+            el('div', { class: 'field' }, [el('div', { class: 'row', style: 'justify-content:space-between' }, [el('span', { class: 'field-label' }, 'Kehadiran (tanda = hadir)'), semua]), el('div', { class: 'att-list' }, rows.map(function (r) { return r.cb.parentNode; }))])
+          ],
+          actions: [
+            { text: 'Batal', kind: 'btn-secondary', value: null },
+            { text: 'Simpan', value: 'ok', onClick: function (b) {
+              alertBox.hidden = true;
+              if (!tarikh.value) { alertText.textContent = 'Pilih tarikh sesi.'; alertBox.hidden = false; return false; }
+              b.disabled = true;
+              var p = { usrah_guru_id: id, tarikh: tarikh.value, tajuk: tajuk.value.trim() || null,
+                kehadiran: rows.map(function (r) { return { guru_id: r.a.guru_id, hadir: r.cb.checked, catatan: r.cb.checked ? null : (r.note.value.trim() || null) }; }) };
+              if (s.id) p.id = s.id;
+              return Api.call('USRAH_SESI_SIMPAN', p).then(function (r) { UI.toast('Sesi disimpan: ' + r.hadir + '/' + r.jumlah + ' hadir.'); return true; },
+                function (e) { alertText.textContent = e.message; alertBox.hidden = false; b.disabled = false; return false; });
+            } }
+          ]
+        }).then(function (v) { if (v === 'ok') muat(); });
+        if (s.id) setTimeout(function () {
+          var foot = document.querySelector('dialog .modal-foot');
+          var del = el('button', { class: 'btn btn-ghost', type: 'button', style: 'margin-right:auto;color:var(--red-700)' }, 'Padam sesi');
+          del.addEventListener('click', function () {
+            document.querySelector('dialog').close();
+            App.confirm('Padam sesi?', 'Padam sesi ' + UI.fmtDate(s.tarikh) + ' dan rekod kehadirannya?', 'Padam', true).then(function (ok) {
+              if (ok) Api.call('USRAH_SESI_PADAM', { id: s.id }).then(function () { UI.toast('Sesi dipadam.'); muat(); }, function (e) { UI.toast(e.message); });
+            });
+          });
+          if (foot) foot.insertBefore(del, foot.firstChild);
+        }, 0);
+      }
+
+      function render() {
+        c.textContent = '';
+        var hm = hadirMap();
+        var acts = U.boleh_rekod ? [(function () { var b = el('button', { class: 'btn btn-sm', type: 'button' }, [icon('i-plus', 16), 'Sesi baharu']); b.addEventListener('click', function () { borangSesi(null); }); return b; })()] : [];
+        c.appendChild(el('a', { class: 'back', href: 'hem.html' }, [icon('i-back', 18), 'HEM']));
+        c.appendChild(el('section', { class: 'welcome' }, [
+          el('h2', { style: 'font-size:1.25rem' }, U.nama_kumpulan),
+          el('p', { class: 'muted' }, 'Murabbi: ' + U.murabbi + ' · ' + U.ahli.length + ' ahli · ' + U.sesi.length + ' sesi' + (U.peratus_kumpulan != null ? ' · kehadiran keseluruhan ' + U.peratus_kumpulan + '%' : ''))
+        ]));
+        if (!U.boleh_rekod) c.appendChild(el('div', { class: 'notice notice-info' }, el('span', {}, 'Paparan sahaja. Kehadiran direkod oleh murabbi kumpulan.')));
+        var sesiAsc = U.sesi.slice().reverse();
+        var thead = el('tr', {}, [el('th', {}, 'Ahli')].concat(sesiAsc.map(function (s) {
+          var th = el('th', { class: 'sesi', title: s.tajuk || '' }, UI.fmtDate(s.tarikh).slice(0, 5));
+          if (U.boleh_rekod) th.addEventListener('click', function () { borangSesi(s); });
+          return th;
+        })).concat([el('th', {}, 'Kehadiran')]));
+        var tbody = el('tbody');
+        U.ahli.forEach(function (a) {
+          tbody.appendChild(el('tr', {}, [el('td', {}, el('b', {}, a.nama))].concat(sesiAsc.map(function (s) {
+            var k = hm[s.id + '|' + a.guru_id], y = k && k.hadir;
+            return el('td', { title: k && k.catatan ? k.catatan : '' }, el('span', { class: 'att ' + (y ? 'y' : 'n') }, y ? '✓' : '✗'));
+          })).concat([el('td', {}, a.kehadiran.peratus == null ? '—' : el('span', { class: 'badge badge-' + (a.kehadiran.peratus >= 80 ? 'ok' : a.kehadiran.peratus >= 50 ? 'near' : 'over') }, a.kehadiran.hadir + '/' + a.kehadiran.jumlah + ' · ' + a.kehadiran.peratus + '%'))])));
+        });
+        c.appendChild(el('section', { class: 'card' }, [
+          el('div', { class: 'card-head' }, [el('h2', {}, 'Rekod kehadiran'), el('div', { class: 'row' }, acts)]),
+          U.sesi.length ? el('div', { class: 'table-wrap' }, el('table', { class: 'data matrix' }, [el('thead', {}, thead), tbody])) : el('p', { class: 'empty-sm' }, U.boleh_rekod ? 'Belum ada sesi. Tekan "Sesi baharu" selepas usrah dijalankan.' : 'Belum ada sesi.'),
+          U.boleh_rekod && U.sesi.length ? el('p', { class: 'muted', style: 'font-size:.75rem;padding:10px 24px 16px' }, 'Tekan tarikh sesi untuk menyunting atau memadam.') : null
+        ].filter(Boolean)));
+        if (U.sesi.length) c.appendChild(el('section', { class: 'card' }, [el('div', { class: 'card-head' }, el('h2', {}, 'Senarai sesi')), el('ul', { class: 'items' }, U.sesi.map(function (s) {
+          var n = U.kehadiran.filter(function (k) { return k.sesi_id === s.id && k.hadir; }).length;
+          return el('li', {}, [el('div', { class: 'grow' }, [el('b', {}, UI.fmtDate(s.tarikh)), el('div', { class: 'sub' }, s.tajuk || 'Tiada tajuk')]), el('span', { class: 'muted num', style: 'font-size:.875rem' }, n + '/' + U.ahli.length + ' hadir')]);
+        }))]));
+      }
+      function muat() {
+        return Api.call('USRAH_SESI_LIHAT', { usrah_guru_id: id }).then(function (d) { U = d; render(); }, function (e) { c.textContent = ''; c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message))); });
+      }
+      muat();
+    })();
+  </script>
+</body>
+</html>

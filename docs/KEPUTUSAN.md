@@ -18,7 +18,21 @@ Dikemas kini pada penghujung setiap fasa. Rujuk dokumen arahan projek (Seksyen 1
 | 06/11/2026 | Jadual diimport daripada eksport aSc Timetables (fail akan diberi kemudian; guna data contoh dahulu). |
 | 06/11/2026 | Tugasan guru diimport/diisi oleh pentadbir sahaja; guru tidak mengisi satu persatu. |
 | 06/11/2026 | Unit Syabab: KASPA, KRS, BSMM, Puteri Islam. Kelab diisi oleh pentadbir. Rumah sukan: Fatah (merah), Falah (hijau), Najah (biru), Solah (kuning). |
+| 07/11/2026 | Guru boleh sunting jadual sendiri (pembetulan kecil, tukar masa dengan guru lain). |
+| 07/11/2026 | Guru Tarbiah dan Usrah Murabbi Pelajar disimpan berasingan. |
+| 07/11/2026 | Kehadiran usrah guru diisi oleh murabbi kumpulan, mengikut sesi yang dijalankan (bukan semestinya mingguan). |
 | 06/11/2026 | Cerapan dipermudahkan: hanya bilangan dicerap setahun dan nama pencerap. Tiada sasaran, tiada tarikh dirancang. Jadual `sasaran_cerapan` dan `ref_status_cerapan` dibuang. |
+
+## Fasa 5: andaian
+
+1. **Jadual `sesi_usrah_guru` ditambah.** Dokumen asal menyimpan kehadiran dengan `usrah_guru_id` dan `tarikh` sahaja. Kini setiap sesi ada rekod sendiri (tarikh, tajuk, catatan), dan kehadiran merujuk sesi (`sesi_id`). Ini lebih tepat untuk "sesi dijalankan" dan membolehkan sesi tanpa kehadiran direkod. Satu sesi bagi setiap kumpulan pada satu tarikh.
+2. **Kumpulan usrah guru ditetapkan oleh pentadbir** (nama, murabbi, hari, ahli). Seorang guru hanya boleh menjadi ahli satu kumpulan setiap tahun. Murabbi bukan ahli kumpulan sendiri, tetapi boleh menjadi ahli kumpulan lain.
+3. **Hanya murabbi** boleh merekod, menyunting dan memadam sesi kumpulannya. Pentadbir boleh melihat semua tetapi tidak merekod (ikut keputusan pemilik). Jika murabbi bertukar, pentadbir tukar murabbi kumpulan itu.
+4. **Ahli** melihat kehadiran sendiri sahaja (bukan rakan sekumpulan). Sesi tanpa rekod kehadiran seseorang dikira tidak hadir.
+5. **Tarikh sesi** tidak boleh pada masa depan dan mesti dalam tahun kumpulan.
+6. **Kumpulan yang sudah ada sesi** tidak boleh dipadam, supaya sejarah kehadiran kekal.
+7. **Usrah murabbi pelajar dan peranan HEM** diisi oleh guru sendiri (atau pentadbir bagi pihak guru). Satu peranan setiap jenis setiap tahun bagi seorang guru (Guru Kelas: satu bagi setiap kelas). Guru Kelas mesti memilih kelas.
+8. **Peratus kehadiran:** hijau 80% ke atas, kuning 50% hingga 79%, merah bawah 50%.
 
 ## Fasa 4 dan import: andaian
 
@@ -28,7 +42,7 @@ Dikemas kini pada penghujung setiap fasa. Rujuk dokumen arahan projek (Seksyen 1
 4. **Import jadual mengganti** jadual tahun itu bagi guru yang diimport sahaja. Guru lain tidak disentuh. Slot import ditanda `sumber = asc`.
 5. **Ganti pukal yang selamat:** semua baris baharu disahkan dahulu. Jika satu baris gagal, data lama kekal (tiada separa simpan). Berlaku untuk import jadual, tugasan dan juara rumah sukan.
 6. **Tugasan** kini hanya boleh ditambah/diubah oleh pentadbir (disemak di server). Guru melihat sahaja.
-7. **Jadual** masih boleh disunting oleh guru sendiri (untuk pembetulan kecil). Import seterusnya akan menggantinya. Beritahu jika mahu jadual juga dikunci untuk pentadbir sahaja.
+7. **Jadual** boleh disunting oleh guru sendiri (disahkan pemilik 07/11/2026). Import aSc seterusnya akan menggantinya.
 8. **Unit Syabab** dimuat untuk tahun semasa oleh `setupTemplate`. Unit tahun baharu boleh disalin daripada tahun lepas (tanpa ahli). Label jenis "Badan beruniform (Syabab)".
 9. **Keahlian unit dan rumah sukan** diisi oleh guru sendiri (atau pentadbir bagi pihak guru). Satu rumah sukan bagi setiap guru setiap tahun.
 10. **Pertandingan** direkod oleh guru yang terlibat; guru itu menjadi peserta. Peserta lain boleh mengubah rekod. Pentadbir boleh menambah guru lain. Jika peserta terakhir keluar, rekod pertandingan dipadam.

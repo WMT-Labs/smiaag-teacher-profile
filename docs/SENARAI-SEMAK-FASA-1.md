@@ -5,7 +5,7 @@ Ikut mengikut urutan. Jika ada yang gagal, catat apa yang anda nampak dan berita
 ## 0. Kemas kini kod di Apps Script
 - [ ] Tampal semula seluruh isi `dist/Code.gs` ke `Code.gs` dalam editor Apps Script. Save.
 - [ ] Jika anda sudah menjalankan `setupTemplate` pada Fasa 0: tab `cerapan` kini lebih ringkas dan tab `sasaran_cerapan` serta `ref_status_cerapan` tidak digunakan lagi. Padam ketiga-tiga tab itu (masih kosong), kemudian jalankan `setupTemplate` semula.
-- [ ] Jalankan `verifySetup`. Log: `OK: 41 tab, semua lajur betul.`
+- [ ] Jalankan `verifySetup`. Log: `OK: 44 tab, semua lajur betul.` (bilangan terkini; bertambah mengikut fasa)
 - [ ] **Deploy > Manage deployments > edit > Version: New version > Deploy.** (Tanpa langkah ini Web App masih guna kod lama.)
 
 ## 1. Superadmin pertama

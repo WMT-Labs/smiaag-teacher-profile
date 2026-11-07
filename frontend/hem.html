@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HEM — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard();
+      if (!sesi) return;
+      var el = UI.el, icon = App.icon;
+      var m = /[?&]id=([0-9a-f-]{36})/i.exec(location.search);
+      var guruId = m && m[1] !== sesi.guru_id ? m[1] : null;
+      var c = App.mount({ sesi: sesi, active: guruId ? 'guru' : 'hem', title: 'Hal Ehwal Murid' });
+      var H = null, tahun = String(new Date().getFullYear());
+
+      function call(action, params) { params = params || {}; if (guruId) params.guru_id = guruId; return Api.call(action, params); }
+      function selepas(msg) { return function (r) { if (r) { UI.toast(msg); muat(); } }; }
+      function head(title, ic, actions) { return el('div', { class: 'card-head' }, [el('div', { class: 'sec-title' }, [el('span', { class: 'ico' }, icon(ic)), el('h2', {}, title)]), el('div', { class: 'row' }, actions || [])]); }
+      function btn(text, fn, ic) { var b = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, [icon(ic || 'i-plus', 16), text]); b.addEventListener('click', fn); return b; }
+      function iconBtn(name, label, fn, danger) { var b = el('button', { class: 'icon-btn' + (danger ? ' danger' : ''), type: 'button', 'aria-label': label, title: label }, icon(name)); b.addEventListener('click', fn); return b; }
+      function padam(jadual, id, nama) {
+        App.confirm('Padam?', 'Padam "' + nama + '"?', 'Padam', true).then(function (ok) {
+          if (ok) call('REKOD_PADAM', { jadual: jadual, id: id }).then(function () { UI.toast('Dipadam.'); muat(); }, function (e) { UI.toast(e.message); });
+        });
+      }
+      function peratusBadge(p) {
+        if (p === null || p === undefined) return el('span', { class: 'badge badge-neutral' }, 'Belum ada sesi');
+        return el('span', { class: 'badge badge-' + (p >= 80 ? 'ok' : p >= 50 ? 'near' : 'over') }, p + '% hadir');
+      }
+
+      // ---------------- usrah murabbi pelajar ----------------
+      function usrahPelajar() {
+        var murid = H.usrah_pelajar.reduce(function (a, k) { return a + (k.bilangan_murid || 0); }, 0);
+        var body = H.usrah_pelajar.length ? [
+          el('p', { class: 'muted', style: 'font-size:.875rem;padding:12px 24px 0' }, H.usrah_pelajar.length + ' kumpulan · ' + murid + ' murid'),
+          el('ul', { class: 'items' }, H.usrah_pelajar.map(function (k) {
+            return el('li', {}, [
+              el('div', { class: 'grow' }, [el('b', {}, k.nama_kumpulan), el('div', { class: 'sub' }, [k.tingkatan ? 'Tingkatan ' + k.tingkatan : null, k.hari ? App.labelOf(H.ref.hari, k.hari) : null, k.bilangan_murid != null ? k.bilangan_murid + ' murid' : null].filter(Boolean).join(' · '))]),
+              iconBtn('i-edit', 'Sunting', function () { borangPelajar(k); }),
+              iconBtn('i-trash', 'Padam', function () { padam('kumpulan_usrah_pelajar', k.id, k.nama_kumpulan); }, true)
+            ]);
+          }))
+        ] : [el('p', { class: 'empty-sm' }, 'Belum ada kumpulan usrah pelajar untuk ' + H.tahun + '.')];
+        return el('section', { class: 'card' }, [head('Usrah murabbi pelajar', 'i-users', [btn('Tambah', function () { borangPelajar(null); })])].concat(body));
+      }
+      function borangPelajar(k) {
+        k = k || {};
+        App.formDialog({
+          title: (k.id ? 'Sunting' : 'Tambah') + ' kumpulan usrah pelajar',
+          fields: [
+            { name: 'nama_kumpulan', label: 'Nama kumpulan', required: true, value: k.nama_kumpulan, attrs: { maxlength: '100' } },
+            { name: 'tingkatan', label: 'Tingkatan', type: 'select', options: [1, 2, 3, 4, 5, 6].map(function (t) { return { value: t, label: 'Tingkatan ' + t }; }), value: k.tingkatan },
+            { name: 'hari', label: 'Hari', type: 'select', options: H.ref.hari, value: k.hari },
+            { name: 'bilangan_murid', label: 'Bilangan murid', type: 'number', value: k.bilangan_murid, attrs: { min: '0', max: '500', inputmode: 'numeric' } }
+          ],
+          onSubmit: function (v) {
+            if (v.tingkatan !== null) v.tingkatan = Number(v.tingkatan);
+            var p = { jadual: 'kumpulan_usrah_pelajar', data: v };
+            if (k.id) p.id = k.id; else v.tahun_akademik = H.tahun;
+            return call('REKOD_SIMPAN', p);
+          }
+        }).then(selepas('Disimpan.'));
+      }
+
+      // ---------------- peranan HEM ----------------
+      function peranan() {
+        var body = H.peranan.length ? el('ul', { class: 'items' }, H.peranan.map(function (p) {
+          var t = App.labelOf(H.ref.jenis_peranan, p.jenis) + (p.kelas_nama ? ' · ' + p.kelas_nama : '');
+          return el('li', {}, [
+            el('div', { class: 'grow' }, [el('b', {}, t), p.butiran ? el('div', { class: 'sub' }, p.butiran) : null].filter(Boolean)),
+            iconBtn('i-edit', 'Sunting', function () { borangPeranan(p); }),
+            iconBtn('i-trash', 'Padam', function () { padam('peranan_hem', p.id, t); }, true)
+          ]);
+        })) : el('p', { class: 'empty-sm' }, 'Tiada peranan HEM untuk ' + H.tahun + '.');
+        return el('section', { class: 'card' }, [head('Guru Tarbiah, Guru Kelas, Disiplin', 'i-shield', [btn('Tambah', function () { borangPeranan(null); })]), body,
+          el('p', { class: 'muted', style: 'font-size:.75rem;padding:10px 24px 16px;border-top:1px solid var(--border)' }, 'Guru Tarbiah direkod di sini, berasingan daripada Usrah Murabbi Pelajar.')]);
+      }
+      function borangPeranan(p) {
+        p = p || {};
+        App.formDialog({
+          title: (p.id ? 'Sunting' : 'Tambah') + ' peranan HEM',
+          fields: [
+            { name: 'jenis', label: 'Peranan', type: 'select', required: true, options: H.ref.jenis_peranan, value: p.jenis || 'guru_tarbiah' },
+            { name: 'kelas_id', label: 'Kelas (untuk Guru Kelas)', type: 'select', options: H.ref.kelas.map(function (k) { return { value: k.id, label: k.nama }; }), value: p.kelas_id, placeholder: '— Tiada —' },
+            { name: 'butiran', label: 'Butiran', value: p.butiran, placeholder: 'contoh: Unit Disiplin Asrama', attrs: { maxlength: '200' } }
+          ],
+          validate: function (v) { return v.jenis === 'guru_kelas' && !v.kelas_id ? 'Pilih kelas untuk Guru Kelas.' : null; },
+          onSubmit: function (v) {
+            var q = { jadual: 'peranan_hem', data: v };
+            if (p.id) q.id = p.id; else v.tahun_akademik = H.tahun;
+            return call('REKOD_SIMPAN', q);
+          }
+        }).then(selepas('Disimpan.'));
+      }
+
+      // ---------------- usrah guru ----------------
+      function usrahGuru() {
+        var u = H.usrah_guru, body;
+        if (!u) body = [el('p', { class: 'empty-sm' }, 'Anda belum dimasukkan ke mana-mana kumpulan usrah guru untuk ' + H.tahun + '. Kumpulan ditetapkan oleh pentadbir.')];
+        else {
+          body = [el('div', { class: 'card-pad stack' }, [
+            el('div', { class: 'row', style: 'justify-content:space-between' }, [el('div', {}, [el('b', { style: 'font-size:1.0625rem' }, u.nama_kumpulan), el('div', { class: 'muted', style: 'font-size:.875rem' }, 'Murabbi: ' + u.murabbi + (u.hari ? ' · ' + App.labelOf(H.ref.hari, u.hari) : '') + ' · ' + u.bilangan_ahli + ' ahli')]), peratusBadge(u.kehadiran && u.kehadiran.peratus)]),
+            u.kehadiran ? el('div', { class: 'muted', style: 'font-size:.875rem' }, 'Hadir ' + u.kehadiran.hadir + ' daripada ' + u.kehadiran.jumlah + ' sesi.') : null
+          ].filter(Boolean))];
+          if (u.sesi.length) body.push(el('ul', { class: 'items' }, u.sesi.map(function (s) {
+            return el('li', {}, [el('span', { class: 'att ' + (s.hadir ? 'y' : 'n'), 'aria-label': s.hadir ? 'Hadir' : 'Tidak hadir' }, s.hadir ? '✓' : '✗'),
+              el('div', { class: 'grow' }, [el('b', {}, UI.fmtDate(s.tarikh)), el('div', { class: 'sub' }, [s.tajuk, s.catatan].filter(Boolean).join(' · ') || '')])]);
+          })));
+        }
+        return el('section', { class: 'card' }, [head('Usrah guru ' + H.tahun, 'i-heart'), el('div', {}, body)]);
+      }
+      function dibimbing() {
+        if (!H.usrah_dibimbing.length) return null;
+        return el('section', { class: 'card' }, [head('Kumpulan yang saya bimbing (murabbi)', 'i-clipboard'), el('ul', { class: 'items' }, H.usrah_dibimbing.map(function (u) {
+          return el('li', {}, [
+            el('div', { class: 'grow' }, [el('b', {}, u.nama_kumpulan), el('div', { class: 'sub' }, u.bilangan_ahli + ' ahli · ' + u.bilangan_sesi + ' sesi' + (u.sesi_terakhir ? ' · terakhir ' + UI.fmtDate(u.sesi_terakhir) : ''))]),
+            peratusBadge(u.peratus_kumpulan),
+            el('a', { class: 'btn btn-sm', href: 'usrah-sesi.html?id=' + encodeURIComponent(u.id) }, H.milik_sendiri ? 'Rekod kehadiran' : 'Lihat')
+          ]);
+        }))]);
+      }
+
+      function render() {
+        c.textContent = '';
+        var top = el('div', { class: 'row', style: 'justify-content:space-between' });
+        top.appendChild(H.milik_sendiri ? el('span') : el('a', { class: 'back', href: 'profil.html?id=' + encodeURIComponent(H.guru.id) }, [icon('i-back', 18), H.guru.nama_penuh]));
+        var sel = el('select', { class: 'select', 'aria-label': 'Tahun', style: 'width:auto' });
+        var y = new Date().getFullYear();
+        [y + 1, y, y - 1, y - 2].forEach(function (t) { var o = el('option', { value: String(t) }, 'Tahun ' + t); if (String(t) === H.tahun) o.selected = true; sel.appendChild(o); });
+        sel.addEventListener('change', function () { tahun = sel.value; muat(); });
+        top.appendChild(sel);
+        c.appendChild(top);
+        c.appendChild(el('div', { class: 'profile-grid' }, [usrahPelajar(), peranan(), usrahGuru(), dibimbing()].filter(Boolean)));
+      }
+      function muat() {
+        return call('HEM_LIHAT', { tahun: tahun }).then(function (d) { H = d; render(); }, function (e) { c.textContent = ''; c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message))); });
+      }
+      c.appendChild(el('p', { class: 'muted' }, 'Memuatkan...'));
+      muat();
+    })();
+  </script>
+</body>
+</html>

@@ -277,7 +277,8 @@
           el('a', { class: 'back', href: 'guru.html' }, [icon('i-back', 18), 'Senarai guru']),
           el('div', { class: 'row' }, [
             el('a', { class: 'btn btn-secondary btn-sm', href: 'kurikulum.html?id=' + encodeURIComponent(P.guru.id) }, 'Kurikulum dan jadual'),
-            el('a', { class: 'btn btn-secondary btn-sm', href: 'koku.html?id=' + encodeURIComponent(P.guru.id) }, 'Kokurikulum')
+            el('a', { class: 'btn btn-secondary btn-sm', href: 'koku.html?id=' + encodeURIComponent(P.guru.id) }, 'Kokurikulum'),
+            el('a', { class: 'btn btn-secondary btn-sm', href: 'hem.html?id=' + encodeURIComponent(P.guru.id) }, 'HEM')
           ])
         ]));
         c.appendChild(el('div', { class: 'profile-grid' }, [kepala(), teras(), cerapan(), kelayakan(), opsyen(), kursus()]));

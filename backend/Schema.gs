@@ -129,18 +129,27 @@ var _TABLE_DEFS = {
       'hari:enum(ref_hari)', 'bilangan_murid:int[0..500]']
   },
   usrah_guru: {
-    cols: ['id:uuid!', 'tahun_akademik:year!', 'murabbi_guru_id:fk(guru)!', 'nama_kumpulan:text!', 'hari:enum(ref_hari)']
+    cols: ['id:uuid!', 'tahun_akademik:year!', 'murabbi_guru_id:fk(guru)!', 'nama_kumpulan:text!', 'hari:enum(ref_hari)'],
+    unique: [['tahun_akademik', 'nama_kumpulan']]
   },
   keahlian_usrah_guru: {
     cols: ['id:uuid!', 'usrah_guru_id:fk(usrah_guru)!', 'guru_id:fk(guru)!'],
     unique: [['usrah_guru_id', 'guru_id']]
   },
+  sesi_usrah_guru: {
+    // Satu baris bagi setiap sesi usrah yang dijalankan (tarikh bebas, tidak semestinya mingguan).
+    cols: ['id:uuid!', 'usrah_guru_id:fk(usrah_guru)!', 'tarikh:date!', 'tajuk:text', 'catatan:text'],
+    unique: [['usrah_guru_id', 'tarikh']]
+  },
   kehadiran_usrah_guru: {
-    cols: ['id:uuid!', 'usrah_guru_id:fk(usrah_guru)!', 'guru_id:fk(guru)!', 'tarikh:date!', 'hadir:bool!', 'catatan:text'],
-    unique: [['usrah_guru_id', 'guru_id', 'tarikh']]
+    // Dicatat oleh murabbi kumpulan bagi setiap ahli dalam setiap sesi.
+    cols: ['id:uuid!', 'sesi_id:fk(sesi_usrah_guru)!', 'guru_id:fk(guru)!', 'hadir:bool!', 'catatan:text'],
+    unique: [['sesi_id', 'guru_id']]
   },
   peranan_hem: {
-    cols: ['id:uuid!', 'guru_id:fk(guru)!', 'tahun_akademik:year!', 'jenis:enum(ref_jenis_peranan_hem)!', 'kelas_id:fk(kelas)', 'butiran:text']
+    // Guru Tarbiah, Guru Kelas (dengan kelas), Bidang Disiplin. Berasingan daripada Usrah Murabbi Pelajar.
+    cols: ['id:uuid!', 'guru_id:fk(guru)!', 'tahun_akademik:year!', 'jenis:enum(ref_jenis_peranan_hem)!', 'kelas_id:fk(kelas)', 'butiran:text'],
+    unique: [['guru_id', 'tahun_akademik', 'jenis', 'kelas_id']]
   }
 };
 

@@ -5,11 +5,11 @@ Ikut mengikut urutan. Tandakan setiap satu. Jika ada yang gagal, catat apa yang 
 ## 1. Pangkalan data
 - [ ] Sheet dicipta dan **tidak dikongsi** (butang Share tiada nama lain, dan akses umum = Restricted).
 - [ ] `setupTemplate` dijalankan tanpa ralat. Execution log menyenaraikan tab "Dicipta".
-- [ ] Dalam Sheet ada 41 tab: 16 tab `ref_*` (hijau) dan 25 tab data (biru). Tab `Sheet1` kosong sudah hilang.
+- [ ] Dalam Sheet ada 44 tab: 16 tab `ref_*` (hijau) dan 28 tab data (biru). Tab `Sheet1` kosong sudah hilang.
 - [ ] Tab `ref_hari` mengandungi isnin hingga ahad. Tab `ref_role` mengandungi guru, pentadbir, superadmin.
 - [ ] Tab `had_jam_kredit` ada satu baris: tahun semasa, 22, 10.
 - [ ] Jalankan `setupTemplate` sekali lagi. Bilangan baris dalam `ref_hari` kekal 7 (tiada duplikat).
-- [ ] Jalankan `verifySetup`. Log berkata `OK: 41 tab, semua lajur betul.`
+- [ ] Jalankan `verifySetup`. Log berkata `OK: 44 tab, semua lajur betul.` (bilangan terkini; bertambah mengikut fasa)
 - [ ] Project Settings > Script Properties: ada `SS_ID` dan `PEPPER`. (Jangan salin nilai ini ke mana-mana.)
 
 ## 2. Backend

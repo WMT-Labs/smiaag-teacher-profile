@@ -137,7 +137,9 @@ var REKOD_GURU = {
   kursus: ['tajuk', 'penganjur', 'tarikh_mula', 'tarikh_tamat', 'jam', 'tahap'],
   opsyen_guru: ['jenis', 'subjek_id'],
   keahlian_unit: ['unit_id', 'tahun_akademik', 'jawatan'],
-  guru_rumah: ['rumah_sukan_id', 'tahun_akademik', 'jawatan']
+  guru_rumah: ['rumah_sukan_id', 'tahun_akademik', 'jawatan'],
+  kumpulan_usrah_pelajar: ['tahun_akademik', 'nama_kumpulan', 'tingkatan', 'hari', 'bilangan_murid'],
+  peranan_hem: ['tahun_akademik', 'jenis', 'kelas_id', 'butiran']
 };
 
 function _jadualRekod(params) {
@@ -157,6 +159,14 @@ function _dataRekod(jadual, data) {
 }
 
 function _semakRekod(jadual, row) {
+  if (jadual === 'peranan_hem') {
+    if (row.jenis === 'guru_kelas' && !row.kelas_id) throw new AppError('VALIDASI', 'Pilih kelas untuk Guru Kelas.', { field: 'kelas_id' });
+    if (row.jenis !== 'guru_kelas' && row.kelas_id) row.kelas_id = null;
+    if (row.kelas_id) {
+      var k = getById('kelas', row.kelas_id);
+      if (k && row.tahun_akademik && k.tahun_akademik !== row.tahun_akademik) throw new AppError('VALIDASI', 'Kelas ini untuk tahun ' + k.tahun_akademik + '.', { field: 'kelas_id' });
+    }
+  }
   if (jadual === 'keahlian_unit' && row.unit_id) {
     var u = getById('unit_kokurikulum', row.unit_id);
     if (u && row.tahun_akademik && u.tahun_akademik !== row.tahun_akademik) throw new AppError('VALIDASI', 'Unit ini untuk tahun ' + u.tahun_akademik + '.', { field: 'unit_id' });
@@ -196,6 +206,7 @@ function aksiRekodSimpan(ctx, params) {
     Object.keys(lama).forEach(function (k) { gabung[k] = lama[k]; });
     Object.keys(data).forEach(function (k) { gabung[k] = data[k]; });
     _semakRekod(jadual, gabung);
+    if (jadual === 'peranan_hem' && gabung.kelas_id === null && lama.kelas_id) data.kelas_id = null;
     hasil = update(jadual, id, data, { actorId: ctx.akaunId });
     _auditJikaOrangLain(ctx, guru, 'SUNTING_PROFIL_GURU', jadual + ' dikemas kini');
   } else {
