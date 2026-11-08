@@ -12,6 +12,9 @@ function chain() { // objek yang menerima apa-apa panggilan pemformatan dan memu
 class FakeSheet {
   constructor(name) { this.name = name; this.grid = []; this.maxRows = 1000; }
   getLastRow() { return this.grid.length; }
+  getMaxColumns() { return 26; }
+  insertColumnBefore(c) { this.grid.forEach((row) => row.splice(c - 1, 0, '')); }
+  insertColumnAfter(c) { this.grid.forEach((row) => row.splice(c, 0, '')); }
   getLastColumn() { return this.grid.reduce((m, r) => Math.max(m, r.length), 0); }
   getMaxRows() { return this.maxRows; }
   insertRowsAfter() { this.maxRows++; }
@@ -52,6 +55,7 @@ class FakeSpreadsheet {
   constructor() { this.sheets = new Map(); this.id = 'ss-contoh'; this.sheets.set('Sheet1', new FakeSheet('Sheet1')); }
   getId() { return this.id; }
   getName() { return 'Sheet Contoh'; }
+  setSpreadsheetTimeZone(tz) { this.tz = tz; }
   getSheets() { return [...this.sheets.values()]; }
   getSheetByName(n) { return this.sheets.get(n) || null; }
   insertSheet(n) { const s = new FakeSheet(n); this.sheets.set(n, s); return s; }
@@ -95,7 +99,8 @@ function createEnv(opts = {}) {
     CacheService: { getScriptCache: () => ({
       get: (k) => { const e = cache.get(k); return e && e.until > now() ? e.v : null; },
       put: (k, v, ttl = 600) => { cache.set(k, { v: String(v), until: now() + Math.min(ttl, 21600) * 1000 }); },
-      remove: (k) => { cache.delete(k); }
+      remove: (k) => { cache.delete(k); },
+      getAll: (keys) => { const o = {}; keys.forEach((k) => { const e = cache.get(k); if (e && e.until > now()) o[k] = e.v; }); return o; }
     }) },
     ContentService: { MimeType: { JSON: 'JSON' }, createTextOutput: (t) => ({ text: t, setMimeType() { return this; } }) },
     Utilities: {

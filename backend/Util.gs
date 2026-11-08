@@ -126,11 +126,11 @@ function pOneOf(params, key, allowed, label) {
 /** Rekod tindakan penting. Kegagalan menulis log tidak menggagalkan tindakan utama, tetapi dicatat. */
 function logAudit(akaunId, tindakan, sasaran, butiran) {
   try {
-    insert('audit_log', {
+    appendLog('audit_log', {
       masa: nowIso(), akaun_id: akaunId || null, tindakan: tindakan,
       sasaran: sasaran ? String(sasaran).slice(0, 200) : null,
       butiran: butiran ? String(butiran).slice(0, 1000) : null
-    }, { skipFk: true });
+    });
   } catch (e) {
     Logger.log('Gagal menulis audit_log: ' + e.message);
   }

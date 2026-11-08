@@ -130,6 +130,41 @@ function adaKunci(kod) {
 // Sesi
 // ---------------------------------------------------------------------------
 
+/*
+ * Cache sesi (kelajuan): selepas token disahkan daripada Sheet, akaun dan guru disimpan dalam CacheService
+ * selama SESI_CACHE_SAAT. Keselamatan dijaga dengan pembatalan SERTA-MERTA:
+ *  - token dipadam/diubah dalam tab `sessions` (log keluar, reset, nyahaktif, tukar peranan, tamat) -> entri dibuang
+ *  - akaun atau guru dikemas kini (peranan, aktif, PDPA, kata laluan) -> nombor versi berubah, entri tidak sah
+ */
+var SESI_CACHE_SAAT = 300;
+
+function _versi(c, key) { return c[key] || '0'; }
+
+/** Dipanggil oleh Repository selepas setiap tulisan. */
+function onTulisJadual(name, row) {
+  var c = CacheService.getScriptCache();
+  if (name === 'sessions' && row.token) c.remove('sesi:' + row.token);
+  else if (name === 'akaun' && row.id) c.put('av:' + row.id, uuid(), 21600);
+  else if (name === 'guru' && row.id) c.put('gv:' + row.id, uuid(), 21600);
+}
+
+function _sesiDariCache(token) {
+  var c = CacheService.getScriptCache();
+  var v = c.get('sesi:' + token);
+  if (!v) return null;
+  var o;
+  try { o = JSON.parse(v); } catch (e) { return null; }
+  var ver = c.getAll(['av:' + o.akaun.id, 'gv:' + o.guru.id]);
+  if (_versi(ver, 'av:' + o.akaun.id) !== o.av || _versi(ver, 'gv:' + o.guru.id) !== o.gv) { c.remove('sesi:' + token); return null; }
+  return o;
+}
+
+function _simpanSesiCache(token, expiry, akaun, guru) {
+  var c = CacheService.getScriptCache();
+  var ver = c.getAll(['av:' + akaun.id, 'gv:' + guru.id]);
+  c.put('sesi:' + token, JSON.stringify({ expiry: expiry, akaun: akaun, guru: guru, av: _versi(ver, 'av:' + akaun.id), gv: _versi(ver, 'gv:' + guru.id) }), SESI_CACHE_SAAT);
+}
+
 function _tolakSesi(msg) {
   throw new AppError('TIDAK_LOG_MASUK', msg || 'Sesi tidak sah atau telah tamat. Sila log masuk semula.');
 }
@@ -141,18 +176,27 @@ function _tolakSesi(msg) {
  */
 function requireAuth(token, roles) {
   if (typeof token !== 'string' || !UUID_RE.test(token)) _tolakSesi();
-  var s = getById('sessions', token);
-  if (!s) _tolakSesi();
+  var s, akaun, guru;
+  var cached = _sesiDariCache(token);
+  if (cached) {
+    s = { token: token, expiry: cached.expiry }; akaun = cached.akaun; guru = cached.guru;
+  } else {
+    s = getById('sessions', token);
+    if (!s) _tolakSesi();
+  }
   if (!(Date.parse(s.expiry) > Date.now())) {
     remove('sessions', token);
     _tolakSesi('Sesi anda telah tamat. Sila log masuk semula.');
   }
-  var akaun = getById('akaun', s.akaun_id);
-  var guru = akaun ? getById('guru', akaun.guru_id) : null;
+  if (!cached) {
+    akaun = getById('akaun', s.akaun_id);
+    guru = akaun ? getById('guru', akaun.guru_id) : null;
+  }
   if (!akaun || !akaun.aktif || !guru || !guru.aktif) {
     remove('sessions', token);
     _tolakSesi();
   }
+  if (!cached) _simpanSesiCache(token, s.expiry, akaun, guru);
   if (roles && roles.indexOf(akaun.role) === -1) {
     throw new AppError('TIADA_KEBENARAN', 'Anda tiada kebenaran untuk tindakan ini.');
   }

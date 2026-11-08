@@ -27,7 +27,7 @@ test('setupTemplate berhenti jika tab sedia ada mempunyai lajur salah', () => {
   const { ctx, env } = loadBackend();
   const sh = env.ss.insertSheet('guru');
   sh.getRange(1, 1, 1, 2).setValues([['salah', 'lajur']]);
-  assert.throws(() => ctx.setupTemplate(), /lajur 1 bukan "id"/);
+  assert.throws(() => ctx.setupTemplate(), /lajur tidak dikenali: salah, lajur/);
 });
 
 test('insert -> getById -> query -> update -> remove', () => {

@@ -21,7 +21,8 @@ function setupTemplate() {
     ss = SpreadsheetApp.openById(saved);
   }
   props.setProperty(PROP.SS_ID, ss.getId());
-  report.push('Sheet: ' + ss.getName());
+  ss.setSpreadsheetTimeZone(TZ);
+  report.push('Sheet: ' + ss.getName() + ' (zon waktu ' + TZ + ')');
 
   if (!props.getProperty(PROP.PEPPER)) {
     props.setProperty(PROP.PEPPER, Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, ''));
@@ -64,19 +65,42 @@ function verifySetup() {
   return problems;
 }
 
+var FORMAT_TARIKH = 'dd-mm-yyyy';
+var FORMAT_TARIKH_MASA = 'dd-mm-yyyy", "hh.mm';
+
+function _hurufLajur(n) { var s = ''; while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+
+/**
+ * Pastikan tab wujud dengan lajur betul.
+ *  - Tab baharu: tulis baris tajuk.
+ *  - Tab sedia ada yang ketinggalan lajur baharu (kemas kini sistem): lajur yang tiada DISISIPKAN di
+ *    kedudukan betul, data sedia ada kekal. Lajur yang tidak dikenali -> berhenti (tidak menimpa data).
+ *  - Lajur tarikh/masa: format dd-mm-yyyy / dd-mm-yyyy, hh.mm; teks ISO lama ditukar kepada nilai tarikh.
+ */
 function _ensureTab(ss, s) {
   var sh = ss.getSheetByName(s.name);
-  var created = false;
+  var created = false, ditambah = [];
   if (!sh) { sh = ss.insertSheet(s.name); created = true; }
 
   var n = s.columns.length;
-  var hasData = sh.getLastRow() > 0;
-  if (hasData) {
-    var head = sh.getRange(1, 1, 1, n).getValues()[0];
+  if (sh.getLastRow() > 0) {
+    var lastCol = Math.max(1, sh.getLastColumn ? sh.getLastColumn() : n);
+    var head = sh.getRange(1, 1, 1, Math.max(lastCol, n)).getValues()[0].map(String).filter(function (h, i, arr) {
+      return arr.slice(i).some(function (x) { return x !== ''; });
+    });
+    var tidakDikenali = head.filter(function (h) { return s.columns.indexOf(h) === -1; });
+    var ikutUrutan = head.every(function (h, i) { return i === 0 || s.columns.indexOf(h) > s.columns.indexOf(head[i - 1]); });
+    if (tidakDikenali.length || !ikutUrutan) {
+      throw new Error('Tab "' + s.name + '" sudah ada tetapi lajurnya tidak sepadan (' + (tidakDikenali.length ? 'lajur tidak dikenali: ' + tidakDikenali.join(', ') : 'susunan lajur berbeza') +
+        '). Lajur 1 sepatutnya "' + s.columns[0] + '". Namakan semula tab itu, kemudian jalankan semula.');
+    }
     for (var i = 0; i < n; i++) {
-      if (String(head[i]) !== s.columns[i]) {
-        throw new Error('Tab "' + s.name + '" sudah ada tetapi lajur ' + (i + 1) + ' bukan "' + s.columns[i] +
-          '". Padam atau namakan semula tab itu, kemudian jalankan semula.');
+      if (head[i] !== s.columns[i]) {
+        if (i < head.length) sh.insertColumnBefore(i + 1);
+        else if (i + 1 > sh.getMaxColumns()) sh.insertColumnAfter(sh.getMaxColumns());
+        sh.getRange(1, i + 1).setValues([[s.columns[i]]]);
+        head.splice(i, 0, s.columns[i]);
+        ditambah.push(s.columns[i]);
       }
     }
   } else {
@@ -85,16 +109,35 @@ function _ensureTab(ss, s) {
 
   if (sh.getMaxRows() < 2) sh.insertRowsAfter(1, 1);
   var rows = sh.getMaxRows() - 1;
+  var dataRows = Math.max(0, sh.getLastRow() - 1);
   s.columns.forEach(function (c, i) {
     var t = s.defs[c].type;
-    // Jenis teks/tarikh/masa disimpan sebagai TEKS supaya Sheets tidak menukar "2026-01-05" atau "08:00" menjadi tarikh/masa.
-    if (t !== 'int' && t !== 'num' && t !== 'bool') sh.getRange(2, i + 1, rows, 1).setNumberFormat('@');
+    var rg = sh.getRange(2, i + 1, rows, 1);
+    if (t === 'date' || t === 'datetime') {
+      rg.setNumberFormat(t === 'date' ? FORMAT_TARIKH : FORMAT_TARIKH_MASA);
+      if (dataRows) {
+        // Tukar teks ISO lama (sebelum kemas kini ini) kepada nilai tarikh sebenar
+        var col = sh.getRange(2, i + 1, dataRows, 1);
+        var vals = col.getValues();
+        var ubah = false;
+        vals = vals.map(function (r) {
+          var v = r[0];
+          if (typeof v === 'string' && v.charAt(0) === "'") v = v.slice(1);
+          if (typeof v === 'string' && (DATE_RE.test(v) || DATETIME_RE.test(v))) { ubah = true; return [_toCell(s.defs[c], v)]; }
+          return [r[0]];
+        });
+        if (ubah) col.setValues(vals);
+      }
+    } else if (t !== 'int' && t !== 'num' && t !== 'bool') {
+      // Teks dan masa (JJ:MM) kekal sebagai TEKS supaya Sheets tidak menukarnya.
+      rg.setNumberFormat('@');
+    }
   });
 
   sh.getRange(1, 1, 1, n).setBackground('#00548d').setFontColor('#ffffff').setFontWeight('bold');
   sh.setFrozenRows(1);
   sh.setTabColor(s.isRef ? '#008c21' : '#00548d');
-  return (created ? 'Dicipta : ' : 'Sedia ada: ') + s.name;
+  return (created ? 'Dicipta : ' : 'Sedia ada: ') + s.name + (ditambah.length ? ' (lajur baharu: ' + ditambah.join(', ') + ')' : '');
 }
 
 /** Isi jadual ref_* dengan nilai asal. Nilai yang sudah ada tidak diganggu. */

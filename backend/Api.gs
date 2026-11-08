@@ -99,6 +99,18 @@ function getActions() {
 }
 
 function handleRequest(raw) {
+  var t0 = Date.now(), namaAksi = '?';
+  mulaPermintaan();
+  try {
+    return _handleRequest(raw, function (a) { namaAksi = a; });
+  } finally {
+    // Ukuran masa untuk diagnosis kelajuan (Apps Script > Executions > log)
+    Logger.log('[MASA] ' + namaAksi + ': ' + (Date.now() - t0) + ' ms, ' + bilanganBacaan() + ' bacaan tab');
+    tamatPermintaan();
+  }
+}
+
+function _handleRequest(raw, catatAksi) {
   try {
     if (typeof raw !== 'string' || raw.length === 0 || raw.length > MAX_REQUEST_CHARS) {
       throw new AppError('PERMINTAAN_TIDAK_SAH', 'Permintaan tidak sah.');
@@ -108,6 +120,7 @@ function handleRequest(raw) {
     if (!req || typeof req !== 'object' || typeof req.action !== 'string' || !/^[A-Z][A-Z0-9_]{1,39}$/.test(req.action)) {
       throw new AppError('PERMINTAAN_TIDAK_SAH', 'Permintaan tidak sah.');
     }
+    catatAksi(req.action);
     var params = (req.params && typeof req.params === 'object' && !Array.isArray(req.params)) ? req.params : {};
     var actions = getActions();
     var def = Object.prototype.hasOwnProperty.call(actions, req.action) ? actions[req.action] : null;

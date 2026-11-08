@@ -167,11 +167,11 @@ function pOneOf(params, key, allowed, label) {
 /** Rekod tindakan penting. Kegagalan menulis log tidak menggagalkan tindakan utama, tetapi dicatat. */
 function logAudit(akaunId, tindakan, sasaran, butiran) {
   try {
-    insert('audit_log', {
+    appendLog('audit_log', {
       masa: nowIso(), akaun_id: akaunId || null, tindakan: tindakan,
       sasaran: sasaran ? String(sasaran).slice(0, 200) : null,
       butiran: butiran ? String(butiran).slice(0, 1000) : null
-    }, { skipFk: true });
+    });
   } catch (e) {
     Logger.log('Gagal menulis audit_log: ' + e.message);
   }
@@ -460,6 +460,14 @@ function getTableSchema(table) {
  *   insertMany(table, rows, ctx)  -> senarai objek (satu tulisan ke Sheet; untuk import)
  *   removeWhere(table, filter)    -> bilangan dipadam (satu tulisan ke Sheet; untuk import)
  *   replaceWhere(table, filter, rows, ctx) -> ganti selamat: sahkan semua dahulu, kemudian satu tulisan
+ *   appendLog(table, row, ctx)    -> tambah baris TANPA membaca tab (untuk audit_log yang sentiasa bertambah)
+ *
+ * Kelajuan (cache):
+ *   - Dalam satu permintaan, setiap tab dibaca sekali sahaja (memo), kemudian diguna semula.
+ *   - Jadual rujukan yang jarang berubah (ref_*, subjek, kelas, waktu, ...) disimpan dalam CacheService
+ *     selama CACHE_TTL_SAAT antara permintaan.
+ *   - Setiap tulisan membaca data SEGAR dan membatalkan cache tab itu serta-merta.
+ *   - Cache hanya aktif dalam handleRequest (mulaPermintaan/tamatPermintaan); ujian di luar tidak terjejas.
  *
  * Kenapa begini: apabila pindah ke Supabase, hanya fail ini yang diganti.
  * Modul lain tidak perlu tahu data disimpan di mana.
@@ -475,6 +483,27 @@ function getTableSchema(table) {
  */
 
 var _REF_CACHE = {};
+
+var CACHE_TTL_SAAT = 300;
+var _CACHE = { aktif: false, memo: {}, bacaan: 0 };
+
+function _bolehCacheKekal(name) {
+  return /^ref_/.test(name) || ['subjek', 'kelas', 'waktu', 'had_jam_kredit', 'unit_kokurikulum', 'rumah_sukan'].indexOf(name) !== -1;
+}
+
+function mulaPermintaan() { _CACHE.aktif = true; _CACHE.memo = {}; _CACHE.bacaan = 0; }
+function tamatPermintaan() { _CACHE.aktif = false; _CACHE.memo = {}; }
+function bilanganBacaan() { return _CACHE.bacaan; }
+
+/** Dipanggil selepas SETIAP tulisan: batalkan cache tab dan maklumkan modul lain (contoh cache sesi). */
+function _selepasTulis(name, rows) {
+  delete _CACHE.memo[name];
+  delete _REF_CACHE[name];
+  try { CacheService.getScriptCache().remove('jd:' + name); } catch (e) { /* abaikan */ }
+  if (typeof onTulisJadual === 'function') {
+    (rows || []).forEach(function (r) { if (r) onTulisJadual(name, r); });
+  }
+}
 
 function _withLock(fn) {
   var lock = LockService.getScriptLock();
@@ -516,12 +545,49 @@ function _fromCell(def, v) {
   }
 }
 
+/**
+ * Nilai JS -> nilai sel. Tarikh dan masa+tarikh disimpan sebagai NILAI TARIKH Sheets (bukan teks) supaya
+ * mudah dibaca dalam Sheet (format dd-mm-yyyy, hh.mm ditetapkan oleh setupTemplate) dan tetap tepat.
+ */
 function _toCell(def, v) {
   if (v === null || v === undefined) return '';
+  if (def.type === 'date' && typeof v === 'string' && DATE_RE.test(v)) {
+    return new Date(+v.slice(0, 4), +v.slice(5, 7) - 1, +v.slice(8, 10));
+  }
+  if (def.type === 'datetime' && typeof v === 'string' && DATETIME_RE.test(v)) {
+    var d = new Date(v);
+    if (!isNaN(d.getTime())) return d;
+  }
   return sanitizeForSheet(v);
 }
 
-function _readAll(schema) {
+/** Baca semua baris. segar=true wajib untuk laluan tulisan (bukan daripada cache). */
+function _readAll(schema, segar) {
+  var name = schema.name;
+  if (!segar && _CACHE.aktif) {
+    if (_CACHE.memo[name]) return _CACHE.memo[name];
+    if (_bolehCacheKekal(name)) {
+      var c = null;
+      try { c = CacheService.getScriptCache().get('jd:' + name); } catch (e) { c = null; }
+      if (c) {
+        var dc = { sheet: null, rows: JSON.parse(c) };
+        _CACHE.memo[name] = dc;
+        return dc;
+      }
+    }
+  }
+  var data = _readSheet(schema);
+  if (_CACHE.aktif) {
+    _CACHE.memo[name] = data;
+    if (_bolehCacheKekal(name)) {
+      try { CacheService.getScriptCache().put('jd:' + name, JSON.stringify(data.rows), CACHE_TTL_SAAT); } catch (e) { /* terlalu besar: abaikan */ }
+    }
+  }
+  return data;
+}
+
+function _readSheet(schema) {
+  _CACHE.bacaan++;
   var sh = _sheetOf(schema);
   var last = sh.getLastRow();
   var n = schema.columns.length;
@@ -615,14 +681,14 @@ function insert(table, row, ctx) {
       var now = nowIso();
       clean.created_at = now; clean.updated_at = now; clean.updated_by = ctx.actorId || null;
     }
-    var data = _readAll(s);
+    var data = _readAll(s, true);
     if (data.rows.some(function (r) { return r[s.pk] === clean[s.pk]; })) {
       throw new AppError('DUPLIKAT', 'Rekod dengan id ini sudah wujud.');
     }
     _checkUnique(s, clean, null, data.rows);
     var line = s.columns.map(function (c) { return _toCell(s.defs[c], clean[c]); });
     data.sheet.getRange(data.sheet.getLastRow() + 1, 1, 1, s.columns.length).setValues([line]);
-    if (s.isRef) delete _REF_CACHE[s.name];
+    _selepasTulis(s.name, [clean]);
     return clean;
   });
 }
@@ -631,7 +697,7 @@ function update(table, id, patch, ctx) {
   var s = getTableSchema(table);
   ctx = ctx || {};
   return _withLock(function () {
-    var data = _readAll(s);
+    var data = _readAll(s, true);
     var current = null;
     for (var i = 0; i < data.rows.length; i++) if (data.rows[i][s.pk] === id) current = data.rows[i];
     if (!current) throw new AppError('TIDAK_JUMPA', 'Rekod tidak dijumpai.');
@@ -642,7 +708,7 @@ function update(table, id, patch, ctx) {
     _checkUnique(s, merged, id, data.rows);
     var line = s.columns.map(function (c) { return _toCell(s.defs[c], merged[c]); });
     data.sheet.getRange(current.__row, 1, 1, s.columns.length).setValues([line]);
-    if (s.isRef) delete _REF_CACHE[s.name];
+    _selepasTulis(s.name, [merged]);
     return merged;
   });
 }
@@ -650,11 +716,11 @@ function update(table, id, patch, ctx) {
 function remove(table, id, ctx) {
   var s = getTableSchema(table);
   return _withLock(function () {
-    var data = _readAll(s);
+    var data = _readAll(s, true);
     for (var i = 0; i < data.rows.length; i++) {
       if (data.rows[i][s.pk] === id) {
         data.sheet.deleteRow(data.rows[i].__row);
-        if (s.isRef) delete _REF_CACHE[s.name];
+        _selepasTulis(s.name, [_clean(data.rows[i])]);
         return true;
       }
     }
@@ -710,10 +776,10 @@ function insertMany(table, rows, ctx) {
   var s = getTableSchema(table);
   ctx = ctx || {};
   return _withLock(function () {
-    var data = _readAll(s);
+    var data = _readAll(s, true);
     var p = _sediakanBaris(s, rows, data.rows, ctx);
     if (p.lines.length) data.sheet.getRange(data.sheet.getLastRow() + 1, 1, p.lines.length, s.columns.length).setValues(p.lines);
-    if (s.isRef) delete _REF_CACHE[s.name];
+    _selepasTulis(s.name, p.out);
     return p.out;
   });
 }
@@ -729,10 +795,10 @@ function replaceWhere(table, filter, rows, ctx) {
   if (!filter || typeof filter !== 'object' || !Object.keys(filter).length) throw new AppError('VALIDASI', 'Penapis diperlukan untuk ganti pukal.');
   Object.keys(filter).forEach(function (k) { if (!s.defs[k]) throw new AppError('VALIDASI', 'Penapis menggunakan lajur yang tidak wujud: ' + k); });
   return _withLock(function () {
-    var data = _readAll(s);
-    var buang = {}, kekal = [], n = 0;
+    var data = _readAll(s, true);
+    var buang = {}, kekal = [], n = 0, dibuang = [];
     data.rows.forEach(function (row) {
-      if (Object.keys(filter).every(function (k) { return _matches(row[k], filter[k]); })) { buang[row.__row] = true; n++; }
+      if (Object.keys(filter).every(function (k) { return _matches(row[k], filter[k]); })) { buang[row.__row] = true; n++; dibuang.push(_clean(row)); }
       else kekal.push(row);
     });
     var p = _sediakanBaris(s, rows, kekal, ctx); // lontar ralat sebelum apa-apa ditulis
@@ -749,8 +815,28 @@ function replaceWhere(table, filter, rows, ctx) {
     } else if (p.lines.length) {
       data.sheet.getRange(last + 1, 1, p.lines.length, s.columns.length).setValues(p.lines);
     }
-    if (s.isRef) delete _REF_CACHE[s.name];
+    _selepasTulis(s.name, dibuang.concat(p.out));
     return { dipadam: n, ditambah: p.out };
+  });
+}
+
+/**
+ * Tambah satu baris TANPA membaca tab (hanya baris tajuk untuk semakan). Untuk jadual log yang sentiasa
+ * bertambah dan tiada kekangan unik (audit_log). Pengesahan jenis dan sanitasi tetap berlaku.
+ */
+function appendLog(table, row, ctx) {
+  var s = getTableSchema(table);
+  ctx = ctx || {};
+  if (s.unique.length) throw new AppError('VALIDASI', 'appendLog hanya untuk jadual tanpa kekangan unik.');
+  return _withLock(function () {
+    var clean = _validate(s, row, true, { skipFk: true });
+    if (!clean[s.pk]) clean[s.pk] = uuid();
+    if (s.audit) { var now = nowIso(); clean.created_at = now; clean.updated_at = now; clean.updated_by = ctx.actorId || null; }
+    var sh = _sheetOf(s);
+    _checkHeaders(s, sh.getRange(1, 1, 1, s.columns.length).getValues()[0]);
+    sh.getRange(sh.getLastRow() + 1, 1, 1, s.columns.length).setValues([s.columns.map(function (c) { return _toCell(s.defs[c], clean[c]); })]);
+    delete _CACHE.memo[s.name];
+    return clean;
   });
 }
 
@@ -760,11 +846,11 @@ function removeWhere(table, filter) {
   if (!filter || typeof filter !== 'object' || !Object.keys(filter).length) throw new AppError('VALIDASI', 'Penapis diperlukan untuk padam pukal.');
   Object.keys(filter).forEach(function (k) { if (!s.defs[k]) throw new AppError('VALIDASI', 'Penapis menggunakan lajur yang tidak wujud: ' + k); });
   return _withLock(function () {
-    var data = _readAll(s);
+    var data = _readAll(s, true);
     var buang = {};
-    var n = 0;
+    var n = 0, dibuang = [];
     data.rows.forEach(function (row) {
-      if (Object.keys(filter).every(function (k) { return _matches(row[k], filter[k]); })) { buang[row.__row] = true; n++; }
+      if (Object.keys(filter).every(function (k) { return _matches(row[k], filter[k]); })) { buang[row.__row] = true; n++; dibuang.push(_clean(row)); }
     });
     if (!n) return 0;
     var last = data.sheet.getLastRow();
@@ -773,7 +859,7 @@ function removeWhere(table, filter) {
     var keep = values.filter(function (v, i) { return !buang[i + 2] && v.some(function (x) { return x !== '' && x !== null; }); });
     range.clearContent();
     if (keep.length) data.sheet.getRange(2, 1, keep.length, s.columns.length).setValues(keep);
-    if (s.isRef) delete _REF_CACHE[s.name];
+    _selepasTulis(s.name, dibuang);
     return n;
   });
 }
@@ -905,7 +991,8 @@ function setupTemplate() {
     ss = SpreadsheetApp.openById(saved);
   }
   props.setProperty(PROP.SS_ID, ss.getId());
-  report.push('Sheet: ' + ss.getName());
+  ss.setSpreadsheetTimeZone(TZ);
+  report.push('Sheet: ' + ss.getName() + ' (zon waktu ' + TZ + ')');
 
   if (!props.getProperty(PROP.PEPPER)) {
     props.setProperty(PROP.PEPPER, Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, ''));
@@ -948,19 +1035,42 @@ function verifySetup() {
   return problems;
 }
 
+var FORMAT_TARIKH = 'dd-mm-yyyy';
+var FORMAT_TARIKH_MASA = 'dd-mm-yyyy", "hh.mm';
+
+function _hurufLajur(n) { var s = ''; while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+
+/**
+ * Pastikan tab wujud dengan lajur betul.
+ *  - Tab baharu: tulis baris tajuk.
+ *  - Tab sedia ada yang ketinggalan lajur baharu (kemas kini sistem): lajur yang tiada DISISIPKAN di
+ *    kedudukan betul, data sedia ada kekal. Lajur yang tidak dikenali -> berhenti (tidak menimpa data).
+ *  - Lajur tarikh/masa: format dd-mm-yyyy / dd-mm-yyyy, hh.mm; teks ISO lama ditukar kepada nilai tarikh.
+ */
 function _ensureTab(ss, s) {
   var sh = ss.getSheetByName(s.name);
-  var created = false;
+  var created = false, ditambah = [];
   if (!sh) { sh = ss.insertSheet(s.name); created = true; }
 
   var n = s.columns.length;
-  var hasData = sh.getLastRow() > 0;
-  if (hasData) {
-    var head = sh.getRange(1, 1, 1, n).getValues()[0];
+  if (sh.getLastRow() > 0) {
+    var lastCol = Math.max(1, sh.getLastColumn ? sh.getLastColumn() : n);
+    var head = sh.getRange(1, 1, 1, Math.max(lastCol, n)).getValues()[0].map(String).filter(function (h, i, arr) {
+      return arr.slice(i).some(function (x) { return x !== ''; });
+    });
+    var tidakDikenali = head.filter(function (h) { return s.columns.indexOf(h) === -1; });
+    var ikutUrutan = head.every(function (h, i) { return i === 0 || s.columns.indexOf(h) > s.columns.indexOf(head[i - 1]); });
+    if (tidakDikenali.length || !ikutUrutan) {
+      throw new Error('Tab "' + s.name + '" sudah ada tetapi lajurnya tidak sepadan (' + (tidakDikenali.length ? 'lajur tidak dikenali: ' + tidakDikenali.join(', ') : 'susunan lajur berbeza') +
+        '). Lajur 1 sepatutnya "' + s.columns[0] + '". Namakan semula tab itu, kemudian jalankan semula.');
+    }
     for (var i = 0; i < n; i++) {
-      if (String(head[i]) !== s.columns[i]) {
-        throw new Error('Tab "' + s.name + '" sudah ada tetapi lajur ' + (i + 1) + ' bukan "' + s.columns[i] +
-          '". Padam atau namakan semula tab itu, kemudian jalankan semula.');
+      if (head[i] !== s.columns[i]) {
+        if (i < head.length) sh.insertColumnBefore(i + 1);
+        else if (i + 1 > sh.getMaxColumns()) sh.insertColumnAfter(sh.getMaxColumns());
+        sh.getRange(1, i + 1).setValues([[s.columns[i]]]);
+        head.splice(i, 0, s.columns[i]);
+        ditambah.push(s.columns[i]);
       }
     }
   } else {
@@ -969,16 +1079,35 @@ function _ensureTab(ss, s) {
 
   if (sh.getMaxRows() < 2) sh.insertRowsAfter(1, 1);
   var rows = sh.getMaxRows() - 1;
+  var dataRows = Math.max(0, sh.getLastRow() - 1);
   s.columns.forEach(function (c, i) {
     var t = s.defs[c].type;
-    // Jenis teks/tarikh/masa disimpan sebagai TEKS supaya Sheets tidak menukar "2026-01-05" atau "08:00" menjadi tarikh/masa.
-    if (t !== 'int' && t !== 'num' && t !== 'bool') sh.getRange(2, i + 1, rows, 1).setNumberFormat('@');
+    var rg = sh.getRange(2, i + 1, rows, 1);
+    if (t === 'date' || t === 'datetime') {
+      rg.setNumberFormat(t === 'date' ? FORMAT_TARIKH : FORMAT_TARIKH_MASA);
+      if (dataRows) {
+        // Tukar teks ISO lama (sebelum kemas kini ini) kepada nilai tarikh sebenar
+        var col = sh.getRange(2, i + 1, dataRows, 1);
+        var vals = col.getValues();
+        var ubah = false;
+        vals = vals.map(function (r) {
+          var v = r[0];
+          if (typeof v === 'string' && v.charAt(0) === "'") v = v.slice(1);
+          if (typeof v === 'string' && (DATE_RE.test(v) || DATETIME_RE.test(v))) { ubah = true; return [_toCell(s.defs[c], v)]; }
+          return [r[0]];
+        });
+        if (ubah) col.setValues(vals);
+      }
+    } else if (t !== 'int' && t !== 'num' && t !== 'bool') {
+      // Teks dan masa (JJ:MM) kekal sebagai TEKS supaya Sheets tidak menukarnya.
+      rg.setNumberFormat('@');
+    }
   });
 
   sh.getRange(1, 1, 1, n).setBackground('#00548d').setFontColor('#ffffff').setFontWeight('bold');
   sh.setFrozenRows(1);
   sh.setTabColor(s.isRef ? '#008c21' : '#00548d');
-  return (created ? 'Dicipta : ' : 'Sedia ada: ') + s.name;
+  return (created ? 'Dicipta : ' : 'Sedia ada: ') + s.name + (ditambah.length ? ' (lajur baharu: ' + ditambah.join(', ') + ')' : '');
 }
 
 /** Isi jadual ref_* dengan nilai asal. Nilai yang sudah ada tidak diganggu. */
@@ -1160,6 +1289,41 @@ function adaKunci(kod) {
 // Sesi
 // ---------------------------------------------------------------------------
 
+/*
+ * Cache sesi (kelajuan): selepas token disahkan daripada Sheet, akaun dan guru disimpan dalam CacheService
+ * selama SESI_CACHE_SAAT. Keselamatan dijaga dengan pembatalan SERTA-MERTA:
+ *  - token dipadam/diubah dalam tab `sessions` (log keluar, reset, nyahaktif, tukar peranan, tamat) -> entri dibuang
+ *  - akaun atau guru dikemas kini (peranan, aktif, PDPA, kata laluan) -> nombor versi berubah, entri tidak sah
+ */
+var SESI_CACHE_SAAT = 300;
+
+function _versi(c, key) { return c[key] || '0'; }
+
+/** Dipanggil oleh Repository selepas setiap tulisan. */
+function onTulisJadual(name, row) {
+  var c = CacheService.getScriptCache();
+  if (name === 'sessions' && row.token) c.remove('sesi:' + row.token);
+  else if (name === 'akaun' && row.id) c.put('av:' + row.id, uuid(), 21600);
+  else if (name === 'guru' && row.id) c.put('gv:' + row.id, uuid(), 21600);
+}
+
+function _sesiDariCache(token) {
+  var c = CacheService.getScriptCache();
+  var v = c.get('sesi:' + token);
+  if (!v) return null;
+  var o;
+  try { o = JSON.parse(v); } catch (e) { return null; }
+  var ver = c.getAll(['av:' + o.akaun.id, 'gv:' + o.guru.id]);
+  if (_versi(ver, 'av:' + o.akaun.id) !== o.av || _versi(ver, 'gv:' + o.guru.id) !== o.gv) { c.remove('sesi:' + token); return null; }
+  return o;
+}
+
+function _simpanSesiCache(token, expiry, akaun, guru) {
+  var c = CacheService.getScriptCache();
+  var ver = c.getAll(['av:' + akaun.id, 'gv:' + guru.id]);
+  c.put('sesi:' + token, JSON.stringify({ expiry: expiry, akaun: akaun, guru: guru, av: _versi(ver, 'av:' + akaun.id), gv: _versi(ver, 'gv:' + guru.id) }), SESI_CACHE_SAAT);
+}
+
 function _tolakSesi(msg) {
   throw new AppError('TIDAK_LOG_MASUK', msg || 'Sesi tidak sah atau telah tamat. Sila log masuk semula.');
 }
@@ -1171,18 +1335,27 @@ function _tolakSesi(msg) {
  */
 function requireAuth(token, roles) {
   if (typeof token !== 'string' || !UUID_RE.test(token)) _tolakSesi();
-  var s = getById('sessions', token);
-  if (!s) _tolakSesi();
+  var s, akaun, guru;
+  var cached = _sesiDariCache(token);
+  if (cached) {
+    s = { token: token, expiry: cached.expiry }; akaun = cached.akaun; guru = cached.guru;
+  } else {
+    s = getById('sessions', token);
+    if (!s) _tolakSesi();
+  }
   if (!(Date.parse(s.expiry) > Date.now())) {
     remove('sessions', token);
     _tolakSesi('Sesi anda telah tamat. Sila log masuk semula.');
   }
-  var akaun = getById('akaun', s.akaun_id);
-  var guru = akaun ? getById('guru', akaun.guru_id) : null;
+  if (!cached) {
+    akaun = getById('akaun', s.akaun_id);
+    guru = akaun ? getById('guru', akaun.guru_id) : null;
+  }
   if (!akaun || !akaun.aktif || !guru || !guru.aktif) {
     remove('sessions', token);
     _tolakSesi();
   }
+  if (!cached) _simpanSesiCache(token, s.expiry, akaun, guru);
   if (roles && roles.indexOf(akaun.role) === -1) {
     throw new AppError('TIADA_KEBENARAN', 'Anda tiada kebenaran untuk tindakan ini.');
   }
@@ -3125,6 +3298,18 @@ function getActions() {
 }
 
 function handleRequest(raw) {
+  var t0 = Date.now(), namaAksi = '?';
+  mulaPermintaan();
+  try {
+    return _handleRequest(raw, function (a) { namaAksi = a; });
+  } finally {
+    // Ukuran masa untuk diagnosis kelajuan (Apps Script > Executions > log)
+    Logger.log('[MASA] ' + namaAksi + ': ' + (Date.now() - t0) + ' ms, ' + bilanganBacaan() + ' bacaan tab');
+    tamatPermintaan();
+  }
+}
+
+function _handleRequest(raw, catatAksi) {
   try {
     if (typeof raw !== 'string' || raw.length === 0 || raw.length > MAX_REQUEST_CHARS) {
       throw new AppError('PERMINTAAN_TIDAK_SAH', 'Permintaan tidak sah.');
@@ -3134,6 +3319,7 @@ function handleRequest(raw) {
     if (!req || typeof req !== 'object' || typeof req.action !== 'string' || !/^[A-Z][A-Z0-9_]{1,39}$/.test(req.action)) {
       throw new AppError('PERMINTAAN_TIDAK_SAH', 'Permintaan tidak sah.');
     }
+    catatAksi(req.action);
     var params = (req.params && typeof req.params === 'object' && !Array.isArray(req.params)) ? req.params : {};
     var actions = getActions();
     var def = Object.prototype.hasOwnProperty.call(actions, req.action) ? actions[req.action] : null;
