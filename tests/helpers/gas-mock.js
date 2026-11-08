@@ -91,6 +91,8 @@ function createEnv(opts = {}) {
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     cache,
     drive,
+    mel: [],
+    MailApp: { sendEmail: (o) => { if (String(o.to).includes('gagal')) throw new Error('kuota'); env.mel.push(o); } },
     DriveApp: {
       createFolder: (name) => { const id = 'folder-' + (drive.folders.size + 1); const f = makeFolder(id, name); drive.folders.set(id, f); return f; },
       getFolderById: (id) => { const f = drive.folders.get(id); if (!f) throw new Error('tiada folder'); return f; },

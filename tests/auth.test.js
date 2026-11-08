@@ -329,3 +329,29 @@ test('setupTemplate mencipta tab paparan lihat_akaun dengan formula (tiada UUID 
   assert.match(sh.grid[1][0], /^=ARRAYFORMULA\(IF\(akaun!A2:A="","",XLOOKUP\(akaun!B2:B,guru!A2:A,guru!B2:B,"\?"\)\)\)$/);
   assert.match(sh.grid[1][1], /guru!C2:C/, 'nama_penuh');
 });
+
+test('emel kata laluan sementara: dihantar semasa cipta dan reset, tanpa kata laluan dalam audit_log', () => {
+  const { ctx, env, call, superToken } = setupWithSuperadmin();
+  env.props.LAMAN_URL = 'https://contoh.netlify.app';
+  env.props.EMEL_BALAS = 'admin@contoh.com';
+  const r = call('AKAUN_CIPTA', { guru_kod: 'SME01', nama_penuh: 'Guru Emel', status_lantikan: 'tetap', role: 'guru', email: 'guru.emel@contoh.com' }, superToken).data;
+  assert.deepEqual({ ...r.emel }, { dihantar: true, ke: 'guru.emel@contoh.com' });
+  const m = env.mel.at(-1);
+  assert.equal(m.to, 'guru.emel@contoh.com');
+  assert.equal(m.replyTo, 'admin@contoh.com');
+  assert.match(m.body, new RegExp('Kata laluan sementara: ' + r.password_sementara));
+  assert.match(m.body, /ID guru: SME01/);
+  assert.match(m.body, /https:\/\/contoh\.netlify\.app/);
+  const rs = call('AKAUN_RESET_PASSWORD', { akaun_id: r.akaun.akaun_id }, superToken).data;
+  assert.equal(rs.emel.dihantar, true);
+  assert.match(env.mel.at(-1).subject, /baharu/);
+  assert.doesNotMatch(JSON.stringify(ctx.query('audit_log', {})), new RegExp(r.password_sementara + '|' + rs.password_sementara));
+  // tiada emel / gagal
+  const t = call('AKAUN_CIPTA', { guru_kod: 'SME02', nama_penuh: 'Tiada Emel', status_lantikan: 'tetap', role: 'guru' }, superToken).data;
+  assert.equal(t.emel.dihantar, false);
+  const g = call('AKAUN_CIPTA', { guru_kod: 'SME03', nama_penuh: 'Emel Gagal', status_lantikan: 'tetap', role: 'guru', email: 'gagal@contoh.com' }, superToken);
+  assert.equal(g.ok, true, 'akaun tetap dicipta walaupun emel gagal');
+  assert.match(g.data.emel.ralat, /Kuota/);
+  assert.ok(g.data.password_sementara, 'kata laluan masih dipaparkan sebagai sandaran');
+  assert.equal(call('AKAUN_CIPTA', { guru_kod: 'SME04', nama_penuh: 'Emel Sama', status_lantikan: 'tetap', role: 'guru', email: 'GURU.EMEL@contoh.com' }, superToken).code, 'DUPLIKAT');
+});

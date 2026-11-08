@@ -324,4 +324,4 @@ function aksiSetujuPdpa(ctx, params) {
 }
 
 /** Naikkan nombor ini jika isi notis privasi berubah dengan ketara (rekod dalam audit_log). */
-var PDPA_VERSI = '1.0';
+var PDPA_VERSI = '1.1'; // 1.1: emel ditambah

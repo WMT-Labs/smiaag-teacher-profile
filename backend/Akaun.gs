@@ -66,6 +66,45 @@ function _ciptaAkaunDalaman(kod, nama, status, role, actorId, opts) {
   return { akaun: akaun, guru: guru, password: pw };
 }
 
+/**
+ * Hantar kata laluan sementara ke emel guru (jika ada).
+ * Emel dihantar daripada akaun Google yang men-deploy Web App ("Execute as: Me").
+ * Script Properties pilihan: LAMAN_URL (pautan laman sistem), EMEL_BALAS (alamat untuk balasan).
+ * Kata laluan TIDAK direkod dalam audit_log.
+ */
+function _hantarEmelKataLaluan(guru, pw, jenis) {
+  if (!guru || !guru.email) return { dihantar: false, sebab: 'tiada_emel' };
+  var props = PropertiesService.getScriptProperties();
+  var laman = props.getProperty('LAMAN_URL') || '';
+  var baris = [
+    'Assalamualaikum ' + (guru.nama_penuh || '') + ',',
+    '',
+    jenis === 'reset' ? 'Kata laluan akaun Profil Guru SMIAAG anda telah diset semula.' : 'Akaun Profil Guru SMIAAG telah dicipta untuk anda.',
+    '',
+    'ID guru: ' + guru.guru_kod,
+    'Kata laluan sementara: ' + pw,
+    ''
+  ];
+  if (laman) baris.push('Log masuk di: ' + laman, '');
+  baris.push(
+    'Anda akan diminta menukar kata laluan ini semasa log masuk pertama. Jangan kongsi kata laluan ini dengan sesiapa.',
+    '',
+    'Jika anda tidak menjangka emel ini, sila maklumkan kepada pentadbir sistem.',
+    '',
+    'Sistem Profil Guru SMIAAG (emel automatik)'
+  );
+  var opts = { to: guru.email, subject: jenis === 'reset' ? 'Kata laluan sementara baharu: Profil Guru SMIAAG' : 'Akaun Profil Guru SMIAAG anda', body: baris.join('\n'), name: 'Profil Guru SMIAAG' };
+  var balas = props.getProperty('EMEL_BALAS');
+  if (balas) opts.replyTo = balas;
+  try {
+    MailApp.sendEmail(opts);
+    return { dihantar: true, ke: guru.email };
+  } catch (e) {
+    Logger.log('Emel gagal: ' + e.message);
+    return { dihantar: false, ke: guru.email, ralat: 'Kuota emel harian mungkin sudah habis, atau alamat ditolak.' };
+  }
+}
+
 function aksiAkaunCipta(ctx, params) {
   var kod = pStr(params, 'guru_kod', { label: 'ID guru', upper: true, max: 20, re: GURU_KOD_RE, reMsg: 'ID guru hanya huruf, nombor, - atau _ (contoh SM216).' });
   var nama = pStr(params, 'nama_penuh', { label: 'Nama penuh', min: 3, max: 150 });
@@ -79,8 +118,9 @@ function aksiAkaunCipta(ctx, params) {
     tarikh_lantikan: tarikh, akaun_sistem: sistem,
     email: pStr(params, 'email', { label: 'Emel', max: 254, optional: true })
   });
-  logAudit(ctx.akaunId, 'AKAUN_CIPTA', kod, 'peranan=' + role);
-  return { akaun: _barisAkaun(r.akaun, r.guru), password_sementara: r.password };
+  var emel = _hantarEmelKataLaluan(r.guru, r.password, 'cipta');
+  logAudit(ctx.akaunId, 'AKAUN_CIPTA', kod, 'peranan=' + role + (emel.dihantar ? '; emel dihantar ke ' + emel.ke : ''));
+  return { akaun: _barisAkaun(r.akaun, r.guru), password_sementara: r.password, emel: emel };
 }
 
 function aksiAkaunResetPassword(ctx, params) {
@@ -92,8 +132,9 @@ function aksiAkaunResetPassword(ctx, params) {
   var akaun = update('akaun', id, { salt: salt, password_hash: hashPassword(pw, salt), wajib_tukar_password: true, percubaan_gagal: 0 }, { actorId: ctx.akaunId });
   _padamSesiAkaun(id, null);
   if (x.guru) bukaKunci(x.guru.guru_kod);
-  logAudit(ctx.akaunId, 'AKAUN_RESET_PASSWORD', x.guru ? x.guru.guru_kod : id);
-  return { akaun: _barisAkaun(akaun, x.guru), password_sementara: pw };
+  var emel = _hantarEmelKataLaluan(x.guru, pw, 'reset');
+  logAudit(ctx.akaunId, 'AKAUN_RESET_PASSWORD', x.guru ? x.guru.guru_kod : id, emel.dihantar ? 'emel dihantar ke ' + emel.ke : null);
+  return { akaun: _barisAkaun(akaun, x.guru), password_sementara: pw, emel: emel };
 }
 
 function aksiAkaunSetAktif(ctx, params) {
