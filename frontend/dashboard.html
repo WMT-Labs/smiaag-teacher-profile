@@ -22,6 +22,7 @@
       var el = UI.el, icon = App.icon;
       var c = App.mount({ sesi: sesi, active: 'dashboard', title: 'Dashboard sekolah' });
       var D = null, carta = null;
+      var simpanTahun = {}; // data setiap tahun yang sudah dibuka (kembali ke tahun sama = serta-merta)
       var tahun = String(new Date().getFullYear());
       var f = { jabatan: '', status: '', subjek: '', tingkatan: '', unit: '', cari: '' };
       var susunJadual = { kunci: 'nama', turun: false };
@@ -52,8 +53,8 @@
       function binaPenapis() {
         filterBox.textContent = '';
         var y = new Date().getFullYear();
-        var t = el('select', { class: 'select', id: 'f-tahun' }, [y + 1, y, y - 1, y - 2].map(function (v) { var o = el('option', { value: String(v) }, String(v)); if (String(v) === tahun) o.selected = true; return o; }));
-        t.addEventListener('change', function () { tahun = t.value; muat(); });
+        var t = el('select', { class: 'select', id: 'f-tahun' }, App.senaraiTahun().map(function (v) { var o = el('option', { value: String(v) }, String(v)); if (String(v) === tahun) o.selected = true; return o; }));
+        t.addEventListener('change', function () { tahun = t.value; muat(false); });
         var R = D.ref;
         var jab = pilih('f-jab', 'Jabatan', R.jabatan.map(function (j) { return { value: j.kod, label: j.label }; }), f.jabatan);
         var st = pilih('f-status', 'Status lantikan', R.status_lantikan.map(function (j) { return { value: j.kod, label: j.label }; }), f.status);
@@ -66,7 +67,7 @@
         var reset = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, 'Kosongkan penapis');
         reset.addEventListener('click', function () { f = { jabatan: '', status: '', subjek: '', tingkatan: '', unit: '', cari: '' }; binaPenapis(); lukis(); });
         var muatSemula = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, 'Muat semula data');
-        muatSemula.addEventListener('click', muat);
+        muatSemula.addEventListener('click', function () { muat(true); });
         var csv = el('button', { class: 'btn btn-sm', type: 'button' }, [icon('i-download', 16), 'Eksport CSV']);
         csv.addEventListener('click', eksport);
         filterBox.appendChild(el('div', { class: 'dash-filters' }, [el('div', { class: 'field' }, [el('label', { for: 'f-tahun' }, 'Tahun akademik'), t]), jab.box, st.box, sb.box, tg.box, un.box,
@@ -192,12 +193,18 @@
           ])
         ]));
         var tamat = rows.filter(function (g) { return g.percubaan && g.percubaan.tamat; }), dalam = rows.filter(function (g) { return g.percubaan && !g.percubaan.tamat; });
+        var prak = rows.filter(function (g) { return g.praktikal; });
         bawah.appendChild(el('section', { class: 'card' }, [
-          el('div', { class: 'card-head' }, el('h2', {}, 'Tempoh percubaan')),
+          el('div', { class: 'card-head' }, el('h2', {}, 'Percubaan dan praktikal')),
           el('div', { class: 'card-pad stack' }, [
             tamat.length ? el('div', { class: 'notice notice-warn' }, el('span', {}, tamat.length + ' guru tamat 6 bulan dan menunggu pengesahan ke guru tetap.')) : el('p', { class: 'muted' }, 'Tiada guru menunggu pengesahan.'),
             tamat.length ? el('div', { class: 'name-list' }, tamat.map(guruLink)) : null,
-            dalam.length ? el('div', {}, [el('div', { class: 'group-label' }, 'Masih dalam percubaan (' + dalam.length + ')'), el('div', { class: 'name-list' }, dalam.map(function (g) { return el('span', {}, [guruLink(g), g.percubaan.tarikh_tamat ? ' (' + UI.fmtDate(g.percubaan.tarikh_tamat) + ')' : '']); }))]) : null
+            dalam.length ? el('div', {}, [el('div', { class: 'group-label' }, 'Masih dalam percubaan (' + dalam.length + ')'), el('div', { class: 'name-list' }, dalam.map(function (g) { return el('span', {}, [guruLink(g), g.percubaan.tarikh_tamat ? ' (' + UI.fmtDate(g.percubaan.tarikh_tamat) + ')' : '']); }))]) : null,
+            prak.length ? el('div', {}, [el('div', { class: 'group-label' }, 'Guru praktikal (' + prak.length + ')'), el('div', { class: 'name-list' }, prak.map(function (g) {
+              var p = g.praktikal;
+              var t = p.perlu_tarikh ? ' (tarikh tamat belum diisi)' : p.tamat ? ' (tamat ' + UI.fmtDate(p.tarikh_tamat) + ')' : ' (hingga ' + UI.fmtDate(p.tarikh_tamat) + (p.hampir ? ', ' + p.hari_lagi + ' hari lagi' : '') + ')';
+              return el('span', { style: p.tamat || p.hampir ? 'color:var(--amber-700);font-weight:600' : '' }, [guruLink(g), t]);
+            }))]) : null
           ].filter(Boolean))
         ]));
         var dalamUsrah = rows.filter(function (g) { return g.usrah_guru; });
@@ -256,12 +263,12 @@
         document.body.appendChild(a); a.click(); a.remove();
         UI.toast(rows.length + ' guru dieksport.');
       }
-      function muat() {
-        statsBox.textContent = '';
-        statsBox.appendChild(el('p', { class: 'muted' }, 'Memuatkan data sekolah...'));
-        return Api.call('DASHBOARD', { tahun: tahun }).then(function (d) { D = d; binaPenapis(); lukis(); }, function (e) { statsBox.textContent = ''; statsBox.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message))); });
+      function muat(segar) {
+        if (!segar && simpanTahun[tahun]) { D = simpanTahun[tahun]; binaPenapis(); lukis(); return Promise.resolve(); }
+        if (!D) { statsBox.textContent = ''; var rk = App.rangka(3); rk.style.gridColumn = '1 / -1'; statsBox.appendChild(rk); }
+        return Api.call('DASHBOARD', { tahun: tahun }).then(function (d) { D = d; simpanTahun[tahun] = d; binaPenapis(); lukis(); }, function (e) { statsBox.textContent = ''; statsBox.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message))); });
       }
-      muat();
+      muat(false);
     })();
   </script>
 </body>

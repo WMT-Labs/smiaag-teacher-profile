@@ -50,6 +50,11 @@
       function beban(j, h) { return j > h ? 'lebih' : j >= h * 0.8 ? 'hampir' : 'dalam'; }
       function statusSel(g) {
         var t = App.labelOf(D.ref.status_lantikan, g.status_lantikan);
+        if (g.praktikal) {
+          var pk = g.praktikal;
+          return el('div', { style: 'display:grid;gap:4px;justify-items:start' }, [t, pk.perlu_tarikh ? el('span', { class: 'badge badge-near' }, 'Tarikh tamat belum diisi')
+            : el('span', { class: 'badge ' + (pk.tamat ? 'badge-over' : pk.hampir ? 'badge-near' : 'badge-neutral') }, (pk.tamat ? 'Tamat ' : 'Hingga ') + UI.fmtDate(pk.tarikh_tamat))]);
+        }
         if (!g.percubaan) return t;
         var pc = g.percubaan;
         var b = pc.tamat ? el('span', { class: 'badge badge-over' }, 'Tamat ' + UI.fmtDate(pc.tarikh_tamat) + ', perlu disahkan')

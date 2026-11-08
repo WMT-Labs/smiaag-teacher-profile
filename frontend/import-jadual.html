@@ -53,7 +53,7 @@
         var file = el('input', { type: 'file', accept: '.xml,text/xml', id: 'fail' });
         var tahunSel = el('select', { class: 'select', id: 'tahun', style: 'width:auto' });
         var y = new Date().getFullYear();
-        [y + 1, y, y - 1].forEach(function (t) { var o = el('option', { value: String(t) }, String(t)); if (String(t) === tahun) o.selected = true; tahunSel.appendChild(o); });
+        App.senaraiTahun().forEach(function (t) { var o = el('option', { value: String(t) }, String(t)); if (String(t) === tahun) o.selected = true; tahunSel.appendChild(o); });
         tahunSel.addEventListener('change', function () { tahun = tahunSel.value; muatRujukan(); });
         var contoh = el('button', { class: 'btn btn-secondary', type: 'button' }, 'Guna fail contoh (data palsu)');
         var info = el('div');

@@ -33,7 +33,7 @@
 
       var tahunSel = el('select', { class: 'select', 'aria-label': 'Tahun akademik', style: 'width:auto' });
       var y = new Date().getFullYear();
-      [y + 1, y, y - 1].forEach(function (t) { var o = el('option', { value: String(t) }, 'Tahun ' + t); if (String(t) === tahun) o.selected = true; tahunSel.appendChild(o); });
+      App.senaraiTahun().forEach(function (t) { var o = el('option', { value: String(t) }, 'Tahun ' + t); if (String(t) === tahun) o.selected = true; tahunSel.appendChild(o); });
       tahunSel.addEventListener('change', function () { tahun = tahunSel.value; muatK(); });
       var subjekSec = el('div'), kelasSec = el('div'), waktuSec = el('div'), hadSec = el('div');
       c.appendChild(subjekSec);

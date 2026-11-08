@@ -139,7 +139,7 @@
         top.appendChild(K.milik_sendiri ? el('span') : el('a', { class: 'back', href: 'profil.html?id=' + encodeURIComponent(K.guru.id) }, [icon('i-back', 18), K.guru.nama_penuh]));
         var sel = el('select', { class: 'select', 'aria-label': 'Tahun', style: 'width:auto' });
         var y = new Date().getFullYear();
-        [y + 1, y, y - 1, y - 2].forEach(function (t) { var o = el('option', { value: String(t) }, 'Tahun ' + t); if (String(t) === K.tahun) o.selected = true; sel.appendChild(o); });
+        App.senaraiTahun().forEach(function (t) { var o = el('option', { value: String(t) }, 'Tahun ' + t); if (String(t) === K.tahun) o.selected = true; sel.appendChild(o); });
         sel.addEventListener('change', function () { tahun = sel.value; muat(); });
         top.appendChild(sel);
         c.appendChild(top);
@@ -148,7 +148,7 @@
       function muat() {
         return call('KOKU_LIHAT', { tahun: tahun }).then(function (d) { K = d; render(); }, function (e) { c.textContent = ''; c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message))); });
       }
-      c.appendChild(el('p', { class: 'muted' }, 'Memuatkan...'));
+      c.appendChild(App.rangka(3));
       muat();
     })();
   </script>

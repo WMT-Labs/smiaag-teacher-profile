@@ -51,11 +51,13 @@
         Api.call('GURU_SENARAI').then(function (d) {
           var tamat = d.guru.filter(function (g) { return g.aktif && g.percubaan && g.percubaan.tamat; });
           var lebih = d.guru.filter(function (g) { return g.aktif && g.status_beban === 'lebih'; });
+          var prak = d.guru.filter(function (g) { return g.aktif && g.praktikal && (g.praktikal.tamat || g.praktikal.hampir); });
           var items = [];
           if (tamat.length) items.push(el('div', { class: 'notice notice-warn', style: 'align-items:center;flex-wrap:wrap' }, [
             el('span', { style: 'flex:1' }, tamat.length + ' guru sudah tamat tempoh percubaan 6 bulan dan menunggu pengesahan ke guru tetap: ' + tamat.map(function (g) { return g.nama_penuh; }).join(', ') + '.'),
             el('a', { class: 'btn btn-sm', href: 'guru.html?tapis=percubaan' }, 'Lihat dan sahkan')
           ]));
+          if (prak.length) items.push(el('div', { class: 'notice notice-warn' }, el('span', {}, 'Guru praktikal yang tamat atau hampir tamat (30 hari): ' + prak.map(function (g) { return g.nama_penuh + ' (' + UI.fmtDate(g.praktikal.tarikh_tamat) + ')'; }).join(', ') + '.')));
           if (lebih.length) items.push(el('div', { class: 'notice notice-error' }, el('span', {}, lebih.length + ' guru melebihi had jam kredit tahun ini.')));
           if (items.length) c.insertBefore(el('section', { class: 'stack', 'aria-label': 'Perlu tindakan' }, [el('h2', {}, 'Perlu tindakan')].concat(items)), links);
         }).catch(function () {});

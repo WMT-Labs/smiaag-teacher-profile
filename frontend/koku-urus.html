@@ -198,7 +198,7 @@
         c.textContent = '';
         var sel = el('select', { class: 'select', 'aria-label': 'Tahun', style: 'width:auto' });
         var y = new Date().getFullYear();
-        [y + 1, y, y - 1, y - 2].forEach(function (t) { var o = el('option', { value: String(t) }, 'Tahun ' + t); if (String(t) === U.tahun) o.selected = true; sel.appendChild(o); });
+        App.senaraiTahun().forEach(function (t) { var o = el('option', { value: String(t) }, 'Tahun ' + t); if (String(t) === U.tahun) o.selected = true; sel.appendChild(o); });
         sel.addEventListener('change', function () { tahun = sel.value; muat(); });
         c.appendChild(el('div', { class: 'row end' }, sel));
         c.appendChild(ringkasan());
@@ -208,7 +208,7 @@
         c.appendChild(pertandingan());
       }
       function muat() { return Api.call('KOKU_URUS', { tahun: tahun }).then(function (d) { U = d; render(); }, function (e) { UI.toast(e.message); }); }
-      c.appendChild(el('p', { class: 'muted' }, 'Memuatkan...'));
+      c.appendChild(App.rangka(3));
       muat();
     })();
   </script>

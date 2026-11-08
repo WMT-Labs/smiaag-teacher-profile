@@ -425,3 +425,25 @@ table.data th[aria-sort="descending"]::after { content: " ▼"; font-size: .625r
 .name-list a:hover { text-decoration: underline; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-5); align-items: start; }
 @media (max-width: 1100px) { .grid-3 { grid-template-columns: minmax(0, 1fr); } }
+
+/* ======================= Penunjuk loading ======================= */
+.muat-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 100; pointer-events: none; opacity: 0; transition: opacity .3s; }
+.muat-bar.on { opacity: 1; }
+.muat-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--blue-600), var(--green-600)); box-shadow: 0 0 8px rgba(0, 140, 33, .45); transition: width .2s ease-out; border-radius: 0 2px 2px 0; }
+.muat-bar.done { opacity: 0; transition: opacity .35s .15s; }
+.muat-label { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 12px); z-index: 100; display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; border-radius: 999px; background: var(--surface); color: var(--blue-900); font-size: .875rem; font-weight: 600;
+  border: 1px solid var(--border); box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+.muat-label.on { opacity: 1; transform: translate(-50%, 0); }
+.muat-putar { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--blue-100); border-top-color: var(--blue-600); animation: putar .8s linear infinite; }
+@keyframes putar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .muat-putar { animation-duration: 2s; } }
+@media print { .muat-bar, .muat-label { display: none !important; } }
+
+.card:empty { display: none; }
+.rangka { display: grid; gap: var(--s-4); }
+.rangka-kad { padding: var(--s-5); display: grid; gap: 12px; }
+.rangka-kad i { display: block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--surface-2) 0%, var(--blue-50) 50%, var(--surface-2) 100%); background-size: 200% 100%; animation: kilau 1.2s ease-in-out infinite; }
+.rangka-kad i:first-child { height: 18px; }
+@keyframes kilau { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .rangka-kad i { animation: none; } }

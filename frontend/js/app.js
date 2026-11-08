@@ -279,6 +279,23 @@
     return p;
   }
 
+  /** Rangka (skeleton) semasa data dimuatkan: beberapa kad dengan garisan berkilau. */
+  function rangka(bil) {
+    var box = el('div', { class: 'rangka', 'aria-hidden': 'true' });
+    for (var i = 0; i < (bil || 3); i++) {
+      box.appendChild(el('div', { class: 'card rangka-kad' }, [el('i', { style: 'width:40%' }), el('i', { style: 'width:90%' }), el('i', { style: 'width:75%' }), el('i', { style: 'width:60%' })]));
+    }
+    return box;
+  }
+
+  /** Pilihan tahun akademik: 10 tahun ke hadapan hingga 10 tahun ke belakang (terbaru di atas). */
+  var JULAT_TAHUN = 10;
+  function senaraiTahun() {
+    var y = new Date().getFullYear(), out = [];
+    for (var t = y + JULAT_TAHUN; t >= y - JULAT_TAHUN; t--) out.push(t);
+    return out;
+  }
+
   var HARI_PENDEK = { isnin: 'ISN', selasa: 'SEL', rabu: 'RAB', khamis: 'KHA', jumaat: 'JUM', sabtu: 'SAB', ahad: 'AHD' };
 
   /** Status beban -> { kelas lencana, teks } */
@@ -302,6 +319,6 @@
 
   window.App = {
     icon: icon, nextPage: nextPage, guard: guard, updateSesi: updateSesi, logout: logout, mount: mount,
-    dialog: dialog, confirm: confirmDialog, formDialog: formDialog, labelOf: labelOf, bebanBadge: bebanBadge, HARI_PENDEK: HARI_PENDEK, fmtDateTime: fmtDateTime, LABEL_ROLE: LABEL_ROLE
+    dialog: dialog, confirm: confirmDialog, formDialog: formDialog, labelOf: labelOf, senaraiTahun: senaraiTahun, rangka: rangka, bebanBadge: bebanBadge, HARI_PENDEK: HARI_PENDEK, fmtDateTime: fmtDateTime, LABEL_ROLE: LABEL_ROLE
   };
 })();

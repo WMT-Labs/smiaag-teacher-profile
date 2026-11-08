@@ -25,7 +25,7 @@
 
       var tahunSel = el('select', { class: 'select', id: 'tahun', style: 'width:auto' });
       var y = new Date().getFullYear();
-      [y + 1, y, y - 1].forEach(function (t) { var o = el('option', { value: String(t) }, String(t)); if (String(t) === tahun) o.selected = true; tahunSel.appendChild(o); });
+      App.senaraiTahun().forEach(function (t) { var o = el('option', { value: String(t) }, String(t)); if (String(t) === tahun) o.selected = true; tahunSel.appendChild(o); });
       tahunSel.addEventListener('change', function () { tahun = tahunSel.value; muat(); });
       var ta = el('textarea', { class: 'input', id: 'teks', style: 'min-height:180px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8125rem', placeholder: 'Tampal jadual dari Excel di sini (termasuk baris tajuk).' });
       var file = el('input', { type: 'file', accept: '.csv,.txt,text/csv', style: 'display:none', id: 'fail' });
