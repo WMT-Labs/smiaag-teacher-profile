@@ -475,3 +475,7 @@ table.data th[aria-sort="descending"]::after { content: " ▼"; font-size: .625r
 }
 .grid-3 > .card > .card-head { flex-direction: column; align-items: stretch; }
 .grid-3 > .card > .card-head > .row { justify-content: flex-start; }
+@media (max-width: 560px) {
+  .items li { flex-wrap: wrap; }
+  .items li > .grow { flex-basis: 60%; }
+}

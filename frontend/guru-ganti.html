@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guru ganti — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/hebahan.js"></script>
+  <script>
+    (function () {
+      var sesi = App.guard({ roles: ['pentadbir', 'superadmin'] });
+      if (!sesi) return;
+      var el = UI.el, icon = App.icon;
+      var c = App.mount({ sesi: sesi, active: 'ganti', title: 'Guru ganti (relief)' });
+      var d0 = new Date();
+      var tarikh = d0.getFullYear() + '-' + ('0' + (d0.getMonth() + 1)).slice(-2) + '-' + ('0' + d0.getDate()).slice(-2);
+      var D = null;
+
+      function btn(text, fn, kind, ic) { var b = el('button', { class: 'btn btn-sm ' + (kind || 'btn-secondary'), type: 'button' }, [ic ? icon(ic, 16) : null, text].filter(Boolean)); b.addEventListener('click', fn); return b; }
+      function masa(s) { return App.fmtMasa(s.masa_mula) + '–' + App.fmtMasa(s.masa_akhir); }
+
+      c.appendChild(el('div', { class: 'pill-group', role: 'tablist' }, [
+        el('button', { type: 'button', 'aria-pressed': 'true' }, 'Guru tidak hadir'),
+        (function () { var a = el('button', { type: 'button', 'aria-pressed': 'false' }, 'Carian ikut waktu'); a.addEventListener('click', function () { location.href = 'slot-kosong.html'; }); return a; })()
+      ]));
+      var kepala = el('section', { class: 'card' });
+      var senarai = el('div', { class: 'stack' });
+      var hebahan = el('section', { class: 'card' });
+      c.appendChild(kepala); c.appendChild(senarai); c.appendChild(hebahan);
+
+      function lukisKepala() {
+        kepala.textContent = '';
+        var t = el('input', { class: 'input', type: 'date', id: 'f-tarikh', value: tarikh, style: 'max-width:200px' });
+        t.addEventListener('change', function () { if (t.value) { tarikh = t.value; muat(); } });
+        var tambah = btn('Tambah guru tidak hadir', tambahTidakHadir, 'btn', 'i-plus');
+        kepala.appendChild(el('div', { class: 'card-pad row', style: 'justify-content:space-between;align-items:flex-end' }, [
+          el('div', { class: 'field' }, [el('label', { for: 'f-tarikh' }, 'Tarikh'), t, el('span', { class: 'hint' }, D ? Hebahan.tarikhPanjang(tarikh) : '')]),
+          tambah
+        ]));
+      }
+
+      function tambahTidakHadir() {
+        var ada = {}; D.tidak_hadir.forEach(function (x) { ada[x.guru.id] = true; });
+        App.formDialog({
+          title: 'Guru tidak hadir · ' + Hebahan.tarikhPanjang(tarikh),
+          fields: [
+            { name: 'guru_id', label: 'Guru', type: 'select', required: true, options: D.guru.filter(function (g) { return !ada[g.id]; }).map(function (g) { return { value: g.id, label: g.nama + ' (' + g.guru_kod + ')' }; }) },
+            { name: 'sebab', label: 'Sebab', placeholder: 'contoh: CT, Khidmas, Tamrin WAFA, MC', hint: 'Dipaparkan dalam kurungan dalam hebahan.', attrs: { maxlength: '60' } }
+          ],
+          onSubmit: function (v) { v.tarikh = tarikh; return Api.call('GANTI_TIDAK_HADIR_SIMPAN', v); }
+        }).then(function (r) { if (r) { UI.toast('Direkod.'); muat(); } });
+      }
+
+      function cariPengganti(t, s) {
+        Api.call('GANTI_CALON', { tarikh: tarikh, ketidakhadiran_id: t.id, slot_id: s.slot_id }).then(function (r) {
+          var dlg;
+          var senaraiCalon = r.calon.length ? el('ul', { class: 'result-list', style: 'max-height:55vh;overflow:auto' }, r.calon.map(function (g) {
+            var pilih = el('button', { class: 'btn btn-sm' + (g.id === r.semasa ? ' btn-secondary' : ''), type: 'button' }, g.id === r.semasa ? 'Semasa' : 'Pilih');
+            pilih.disabled = g.id === r.semasa;
+            pilih.addEventListener('click', function () {
+              pilih.disabled = true;
+              Api.call('GANTI_TETAP', { tarikh: tarikh, ketidakhadiran_id: t.id, slot_id: s.slot_id, guru_ganti_id: g.id }).then(function () {
+                document.querySelector('dialog').close(); UI.toast(g.nama + ' ditetapkan.'); muat();
+              }, function (e) { UI.toast(e.message); pilih.disabled = false; });
+            });
+            return el('li', {}, [
+              el('div', { class: 'grow' }, [el('b', {}, g.nama), el('div', { class: 'muted', style: 'font-size:.75rem' }, g.guru_kod + ' · ' + g.jam_berjadual + ' jam berjadual')]),
+              g.opsyen ? el('span', { class: 'badge badge-ok' }, 'Opsyen ' + g.opsyen) : null,
+              el('span', { class: 'badge ' + (g.ganti_bulan_ini ? 'badge-near' : 'badge-neutral'), title: 'Bilangan ganti bulan ini' }, g.ganti_bulan_ini + ' ganti bulan ini'),
+              pilih
+            ].filter(Boolean));
+          })) : el('p', { class: 'empty-sm' }, 'Tiada guru lapang pada masa ini.');
+          dlg = App.dialog({
+            title: 'Pengganti: ' + masa(r.slot) + ' · ' + [r.slot.subjek, r.slot.kelas].filter(Boolean).join(', '),
+            body: [el('p', { class: 'muted', style: 'font-size:.8125rem' }, 'Guru lapang (tiada kelas, hadir, dan belum ganti pada masa ini). Disusun ikut bilangan ganti bulan ini, kemudian beban paling ringan.'), senaraiCalon],
+            actions: [{ text: 'Tutup', kind: 'btn-secondary', value: null }]
+          });
+        }, function (e) { UI.toast(e.message); });
+      }
+
+      function lukisSenarai() {
+        senarai.textContent = '';
+        if (!D.tidak_hadir.length) {
+          senarai.appendChild(el('section', { class: 'card' }, el('p', { class: 'empty-sm' }, 'Belum ada guru tidak hadir direkod untuk ' + Hebahan.tarikhPanjang(tarikh) + '. Tekan "Tambah guru tidak hadir".')));
+          return;
+        }
+        D.tidak_hadir.forEach(function (t) {
+          var buang = el('button', { class: 'icon-btn danger', type: 'button', 'aria-label': 'Padam rekod tidak hadir', title: 'Padam rekod tidak hadir' }, icon('i-trash'));
+          buang.addEventListener('click', function () {
+            App.confirm('Padam rekod?', 'Padam rekod tidak hadir ' + t.guru.nama + ' dan semua penggantinya pada tarikh ini?', 'Padam', true).then(function (ok) {
+              if (ok) Api.call('GANTI_TIDAK_HADIR_PADAM', { id: t.id }).then(function () { muat(); }, function (e) { UI.toast(e.message); });
+            });
+          });
+          var sebab = el('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Sunting sebab', title: 'Sunting sebab' }, icon('i-edit'));
+          sebab.addEventListener('click', function () {
+            App.formDialog({ title: 'Sebab tidak hadir', fields: [{ name: 'sebab', label: 'Sebab', value: t.sebab, attrs: { maxlength: '60' } }],
+              onSubmit: function (v) { return Api.call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: tarikh, id: t.id, sebab: v.sebab }); } }).then(function (r) { if (r) muat(); });
+          });
+          var rows = t.slot.length ? el('ul', { class: 'items' }, t.slot.map(function (s) {
+            var kanan;
+            if (s.ganti) {
+              var batal = el('button', { class: 'icon-btn danger', type: 'button', 'aria-label': 'Batal pengganti', title: 'Batal pengganti' }, icon('i-trash'));
+              batal.addEventListener('click', function () { Api.call('GANTI_BATAL', { id: s.ganti.id }).then(function () { muat(); }, function (e) { UI.toast(e.message); }); });
+              kanan = [el('span', { class: 'badge badge-ok' }, 'Cg ' + s.ganti.guru.panggilan), s.tiada_dalam_jadual ? null : btn('Tukar', function () { cariPengganti(t, s); }), batal].filter(Boolean);
+            } else kanan = [btn('Cari pengganti', function () { cariPengganti(t, s); }, 'btn', 'i-search')];
+            return el('li', { style: 'align-items:center' }, [
+              el('span', { class: 'num', style: 'font-weight:700;min-width:96px' }, masa(s)),
+              el('div', { class: 'grow' }, [el('b', {}, s.subjek || '—'), el('div', { class: 'sub' }, (s.kelas || '') + (s.tiada_dalam_jadual ? ' (slot tiada lagi dalam jadual)' : ''))])
+            ].concat(kanan));
+          })) : el('p', { class: 'empty-sm' }, 'Tiada kelas dalam jadual pada hari ini.');
+          senarai.appendChild(el('section', { class: 'card' }, [
+            el('div', { class: 'card-head' }, [el('div', {}, [el('h2', {}, t.guru.nama), el('p', { class: 'muted', style: 'font-size:.8125rem;margin-top:2px' }, t.guru.guru_kod + (t.sebab ? ' · ' + t.sebab : ''))]), el('div', { class: 'row' }, [sebab, buang])]),
+            rows
+          ]));
+        });
+      }
+
+      function lukisHebahan() {
+        hebahan.textContent = '';
+        var teks = Hebahan.jana(D);
+        var belum = Hebahan.belumAda(D);
+        var ta = el('textarea', { class: 'input', readonly: '', style: 'min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8125rem', 'aria-label': 'Teks hebahan WhatsApp' });
+        ta.value = teks || '';
+        var salin = btn('Salin teks', function () {
+          (navigator.clipboard ? navigator.clipboard.writeText(teks) : Promise.reject()).then(function () { UI.toast('Disalin. Tampal dalam WhatsApp.'); }, function () { ta.select(); UI.toast('Tekan Ctrl+C untuk salin.'); });
+        }, 'btn', 'i-clipboard');
+        salin.disabled = !teks;
+        hebahan.appendChild(el('div', { class: 'card-head' }, [el('h2', {}, 'Hebahan WhatsApp'), salin]));
+        hebahan.appendChild(el('div', { class: 'card-pad stack' }, [
+          belum ? el('div', { class: 'notice notice-warn' }, el('span', {}, belum + ' slot belum ada pengganti dan tidak dimasukkan dalam hebahan.')) : null,
+          teks ? ta : el('p', { class: 'muted' }, 'Hebahan dijana bila sekurang-kurangnya satu pengganti ditetapkan.')
+        ].filter(Boolean)));
+      }
+
+      function muat() {
+        return Api.call('GANTI_HARI', { tarikh: tarikh }).then(function (d) { D = d; lukisKepala(); lukisSenarai(); lukisHebahan(); }, function (e) { UI.toast(e.message); });
+      }
+      senarai.appendChild(App.rangka(2));
+      muat();
+    })();
+  </script>
+</body>
+</html>

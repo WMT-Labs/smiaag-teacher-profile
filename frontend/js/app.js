@@ -81,7 +81,7 @@
       items.push({ label: 'Pentadbiran' });
       items.push({ key: 'dashboard', href: 'dashboard.html', text: 'Dashboard sekolah', icon: 'i-dashboard' });
       items.push({ key: 'guru', href: 'guru.html', text: 'Senarai guru', icon: 'i-clipboard' });
-      items.push({ key: 'ganti', href: 'slot-kosong.html', text: 'Cari guru ganti', icon: 'i-search' });
+      items.push({ key: 'ganti', href: 'guru-ganti.html', text: 'Guru ganti (relief)', icon: 'i-search' });
       items.push({ key: 'koku-urus', href: 'koku-urus.html', text: 'Urus kokurikulum', icon: 'i-trophy' });
       items.push({ key: 'hem-urus', href: 'hem-urus.html', text: 'Urus HEM', icon: 'i-heart' });
       items.push({ key: 'import-jadual', href: 'import-jadual.html', text: 'Import jadual (aSc)', icon: 'i-download' });

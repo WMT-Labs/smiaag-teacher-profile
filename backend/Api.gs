@@ -56,6 +56,13 @@ function getActions() {
     WARNA_JADUAL_SIMPAN:  { roles: R_SEMUA, handler: aksiWarnaJadualSimpan },
     SLOT_KOSONG:          { roles: R_ADMIN, handler: aksiSlotKosong },
     SLOT_KOSONG_RUJUKAN:  { roles: R_ADMIN, handler: aksiSlotKosongRujukan },
+    // ---- Guru ganti (relief) harian ----
+    GANTI_HARI:           { roles: R_ADMIN, handler: aksiGantiHari },
+    GANTI_TIDAK_HADIR_SIMPAN: { roles: R_ADMIN, handler: aksiGantiTidakHadirSimpan },
+    GANTI_TIDAK_HADIR_PADAM:  { roles: R_ADMIN, handler: aksiGantiTidakHadirPadam },
+    GANTI_CALON:          { roles: R_ADMIN, handler: aksiGantiCalon },
+    GANTI_TETAP:          { roles: R_ADMIN, handler: aksiGantiTetap },
+    GANTI_BATAL:          { roles: R_ADMIN, handler: aksiGantiBatal },
     KURIKULUM_RUJUKAN:    { roles: R_SUPER, handler: aksiKurikulumRujukan },
     KELAS_PUKAL:          { roles: R_SUPER, handler: aksiKelasPukal },
     KELAS_PADAM:          { roles: R_SUPER, handler: aksiKelasPadam },

@@ -92,6 +92,17 @@ var _TABLE_DEFS = {
     cols: ['id:uuid!', 'guru_id:fk(guru)!', 'kunci:text!', 'warna:text!'],
     unique: [['guru_id', 'kunci']]
   },
+  ketidakhadiran_guru: {
+    // Guru yang tidak hadir pada satu tarikh (untuk agihan guru ganti / relief). sebab: contoh CT, Khidmas, Tamrin WAFA.
+    cols: ['id:uuid!', 'tarikh:date!', 'guru_id:fk(guru)!', 'sebab:text'],
+    unique: [['tarikh', 'guru_id']]
+  },
+  guru_ganti: {
+    // Satu slot guru yang tidak hadir dan penggantinya. Masa/subjek/kelas disalin supaya sejarah kekal walaupun jadual berubah.
+    cols: ['id:uuid!', 'ketidakhadiran_id:fk(ketidakhadiran_guru)!', 'slot_id:fk(jadual_slot)', 'masa_mula:time!', 'masa_akhir:time!',
+      'subjek:text', 'kelas:text', 'guru_ganti_id:fk(guru)!', 'catatan:text'],
+    unique: [['ketidakhadiran_id', 'slot_id']]
+  },
   waktu: {
     // Templat waktu persekolahan bagi setiap tahun (waktu 1 = 07:30-07:40, ...). Digunakan untuk borang jadual.
     cols: ['id:uuid!', 'tahun_akademik:year!', 'nombor:int[1..30]!', 'masa_mula:time!', 'masa_akhir:time!'],

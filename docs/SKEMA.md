@@ -462,6 +462,39 @@ Unik: (slot_id, kelas_id)
 
 Unik: (guru_id, kunci)
 
+### `ketidakhadiran_guru`
+
+| Lajur | Jenis | Wajib | Rujukan | Lalai |
+|---|---|---|---|---|
+| id (PK) | uuid | ya |  |  |
+| tarikh | date | ya |  |  |
+| guru_id | uuid | ya | FK → guru |  |
+| sebab | text |  |  |  |
+| created_at | datetime |  |  |  |
+| updated_at | datetime |  |  |  |
+| updated_by | text |  |  |  |
+
+Unik: (tarikh, guru_id)
+
+### `guru_ganti`
+
+| Lajur | Jenis | Wajib | Rujukan | Lalai |
+|---|---|---|---|---|
+| id (PK) | uuid | ya |  |  |
+| ketidakhadiran_id | uuid | ya | FK → ketidakhadiran_guru |  |
+| slot_id | uuid |  | FK → jadual_slot |  |
+| masa_mula | time | ya |  |  |
+| masa_akhir | time | ya |  |  |
+| subjek | text |  |  |  |
+| kelas | text |  |  |  |
+| guru_ganti_id | uuid | ya | FK → guru |  |
+| catatan | text |  |  |  |
+| created_at | datetime |  |  |  |
+| updated_at | datetime |  |  |  |
+| updated_by | text |  |  |  |
+
+Unik: (ketidakhadiran_id, slot_id)
+
 ### `waktu`
 
 | Lajur | Jenis | Wajib | Rujukan | Lalai |

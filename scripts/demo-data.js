@@ -84,6 +84,9 @@ function seedDemo(ctx, a) {
       ctx.insert('kehadiran_usrah_guru', { sesi_id: s.id, guru_id: a.g2.guru.id, hadir: h2 });
     });
 
+  // Nama panggilan dan emel contoh
+  ctx.update('guru', g1, { nama_panggilan: 'Satu', email: 'guru.satu@contoh.test' });
+
   // Guru baharu dalam percubaan (tamat 02/09/2026, perlu disahkan)
   ctx.update('guru', a.g2.guru.id, { status_lantikan: 'percubaan', tarikh_lantikan: '2026-03-02', jawatan: 'Guru Akademik Biasa' });
   ctx.insert('tugasan_guru', { guru_id: a.g2.guru.id, tahun_akademik: '2026', jenis_tugasan: 'berjadual', kumpulan: 'subjek', nama_tugasan: 'Sains T1', subjek_id: S.SNS, bilangan_kelas: 4, jam_kredit: 23 });

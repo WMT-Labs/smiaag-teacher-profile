@@ -18,7 +18,11 @@
       var sesi = App.guard({ roles: ['pentadbir', 'superadmin'] });
       if (!sesi) return;
       var el = UI.el;
-      var c = App.mount({ sesi: sesi, active: 'ganti', title: 'Cari guru ganti' });
+      var c = App.mount({ sesi: sesi, active: 'ganti', title: 'Guru ganti (relief)' });
+      c.appendChild(el('div', { class: 'pill-group', role: 'tablist' }, [
+        (function () { var a = el('button', { type: 'button', 'aria-pressed': 'false' }, 'Guru tidak hadir'); a.addEventListener('click', function () { location.href = 'guru-ganti.html'; }); return a; })(),
+        el('button', { type: 'button', 'aria-pressed': 'true' }, 'Carian ikut waktu')
+      ]));
       var R = null;
       var pilihan = { hari: null, dari: null, hingga: null };
 

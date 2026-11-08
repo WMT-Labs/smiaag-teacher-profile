@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const { createEnv } = require('./gas-mock');
 
 const BACKEND = path.join(__dirname, '..', '..', 'backend');
-const ORDER = ['Config.gs', 'Util.gs', 'Schema.gs', 'Repository.gs', 'Setup.gs', 'Auth.gs', 'Akaun.gs', 'Guru.gs', 'Kurikulum.gs', 'Import.gs', 'Kokurikulum.gs', 'Hem.gs', 'Dashboard.gs', 'Api.gs'];
+const ORDER = ['Config.gs', 'Util.gs', 'Schema.gs', 'Repository.gs', 'Setup.gs', 'Auth.gs', 'Akaun.gs', 'Guru.gs', 'Kurikulum.gs', 'Import.gs', 'Kokurikulum.gs', 'Hem.gs', 'Dashboard.gs', 'Ganti.gs', 'Api.gs'];
 
 function loadBackend(extraFiles = [], opts = {}) {
   const env = createEnv(opts);
