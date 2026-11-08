@@ -32,6 +32,9 @@ Masa: kira-kira 45 minit untuk persediaan, kemudian ujian ikut kadar anda.
 7. Klik `Code.gs`, padam semua isi, tampal. **Ctrl+S**.
 
 ### A3. Bina semua tab
+> Jika anda sudah menjalankan `setupTemplate` sebelum ini dan kemudian menampal `Code.gs` yang lebih baharu,
+> jalankan `setupTemplate` sekali lagi. Ia selamat diulang dan akan mengemas kini senarai pilihan (contoh status lantikan).
+
 1. Di bar atas editor, pilih fungsi **setupTemplate** pada senarai fungsi (sebelah butang Debug), tekan **Run**.
 2. Google minta kebenaran: **Review permissions** > pilih akaun anda.
 3. Jika keluar "Google hasn't verified this app": klik **Advanced** > **Go to ... (unsafe)** > **Allow**. (Skrip ini milik anda sendiri.)
@@ -96,7 +99,7 @@ Gunakan **nama palsu** untuk akaun ujian, contoh "Guru Ujian Satu".
    - Semak waktu persekolahan (18 waktu) dan had jam kredit (22 / 10).
 3. **Urus akaun > Tambah akaun**, cipta tiga akaun ujian dan catat kata laluan sementara setiap satu:
    - `UJI01` Guru Ujian Satu, peranan **Guru**
-   - `UJI02` Guru Ujian Dua, peranan **Guru**, status **Dalam percubaan**
+   - `UJI02` Guru Ujian Dua, peranan **Guru**, status **Percubaan**, tarikh lantikan lebih 6 bulan lalu (contoh 01/03/2026)
    - `UJI03` Pentadbir Ujian, peranan **Pentadbir**
 
 ### C2. Guru (inkognito, UJI01)
@@ -119,7 +122,7 @@ Gunakan **nama palsu** untuk akaun ujian, contoh "Guru Ujian Satu".
 5. **Urus kokurikulum**: tambah satu kelab, rekod keputusan juara rumah sukan.
 6. **Cari guru ganti**: pilih hari dan waktu slot UJI01. **Jangkaan:** UJI01 tidak tersenarai.
 7. **Dashboard sekolah**: cuba setiap penapis, carta, susun jadual, **Eksport CSV** dan buka dalam Excel.
-8. Profil UJI02: tukar tarikh lantikan kepada lebih 6 bulan lalu (status Dalam percubaan). **Jangkaan:** Laman utama pentadbir memaparkan "Perlu tindakan"; tekan **Sahkan sebagai guru tetap**.
+8. **Jangkaan:** Laman utama pentadbir memaparkan "Perlu tindakan" untuk UJI02 (tamat 6 bulan). Buka profil UJI02 dan tekan **Sahkan sebagai guru tetap**.
 
 ### C4. Keselamatan asas
 1. Log masuk sebagai UJI01 dengan kata laluan salah 8 kali. **Jangkaan:** "Terlalu banyak percubaan". Pentadbir boleh **Buka kunci** di Urus akaun.

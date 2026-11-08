@@ -117,7 +117,21 @@ function _seedRefs(ss) {
     }
   });
   _REF_CACHE = {};
-  return 'Nilai rujukan ditambah: ' + added;
+  // Selaraskan nilai sedia ada: label dan susunan ikut senarai; nilai yang dibuang dinyahaktifkan.
+  var dikemas = 0, dinyahaktif = 0;
+  Object.keys(REF_SEEDS).forEach(function (name) {
+    var seed = {};
+    REF_SEEDS[name].forEach(function (pair, idx) { seed[pair[0]] = { label: pair[1], susunan: idx + 1 }; });
+    query(name, {}).forEach(function (r) {
+      var sd = seed[r.kod];
+      if (sd && (r.label !== sd.label || r.susunan !== sd.susunan || !r.aktif)) {
+        update(name, r.id, { label: sd.label, susunan: sd.susunan, aktif: true }, { actorId: 'setup' }); dikemas++;
+      } else if (!sd && r.aktif) {
+        update(name, r.id, { aktif: false }, { actorId: 'setup' }); dinyahaktif++;
+      }
+    });
+  });
+  return 'Nilai rujukan ditambah: ' + added + ', dikemas kini: ' + dikemas + ', dinyahaktifkan: ' + dinyahaktif;
 }
 
 function _seedHadJamKredit() {

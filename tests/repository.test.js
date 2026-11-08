@@ -44,10 +44,10 @@ test('insert -> getById -> query -> update -> remove', () => {
   assert.equal(read.aktif, true);
   assert.equal(read.__row, undefined);
 
-  ctx.insert('guru', { ...GURU, guru_kod: 'SM998', nama_penuh: 'Guru Contoh Dua', status_lantikan: 'kontrak' });
+  ctx.insert('guru', { ...GURU, guru_kod: 'SM998', nama_penuh: 'Guru Contoh Dua', status_lantikan: 'praktikal' });
   assert.equal(ctx.query('guru', {}).length, 2);
-  assert.equal(ctx.query('guru', { status_lantikan: 'kontrak' }).length, 1);
-  assert.equal(ctx.query('guru', { status_lantikan: ['kontrak', 'tetap'] }, { orderBy: 'guru_kod' })[0].guru_kod, 'SM998');
+  assert.equal(ctx.query('guru', { status_lantikan: 'praktikal' }).length, 1);
+  assert.equal(ctx.query('guru', { status_lantikan: ['praktikal', 'tetap'] }, { orderBy: 'guru_kod' })[0].guru_kod, 'SM998');
   assert.equal(ctx.query('guru', {}, { orderBy: 'guru_kod', desc: true, limit: 1 })[0].guru_kod, 'SM999');
   assert.equal(ctx.query('guru', { jawatan: null }).length, 2);
 
@@ -186,4 +186,22 @@ test('replaceWhere: sahkan semua dahulu; gagal = tiada perubahan; berjaya = satu
   assert.equal(ctx.query('kelas', { tahun_akademik: '2025' }).length, 1, 'baris lain tidak disentuh');
   assert.equal(ctx.replaceWhere('kelas', { tahun_akademik: '2030' }, [k('9 Z', '2030')]).dipadam, 0);
   assert.equal(ctx.query('kelas', {}).length, 5);
+});
+
+test('setupTemplate menyelaraskan nilai rujukan: tambah baharu, kemas kini label, nyahaktif yang dibuang', () => {
+  const { ctx } = loadReady();
+  // Simulasi Sheet lama: ada 'kontrak' dan label lama 'Dalam percubaan', tiada 'praktikal'
+  const old = ctx.query('ref_status_lantikan', { kod: 'praktikal' })[0];
+  ctx.remove('ref_status_lantikan', old.id);
+  ctx.insert('ref_status_lantikan', { kod: 'kontrak', label: 'Kontrak', susunan: 3 });
+  const pc = ctx.query('ref_status_lantikan', { kod: 'percubaan' })[0];
+  ctx.update('ref_status_lantikan', pc.id, { label: 'Dalam percubaan' });
+  const g = ctx.insert('guru', { ...GURU, status_lantikan: 'kontrak' });
+  const log = ctx.setupTemplate().join(' ');
+  assert.match(log, /ditambah: 1, dikemas kini: 1, dinyahaktifkan: 1/);
+  const aktif = ctx.query('ref_status_lantikan', { aktif: true }, { orderBy: 'susunan' }).map((r) => r.label).join();
+  assert.equal(aktif, 'Tetap,Percubaan,Praktikal,Lain-lain');
+  assert.equal(ctx.query('ref_status_lantikan', { kod: 'kontrak' })[0].aktif, false, 'dinyahaktif, bukan dipadam');
+  assert.equal(ctx.getById('guru', g.id).status_lantikan, 'kontrak', 'rekod lama tidak terjejas');
+  assert.match(ctx.setupTemplate().join(' '), /ditambah: 0, dikemas kini: 0, dinyahaktifkan: 0/, 'kali kedua tiada perubahan');
 });

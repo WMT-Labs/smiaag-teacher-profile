@@ -18,6 +18,7 @@ Dikemas kini pada penghujung setiap fasa. Rujuk dokumen arahan projek (Seksyen 1
 | 06/11/2026 | Jadual diimport daripada eksport aSc Timetables (fail akan diberi kemudian; guna data contoh dahulu). |
 | 06/11/2026 | Tugasan guru diimport/diisi oleh pentadbir sahaja; guru tidak mengisi satu persatu. |
 | 06/11/2026 | Unit Syabab: KASPA, KRS, BSMM, Puteri Islam. Kelab diisi oleh pentadbir. Rumah sukan: Fatah (merah), Falah (hijau), Najah (biru), Solah (kuning). |
+| 08/11/2026 | Status lantikan: Tetap, Percubaan, Praktikal, Lain-lain. Kontrak dibuang (dinyahaktifkan, rekod lama kekal). Borang Tambah akaun mendapat medan tarikh lantikan. |
 | 07/11/2026 | Tempoh simpanan data guru yang berpindah atau bersara: 2 tahun selepas akaun dinyahaktifkan (dilaksanakan pada Fasa 7). |
 | 07/11/2026 | Guru boleh sunting jadual sendiri (pembetulan kecil, tukar masa dengan guru lain). |
 | 07/11/2026 | Guru Tarbiah dan Usrah Murabbi Pelajar disimpan berasingan. |

@@ -157,10 +157,12 @@ var _TABLE_DEFS = {
  * Jadual rujukan (ref_*). Setiap satu: id, kod, label, susunan, aktif (+ lajur audit).
  * Lajur bernilai terhad dalam jadual lain menyimpan `kod`. Kod dalam snake_case
  * (contoh "al-quran-tutorial" dalam dokumen ditulis `al_quran_tutorial`).
- * Superadmin boleh menambah/menyahaktifkan nilai (diurus pada Fasa 1+).
+ * setupTemplate menyelaraskan Sheet dengan senarai ini: nilai baharu ditambah, label/susunan dikemas kini,
+ * dan nilai yang dibuang daripada senarai DINYAHAKTIFKAN (tidak dipadam) supaya rekod lama masih dipaparkan
+ * dengan betul. Nilai tidak aktif tidak lagi muncul dalam pilihan borang.
  */
 var REF_SEEDS = {
-  ref_status_lantikan: [['tetap', 'Tetap'], ['percubaan', 'Dalam percubaan'], ['kontrak', 'Kontrak'], ['lain_lain', 'Lain-lain']],
+  ref_status_lantikan: [['tetap', 'Tetap'], ['percubaan', 'Percubaan'], ['praktikal', 'Praktikal'], ['lain_lain', 'Lain-lain']],
   ref_role: [['guru', 'Guru'], ['pentadbir', 'Pentadbir'], ['superadmin', 'Superadmin']],
   ref_tahap_kelayakan: [['sijil', 'Sijil'], ['diploma', 'Diploma'], ['ijazah_sarjana_muda', 'Ijazah Sarjana Muda'],
     ['ijazah_sarjana', 'Ijazah Sarjana'], ['doktor_falsafah', 'Doktor Falsafah'], ['lain_lain', 'Lain-lain']],

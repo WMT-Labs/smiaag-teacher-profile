@@ -20,7 +20,8 @@
       var el = UI.el;
       var isSuper = sesi.role === 'superadmin';
       var c = App.mount({ sesi: sesi, active: 'akaun', title: 'Urus akaun' });
-      var STATUS = [['tetap', 'Tetap'], ['kontrak', 'Kontrak'], ['lain_lain', 'Lain-lain']];
+      // Mesti sepadan dengan REF_SEEDS.ref_status_lantikan dalam backend/Schema.gs
+      var STATUS = [['tetap', 'Tetap'], ['percubaan', 'Percubaan'], ['praktikal', 'Praktikal'], ['lain_lain', 'Lain-lain']];
       var ROLES = [['guru', 'Guru'], ['pentadbir', 'Pentadbir'], ['superadmin', 'Superadmin']];
       var data = [];
 
@@ -148,6 +149,7 @@
           kod: el('input', { class: 'input', id: 'n-kod', maxlength: '20', autocapitalize: 'characters', placeholder: 'contoh: SM216' }),
           nama: el('input', { class: 'input', id: 'n-nama', maxlength: '150' }),
           status: el('select', { class: 'select', id: 'n-status', style: 'min-height:46px' }, options(STATUS, 'tetap')),
+          tarikh: el('input', { class: 'input', id: 'n-tarikh', type: 'date' }),
           role: el('select', { class: 'select', id: 'n-role', style: 'min-height:46px' }, options(ROLES, 'guru'))
         };
         var alertText = el('span');
@@ -164,6 +166,7 @@
             field('n-kod', 'ID guru', f.kod, 'Huruf dan nombor sahaja. Digunakan untuk log masuk.'),
             field('n-nama', 'Nama penuh', f.nama),
             field('n-status', 'Status lantikan', f.status),
+            field('n-tarikh', 'Tarikh lantikan (pilihan)', f.tarikh, 'Untuk status Percubaan, tempoh 6 bulan dikira dari tarikh ini.'),
             field('n-role', 'Peranan', f.role)
           ],
           actions: [
@@ -171,8 +174,9 @@
             { text: 'Cipta akaun', value: 'ok', onClick: function (b) {
               alertBox.hidden = true;
               if (!f.kod.value.trim() || !f.nama.value.trim()) { alertText.textContent = 'Isi ID guru dan nama penuh.'; alertBox.hidden = false; return false; }
+              if (f.status.value === 'percubaan' && !f.tarikh.value) { alertText.textContent = 'Isi tarikh lantikan untuk guru dalam percubaan.'; alertBox.hidden = false; return false; }
               b.disabled = true;
-              return Api.call('AKAUN_CIPTA', { guru_kod: f.kod.value, nama_penuh: f.nama.value, status_lantikan: f.status.value, role: f.role.value })
+              return Api.call('AKAUN_CIPTA', { guru_kod: f.kod.value, nama_penuh: f.nama.value, status_lantikan: f.status.value, role: f.role.value, tarikh_lantikan: f.tarikh.value || null })
                 .then(function (r) { created = r; return true; })
                 .catch(function (e) { alertText.textContent = e.message; alertBox.hidden = false; b.disabled = false; return false; });
             } }

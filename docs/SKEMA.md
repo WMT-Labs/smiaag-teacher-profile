@@ -666,7 +666,7 @@ Unik: (guru_id, tahun_akademik, jenis, kelas_id)
 
 ## Nilai rujukan asal
 
-- `ref_status_lantikan`: tetap, percubaan, kontrak, lain_lain
+- `ref_status_lantikan`: tetap, percubaan, praktikal, lain_lain
 - `ref_role`: guru, pentadbir, superadmin
 - `ref_tahap_kelayakan`: sijil, diploma, ijazah_sarjana_muda, ijazah_sarjana, doktor_falsafah, lain_lain
 - `ref_jenis_opsyen`: major, minor

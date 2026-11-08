@@ -78,9 +78,9 @@ test('guru_id dalam data diabaikan: guru tidak boleh memindahkan rekod kepada gu
 
 test('pentadbir boleh membaca dan menyunting profil guru lain; tindakan direkod', () => {
   const { ctx, call, ADM, gidB } = dunia();
-  const r = call('PROFIL_SIMPAN_TERAS', { guru_id: gidB, nama_penuh: 'Nama Dibetulkan', status_lantikan: 'kontrak', jawatan: 'Guru Akademik' }, ADM.token);
+  const r = call('PROFIL_SIMPAN_TERAS', { guru_id: gidB, nama_penuh: 'Nama Dibetulkan', status_lantikan: 'praktikal', jawatan: 'Guru Akademik' }, ADM.token);
   assert.equal(r.ok, true);
-  assert.equal(ctx.getById('guru', gidB).status_lantikan, 'kontrak');
+  assert.equal(ctx.getById('guru', gidB).status_lantikan, 'praktikal');
   const k = call('REKOD_SIMPAN', { jadual: 'kelayakan', guru_id: gidB, data: { tahap: 'ijazah_sarjana_muda', bidang: 'Syariah', institusi: 'Universiti Contoh', tahun_tamat: '2015' } }, ADM.token);
   assert.equal(k.ok, true);
   assert.equal(ctx.getById('kelayakan', k.data.id).guru_id, gidB);
@@ -171,7 +171,7 @@ test('percubaan: guru boleh tukar status sendiri tetapi tidak boleh sahkan diri 
   const r = call('PROFIL_SIMPAN_TERAS', { nama_penuh: 'Guru Contoh SMA01', status_lantikan: 'percubaan', tarikh_lantikan: '2026-04-01' }, A.token);
   assert.equal(r.data.status_lantikan, 'percubaan');
   assert.equal(call('PROFIL_SIMPAN_TERAS', { nama_penuh: 'Guru Contoh SMA01', status_lantikan: 'tetap', tarikh_lantikan: '2026-04-01' }, A.token).code, 'VALIDASI');
-  assert.equal(call('PROFIL_SIMPAN_TERAS', { nama_penuh: 'Guru Contoh SMA01', status_lantikan: 'kontrak', tarikh_lantikan: '2026-04-01' }, A.token).ok, true, 'status lain boleh');
+  assert.equal(call('PROFIL_SIMPAN_TERAS', { nama_penuh: 'Guru Contoh SMA01', status_lantikan: 'praktikal', tarikh_lantikan: '2026-04-01' }, A.token).ok, true, 'status lain boleh');
   call('PROFIL_SIMPAN_TERAS', { nama_penuh: 'Guru Contoh SMA01', status_lantikan: 'percubaan', tarikh_lantikan: '2026-04-01' }, A.token);
   const senarai = call('GURU_SENARAI', {}, ADM.token).data.guru.find((g) => g.id === gidA);
   assert.equal(senarai.percubaan.tamat, true, 'tamat 01/10/2026, hari ini 06/11/2026');

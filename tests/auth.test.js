@@ -280,3 +280,14 @@ test('ciptaSuperadminPertama: guna Script Properties, sekali sahaja', () => {
   const l = JSON.parse(JSON.stringify(ctx.handleRequest(JSON.stringify({ action: 'LOGIN', params: { guru_kod: 'SM900', password: r.password_sementara } }))));
   assert.equal(l.data.sesi.role, 'superadmin');
 });
+
+test('cipta akaun dengan status Percubaan dan tarikh lantikan', () => {
+  const { ctx, call, superToken } = setupWithSuperadmin();
+  const r = call('AKAUN_CIPTA', { guru_kod: 'SMP01', nama_penuh: 'Guru Percubaan', status_lantikan: 'percubaan', role: 'guru', tarikh_lantikan: '2026-03-01' }, superToken);
+  assert.equal(r.ok, true, r.message);
+  const g = ctx.query('guru', { guru_kod: 'SMP01' })[0];
+  assert.deepEqual([g.status_lantikan, g.tarikh_lantikan], ['percubaan', '2026-03-01']);
+  assert.equal(call('AKAUN_CIPTA', { guru_kod: 'SMP02', nama_penuh: 'Guru Praktikal', status_lantikan: 'praktikal', role: 'guru' }, superToken).ok, true);
+  assert.equal(call('AKAUN_CIPTA', { guru_kod: 'SMP03', nama_penuh: 'Guru Kontrak', status_lantikan: 'kontrak', role: 'guru' }, superToken).code, 'VALIDASI', 'kontrak tiada lagi');
+  assert.equal(call('AKAUN_CIPTA', { guru_kod: 'SMP04', nama_penuh: 'Masa Depan', status_lantikan: 'percubaan', role: 'guru', tarikh_lantikan: '2030-01-01' }, superToken).code, 'VALIDASI');
+});

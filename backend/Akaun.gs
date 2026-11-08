@@ -46,9 +46,9 @@ function aksiAkaunSenarai(ctx) {
     .sort(function (x, y) { return x.guru_kod < y.guru_kod ? -1 : 1; });
 }
 
-function _ciptaAkaunDalaman(kod, nama, status, role, actorId) {
+function _ciptaAkaunDalaman(kod, nama, status, role, actorId, tarikhLantikan) {
   if (query('guru', { guru_kod: kod }).length) throw new AppError('DUPLIKAT', 'ID guru ' + kod + ' sudah wujud.', { field: 'guru_kod' });
-  var guru = insert('guru', { guru_kod: kod, nama_penuh: nama, status_lantikan: status }, { actorId: actorId });
+  var guru = insert('guru', { guru_kod: kod, nama_penuh: nama, status_lantikan: status, tarikh_lantikan: tarikhLantikan || null }, { actorId: actorId });
   var pw = janaPasswordSementara();
   var salt = newSalt();
   var akaun;
@@ -66,7 +66,9 @@ function aksiAkaunCipta(ctx, params) {
   var nama = pStr(params, 'nama_penuh', { label: 'Nama penuh', min: 3, max: 150 });
   var status = pStr(params, 'status_lantikan', { label: 'Status lantikan', max: 30 });
   var role = pOneOf(params, 'role', SEMUA_ROLE, 'Peranan');
-  var r = _ciptaAkaunDalaman(kod, nama, status, role, ctx.akaunId);
+  var tarikh = pStr(params, 'tarikh_lantikan', { label: 'Tarikh lantikan', max: 10, optional: true });
+  if (tarikh && tarikh > hariIni()) throw new AppError('VALIDASI', 'Tarikh lantikan tidak boleh pada masa depan.', { field: 'tarikh_lantikan' });
+  var r = _ciptaAkaunDalaman(kod, nama, status, role, ctx.akaunId, tarikh);
   logAudit(ctx.akaunId, 'AKAUN_CIPTA', kod, 'peranan=' + role);
   return { akaun: _barisAkaun(r.akaun, r.guru), password_sementara: r.password };
 }

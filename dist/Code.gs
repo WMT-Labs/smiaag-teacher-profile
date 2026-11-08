@@ -371,10 +371,12 @@ var _TABLE_DEFS = {
  * Jadual rujukan (ref_*). Setiap satu: id, kod, label, susunan, aktif (+ lajur audit).
  * Lajur bernilai terhad dalam jadual lain menyimpan `kod`. Kod dalam snake_case
  * (contoh "al-quran-tutorial" dalam dokumen ditulis `al_quran_tutorial`).
- * Superadmin boleh menambah/menyahaktifkan nilai (diurus pada Fasa 1+).
+ * setupTemplate menyelaraskan Sheet dengan senarai ini: nilai baharu ditambah, label/susunan dikemas kini,
+ * dan nilai yang dibuang daripada senarai DINYAHAKTIFKAN (tidak dipadam) supaya rekod lama masih dipaparkan
+ * dengan betul. Nilai tidak aktif tidak lagi muncul dalam pilihan borang.
  */
 var REF_SEEDS = {
-  ref_status_lantikan: [['tetap', 'Tetap'], ['percubaan', 'Dalam percubaan'], ['kontrak', 'Kontrak'], ['lain_lain', 'Lain-lain']],
+  ref_status_lantikan: [['tetap', 'Tetap'], ['percubaan', 'Percubaan'], ['praktikal', 'Praktikal'], ['lain_lain', 'Lain-lain']],
   ref_role: [['guru', 'Guru'], ['pentadbir', 'Pentadbir'], ['superadmin', 'Superadmin']],
   ref_tahap_kelayakan: [['sijil', 'Sijil'], ['diploma', 'Diploma'], ['ijazah_sarjana_muda', 'Ijazah Sarjana Muda'],
     ['ijazah_sarjana', 'Ijazah Sarjana'], ['doktor_falsafah', 'Doktor Falsafah'], ['lain_lain', 'Lain-lain']],
@@ -999,7 +1001,21 @@ function _seedRefs(ss) {
     }
   });
   _REF_CACHE = {};
-  return 'Nilai rujukan ditambah: ' + added;
+  // Selaraskan nilai sedia ada: label dan susunan ikut senarai; nilai yang dibuang dinyahaktifkan.
+  var dikemas = 0, dinyahaktif = 0;
+  Object.keys(REF_SEEDS).forEach(function (name) {
+    var seed = {};
+    REF_SEEDS[name].forEach(function (pair, idx) { seed[pair[0]] = { label: pair[1], susunan: idx + 1 }; });
+    query(name, {}).forEach(function (r) {
+      var sd = seed[r.kod];
+      if (sd && (r.label !== sd.label || r.susunan !== sd.susunan || !r.aktif)) {
+        update(name, r.id, { label: sd.label, susunan: sd.susunan, aktif: true }, { actorId: 'setup' }); dikemas++;
+      } else if (!sd && r.aktif) {
+        update(name, r.id, { aktif: false }, { actorId: 'setup' }); dinyahaktif++;
+      }
+    });
+  });
+  return 'Nilai rujukan ditambah: ' + added + ', dikemas kini: ' + dikemas + ', dinyahaktifkan: ' + dinyahaktif;
 }
 
 function _seedHadJamKredit() {
@@ -1346,9 +1362,9 @@ function aksiAkaunSenarai(ctx) {
     .sort(function (x, y) { return x.guru_kod < y.guru_kod ? -1 : 1; });
 }
 
-function _ciptaAkaunDalaman(kod, nama, status, role, actorId) {
+function _ciptaAkaunDalaman(kod, nama, status, role, actorId, tarikhLantikan) {
   if (query('guru', { guru_kod: kod }).length) throw new AppError('DUPLIKAT', 'ID guru ' + kod + ' sudah wujud.', { field: 'guru_kod' });
-  var guru = insert('guru', { guru_kod: kod, nama_penuh: nama, status_lantikan: status }, { actorId: actorId });
+  var guru = insert('guru', { guru_kod: kod, nama_penuh: nama, status_lantikan: status, tarikh_lantikan: tarikhLantikan || null }, { actorId: actorId });
   var pw = janaPasswordSementara();
   var salt = newSalt();
   var akaun;
@@ -1366,7 +1382,9 @@ function aksiAkaunCipta(ctx, params) {
   var nama = pStr(params, 'nama_penuh', { label: 'Nama penuh', min: 3, max: 150 });
   var status = pStr(params, 'status_lantikan', { label: 'Status lantikan', max: 30 });
   var role = pOneOf(params, 'role', SEMUA_ROLE, 'Peranan');
-  var r = _ciptaAkaunDalaman(kod, nama, status, role, ctx.akaunId);
+  var tarikh = pStr(params, 'tarikh_lantikan', { label: 'Tarikh lantikan', max: 10, optional: true });
+  if (tarikh && tarikh > hariIni()) throw new AppError('VALIDASI', 'Tarikh lantikan tidak boleh pada masa depan.', { field: 'tarikh_lantikan' });
+  var r = _ciptaAkaunDalaman(kod, nama, status, role, ctx.akaunId, tarikh);
   logAudit(ctx.akaunId, 'AKAUN_CIPTA', kod, 'peranan=' + role);
   return { akaun: _barisAkaun(r.akaun, r.guru), password_sementara: r.password };
 }

@@ -11,7 +11,7 @@ const G = (o) => ({ id: o.id, guru_kod: o.id.toUpperCase(), nama_penuh: o.nama, 
   peranan_hem: [], murid_usrah: 0, usrah_guru: null });
 const ROWS = [
   G({ id: 'a', nama: 'Aminah', jb: 15.5, jt: 7.5, jab: ['KURI', 'HEM'], subj: ['pi'], ting: [2], c: 2, unit: [{ unit_id: 'kaspa', jawatan: 'penasihat' }] }),
-  G({ id: 'b', nama: 'Badrul', jb: 23, jt: 2, sb: 'lebih', status: 'kontrak', subj: ['mat'], ting: [4, 5], unit: [{ unit_id: 'kaspa', jawatan: 'ajk' }] }),
+  G({ id: 'b', nama: 'Badrul', jb: 23, jt: 2, sb: 'lebih', status: 'praktikal', subj: ['mat'], ting: [4, 5], unit: [{ unit_id: 'kaspa', jawatan: 'ajk' }] }),
   G({ id: 'c', nama: 'Che Ros', jb: 18, jt: 9, sb: 'hampir', status: 'percubaan', percubaan: { tamat: true }, jab: ['KOKU'], t: 0 })
 ];
 
@@ -19,7 +19,7 @@ test('dashboard: penapis jabatan, status, subjek, tingkatan, unit, nama', () => 
   const n = (f) => DK.tapis(ROWS, f).map((g) => g.id).join();
   assert.equal(n({}), 'a,b,c');
   assert.equal(n({ jabatan: 'HEM' }), 'a');
-  assert.equal(n({ status: 'kontrak' }), 'b');
+  assert.equal(n({ status: 'praktikal' }), 'b');
   assert.equal(n({ subjek: 'pi' }), 'a');
   assert.equal(n({ tingkatan: '5' }), 'b');
   assert.equal(n({ unit: 'kaspa' }), 'a,b');

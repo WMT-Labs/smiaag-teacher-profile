@@ -23,8 +23,8 @@ const { ctx } = loadReady({ realClock: true });
 const DEMO_PW = process.env.DEMO_PASSWORD || '';
 const sa = ctx._ciptaAkaunDalaman('SA001', 'Superadmin Contoh', 'tetap', 'superadmin', 'setup');
 const g1 = ctx._ciptaAkaunDalaman('SM901', 'Guru Contoh Satu', 'tetap', 'guru', 'setup');
-const ad = ctx._ciptaAkaunDalaman('AD901', 'Pentadbir Contoh', 'kontrak', 'pentadbir', 'setup');
-const g2 = ctx._ciptaAkaunDalaman('SM902', 'Guru Contoh Dua', 'kontrak', 'guru', 'setup');
+const ad = ctx._ciptaAkaunDalaman('AD901', 'Pentadbir Contoh', 'tetap', 'pentadbir', 'setup');
+const g2 = ctx._ciptaAkaunDalaman('SM902', 'Guru Contoh Dua', 'percubaan', 'guru', 'setup');
 function siapkan(r) {
   const salt = ctx.newSalt();
   ctx.update('akaun', r.akaun.id, { salt, password_hash: ctx.hashPassword(DEMO_PW, salt), wajib_tukar_password: false, persetujuan_pdpa_pada: ctx.nowIso() });
