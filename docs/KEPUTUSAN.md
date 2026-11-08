@@ -18,12 +18,33 @@ Dikemas kini pada penghujung setiap fasa. Rujuk dokumen arahan projek (Seksyen 1
 | 06/11/2026 | Jadual diimport daripada eksport aSc Timetables (fail akan diberi kemudian; guna data contoh dahulu). |
 | 06/11/2026 | Tugasan guru diimport/diisi oleh pentadbir sahaja; guru tidak mengisi satu persatu. |
 | 06/11/2026 | Unit Syabab: KASPA, KRS, BSMM, Puteri Islam. Kelab diisi oleh pentadbir. Rumah sukan: Fatah (merah), Falah (hijau), Najah (biru), Solah (kuning). |
+| 08/11/2026 | Penambahbaikan pemilik (12 item) disiapkan: lihat seksyen "Penambahbaikan 08/11/2026". |
+| 08/11/2026 | Format tarikh dalam Sheet `08-11-2026, 08.15` (24 jam), semua tab. Paparan masa dalam sistem 12 jam (`12.50 tgh`). |
+| 08/11/2026 | Emel: kod sedia; akaun penghantar akan ditukar ke emel admin baharu kemudian. Julat tahun 10 ke belakang dan 10 ke hadapan. |
+| 08/11/2026 | Warna jadual dipilih setiap guru; pentadbir boleh cetak jadual guru lain. Guru ganti ditetapkan pentadbir sahaja, ikut tarikh. |
+| 08/11/2026 | ADMIN01 ialah akaun sistem (bukan guru); SM216 menjadi akaun guru pemilik (peranan Pentadbir). Praktikal ada tarikh tamat + amaran 30 hari. |
 | 08/11/2026 | Status lantikan: Tetap, Percubaan, Praktikal, Lain-lain. Kontrak dibuang (dinyahaktifkan, rekod lama kekal). Borang Tambah akaun mendapat medan tarikh lantikan. |
 | 07/11/2026 | Tempoh simpanan data guru yang berpindah atau bersara: 2 tahun selepas akaun dinyahaktifkan (dilaksanakan pada Fasa 7). |
 | 07/11/2026 | Guru boleh sunting jadual sendiri (pembetulan kecil, tukar masa dengan guru lain). |
 | 07/11/2026 | Guru Tarbiah dan Usrah Murabbi Pelajar disimpan berasingan. |
 | 07/11/2026 | Kehadiran usrah guru diisi oleh murabbi kumpulan, mengikut sesi yang dijalankan (bukan semestinya mingguan). |
 | 06/11/2026 | Cerapan dipermudahkan: hanya bilangan dicerap setahun dan nama pencerap. Tiada sasaran, tiada tarikh dirancang. Jadual `sasaran_cerapan` dan `ref_status_cerapan` dibuang. |
+
+## Penambahbaikan 08/11/2026: andaian dan nota teknikal
+
+1. **Kelajuan:** cache bacaan tab dalam satu permintaan; cache 5 minit untuk jadual rujukan (`ref_*`, subjek, kelas, waktu, had, unit, rumah); cache sesi 5 minit dengan pembatalan serta-merta (token dipadam/diubah, akaun atau guru dikemas kini). Laluan tulisan sentiasa membaca data segar. Jika pemilik menyunting Sheet secara manual, data rujukan mungkin lambat dikemas kini sehingga 5 minit.
+2. **`audit_log`** ditulis dengan `appendLog` (hanya membaca baris tajuk).
+3. **Tarikh** disimpan sebagai nilai tarikh Sheets dengan format `dd-mm-yyyy` / `dd-mm-yyyy, hh.mm`; zon waktu Spreadsheet ditetapkan Asia/Kuala_Lumpur. Masa slot (JJ:MM) kekal teks. Eksport CSV dari Sheets akan memaparkan format tempatan (ambil kira semasa migrasi Supabase).
+4. **`setupTemplate`** kini menyisip lajur baharu ke tab sedia ada secara automatik dan menukar teks tarikh lama; tab tidak perlu dipadam lagi bila skema bertambah. Lajur yang tidak dikenali tetap menghentikan setup (tidak menimpa data).
+5. **ID boleh baca:** UUID kekal sebagai kunci dalaman. Tab baca-sahaja `lihat_akaun` (formula XLOOKUP) memaparkan ID guru, nama, peranan, status dan tarikh.
+6. **Akaun sistem** (`guru.akaun_sistem`): mesti Pentadbir atau Superadmin; dikecualikan daripada senarai guru, dashboard, guru ganti, import, koku dan HEM. `ciptaSuperadminPertama` mencipta akaun sistem.
+7. **Emel:** `guru.email` disimpan huruf kecil, unik bila diisi (disemak dalam kod kerana kekangan unik skema menganggap kosong sebagai sama). Emel dihantar semasa cipta akaun dan reset; kata laluan masih dipaparkan sekali sebagai sandaran; kegagalan emel tidak membatalkan akaun.
+8. **Nama panggilan** untuk hebahan: `nama_panggilan`, atau perkataan sebelum bin/binti (maksimum 2 perkataan).
+9. **Cetak jadual:** halaman cetakan berasingan (A4 landskap) dengan logo, nama, jam kredit, petunjuk warna, tarikh cetak. Warna lalai daripada palet lembut; teks gelap/terang ikut kecerahan.
+10. **Masa slot:** dropdown setiap 5 minit 7.30 pg hingga 3.30 ptg + "Masa lain…" (input masa bebas). Akhiran: pg (sebelum 12), tgh (12.xx), ptg (1 hingga 6.59), mlm.
+11. **Kokurikulum:** kotak berasingan Syabab / Kelab / Pasukan di halaman guru dan pentadbir; `UNIT_PUKAL`; rumah sukan kini ditetapkan pentadbir sahaja (`RUMAH_AHLI_SIMPAN`, jawatan dikekalkan).
+12. **Guru ganti:** `ketidakhadiran_guru` (unik tarikh + guru) dan `guru_ganti` (unik ketidakhadiran + slot). Slot diambil daripada jadual disahkan mengikut hari tarikh itu. Hebahan hanya memasukkan slot yang ada pengganti; nombor ikut susunan rekod; pengganti diawali "Cg".
+13. **Penunjuk loading:** bar nipis di atas skrin untuk setiap panggilan, label "Sedang memuatkan…" selepas 0.8 s, dan rangka (skeleton) kad semasa halaman pertama dimuat.
 
 ## Fasa 6: andaian
 

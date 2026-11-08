@@ -2,7 +2,7 @@
 
 Sistem profil guru untuk Sekolah Menengah Islam Al-Amin Gombak. Menyimpan maklumat guru dalam tiga bahagian (kurikulum, kokurikulum, HEM), dan memberi pentadbir gambaran beban kerja seluruh sekolah.
 
-**Status: Fasa 6 (Dashboard) siap.** Log masuk, urus akaun, profil guru, kurikulum (tugasan, jam kredit, jadual, pertindihan, guru ganti, import jadual aSc dan import tugasan), kokurikulum (unit, rumah sukan, juara, pertandingan) HEM (usrah pelajar, usrah guru dan kehadiran, Guru Tarbiah, Guru Kelas, disiplin) dan dashboard sekolah sudah berfungsi. Fasa akhir: pengukuhan keselamatan dan dokumen migrasi Supabase (lihat [Fasa pembinaan](#fasa-pembinaan)).
+**Status: Fasa 6 (Dashboard) siap + penambahbaikan pemilik (08/11/2026) siap.** Log masuk, urus akaun, profil guru, kurikulum (tugasan, jam kredit, jadual, pertindihan, guru ganti, import jadual aSc dan import tugasan), kokurikulum (unit, rumah sukan, juara, pertandingan) HEM (usrah pelajar, usrah guru dan kehadiran, Guru Tarbiah, Guru Kelas, disiplin) dan dashboard sekolah sudah berfungsi. Fasa akhir: pengukuhan keselamatan dan dokumen migrasi Supabase (lihat [Fasa pembinaan](#fasa-pembinaan)).
 
 ## Bagaimana ia berfungsi (ringkas)
 
@@ -46,7 +46,8 @@ frontend/           Laman web (diterbitkan)
   profil.html         profil guru (sendiri, atau ?id= untuk pentadbir)
   guru.html           senarai guru (pentadbir)
   kurikulum.html      tugasan, jam kredit dan jadual waktu
-  slot-kosong.html    cari guru ganti (pentadbir)
+  guru-ganti.html     guru tidak hadir, pilih pengganti, hebahan WhatsApp (pentadbir)
+  slot-kosong.html    carian guru lapang ikut waktu (pentadbir)
   import-jadual.html  import jadual daripada eksport XML aSc Timetables (pentadbir)
   import-tugasan.html import tugasan daripada Excel/CSV (pentadbir)
   koku.html           kokurikulum guru
@@ -100,12 +101,23 @@ Masa: kira-kira 15 minit. Anda perlukan akaun Google sekolah atau peribadi yang 
 ### C2. Cipta superadmin pertama (sekali sahaja)
 
 1. Dalam Apps Script: **Project Settings > Script Properties > Add script property**:
-   - `BOOTSTRAP_GURU_KOD` = ID guru anda, contoh `SM216`
-   - `BOOTSTRAP_NAMA` = nama penuh anda
+   - `BOOTSTRAP_GURU_KOD` = ID akaun pentadbiran sistem, contoh `ADMIN01`
+   - `BOOTSTRAP_NAMA` = contoh `Pentadbir Sistem`
+
+   Akaun ini ialah **akaun sistem** (bukan guru): tidak dikira dalam senarai guru, dashboard dan guru ganti. Cipta akaun guru anda sendiri (contoh SM216, peranan Pentadbir) melalui Urus akaun selepas log masuk.
 2. Kembali ke Editor, pilih fungsi `ciptaSuperadminPertama`, tekan **Run**.
 3. Execution log memaparkan kata laluan sementara. Catat. Dua property tadi dipadam automatik.
 4. Fungsi ini menolak jika superadmin sudah wujud, jadi ia tidak boleh disalah guna kemudian.
 5. Akaun guru lain dicipta melalui halaman **Urus akaun** selepas anda log masuk.
+
+### C3. Tetapan pilihan (Script Properties)
+
+| Property | Kegunaan |
+|---|---|
+| `LAMAN_URL` | Alamat laman sistem (contoh `https://nama.netlify.app`). Dimasukkan dalam emel kata laluan sementara. |
+| `EMEL_BALAS` | Alamat emel untuk balasan guru (contoh emel admin sekolah). |
+
+Emel kata laluan sementara dihantar daripada akaun Google yang men-deploy Web App ("Execute as: Me"). Untuk menghantar daripada emel admin baharu, salin projek Apps Script ke akaun itu dan deploy semula dari sana. Had harian: akaun Gmail biasa kira-kira 100 emel, Google Workspace kira-kira 1500 (semak dengan Google untuk akaun anda).
 
 ### D. Hubungkan frontend
 
@@ -146,7 +158,8 @@ Butiran penuh dalam dokumen arahan projek, Seksyen 3. Yang sudah berkuat kuasa p
 - Sesi: token rawak disimpan dalam tab `sessions`, kekal 30 hari dan dilanjutkan bila guru aktif. Log keluar memadam token di server. Tukar kata laluan melog keluar peranti lain.
 - Maksimum 8 percubaan gagal setiap 5 minit bagi setiap ID guru. Pentadbir boleh buka kunci.
 - Guru baharu wajib bersetuju dengan notis privasi dan tukar kata laluan sementara sebelum boleh buat apa-apa lagi.
-- Tindakan penting (log masuk, gagal log masuk, urus akaun, persetujuan PDPA) direkod dalam `audit_log`.
+- Tindakan penting (log masuk, gagal log masuk, urus akaun, persetujuan PDPA, guru ganti) direkod dalam `audit_log`, ditulis tanpa membaca seluruh tab.
+- Kelajuan: cache sesi dan data rujukan dalam CacheService, dibatalkan serta-merta semasa log keluar, reset, nyahaktif, tukar peranan atau sebarang tulisan. Log `[MASA]` dalam Apps Script > Executions menunjukkan masa dan bilangan bacaan tab setiap permintaan.
 - Profil: guru hanya boleh membaca dan mengubah rekod sendiri (disemak di server). Nombor telefon dihantar bertutup kepada guru; pentadbir menerima nombor penuh dan setiap bacaan direkod.
 - Tiada gambar guru disimpan (dibuang atas permintaan pemilik), jadi sistem tidak memerlukan akses Google Drive.
 - Semua penulisan melalui `Repository.gs`: sahkan jenis, julat, nilai rujukan dan kunci asing, tambah awalan `'` pada nilai berbahaya (`= + - @`), dan buang nombor yang menyerupai IC daripada teks bebas.

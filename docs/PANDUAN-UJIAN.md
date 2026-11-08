@@ -44,8 +44,8 @@ Masa: kira-kira 45 minit untuk persediaan, kemudian ujian ikut kadar anda.
 
 ### A4. Cipta akaun superadmin anda
 1. Klik **roda gigi (Project Settings)**, turun ke **Script Properties** > **Add script property**:
-   - Property `BOOTSTRAP_GURU_KOD`, value: ID guru anda (contoh `SM216`)
-   - Property `BOOTSTRAP_NAMA`, value: nama penuh anda
+   - Property `BOOTSTRAP_GURU_KOD`, value: `ADMIN01` (akaun pentadbiran sistem, bukan guru)
+   - Property `BOOTSTRAP_NAMA`, value: `Pentadbir Sistem`
 2. **Save script properties**.
 3. Kembali ke Editor, pilih fungsi **ciptaSuperadminPertama**, tekan **Run**.
 
@@ -145,3 +145,6 @@ Juga catat masa:
 - Membuka Dashboard: ____ saat
 
 Selepas ujian, beritahu saya hasilnya dan kita teruskan Fasa 7.
+
+> Ciri tambahan selepas 08/11/2026 (emel, cetak jadual, guru ganti, akaun sistem dan lain-lain) diuji mengikut
+> `docs/SENARAI-SEMAK-PENAMBAHBAIKAN-1.md`.
