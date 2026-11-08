@@ -448,6 +448,20 @@ Unik: (nama, tahun_akademik)
 
 Unik: (slot_id, kelas_id)
 
+### `warna_jadual`
+
+| Lajur | Jenis | Wajib | Rujukan | Lalai |
+|---|---|---|---|---|
+| id (PK) | uuid | ya |  |  |
+| guru_id | uuid | ya | FK → guru |  |
+| kunci | text | ya |  |  |
+| warna | text | ya |  |  |
+| created_at | datetime |  |  |  |
+| updated_at | datetime |  |  |  |
+| updated_by | text |  |  |  |
+
+Unik: (guru_id, kunci)
+
 ### `waktu`
 
 | Lajur | Jenis | Wajib | Rujukan | Lalai |

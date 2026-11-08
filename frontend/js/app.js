@@ -203,6 +203,21 @@
       } else if (f.type === 'textarea') {
         input = el('textarea', { class: 'input', id: id, maxlength: '1000' });
         input.value = f.value || '';
+      } else if (f.type === 'masa') {
+        // Dropdown masa (setiap 5 minit, 7.30 pg hingga 3.30 ptg) + "Masa lain..." untuk masa luar senarai.
+        var pilih = el('select', { class: 'select', id: id, style: 'min-height:46px' });
+        var senarai = senaraiMasa(f.dari || '07:30', f.hingga || '15:30', 5);
+        senarai.forEach(function (m) { pilih.appendChild(el('option', { value: m }, fmtMasa(m, true))); });
+        pilih.appendChild(el('option', { value: '__lain' }, 'Masa lain…'));
+        var bebas = el('input', { class: 'input', type: 'time', step: '60', 'aria-label': f.label + ' (masa lain)' });
+        var nilai = f.value || senarai[0];
+        if (senarai.indexOf(nilai) !== -1) pilih.value = nilai; else { pilih.value = '__lain'; bebas.value = nilai; }
+        var segerak = function () { bebas.hidden = pilih.value !== '__lain'; };
+        pilih.addEventListener('change', function () { segerak(); if (!bebas.hidden) bebas.focus(); });
+        segerak();
+        inputs[f.name] = { masa: true, pilih: pilih, bebas: bebas, focus: function () { pilih.focus(); } };
+        body.push(el('div', { class: 'field' }, [el('label', { for: id }, f.label), el('div', { class: 'row', style: 'gap:8px;flex-wrap:nowrap' }, [pilih, bebas])].concat(f.hint ? [el('span', { class: 'hint' }, f.hint)] : [])));
+        return;
       } else if (f.type === 'multicheck') {
         var box = el('div', { class: 'multicheck', role: 'group', 'aria-label': f.label });
         var chosen = (f.value || []).map(String);
@@ -249,6 +264,12 @@
           opt.fields.forEach(function (f) {
             var inp = inputs[f.name];
             var v;
+            if (f.type === 'masa') {
+              v = inp.pilih.value === '__lain' ? inp.bebas.value : inp.pilih.value;
+              values[f.name] = /^\d{2}:\d{2}$/.test(v || '') ? v : null;
+              if (f.required && !values[f.name] && !missing) missing = f;
+              return;
+            }
             if (f.type === 'multicheck') {
               v = inp.multi.filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
               if (f.required && !v.length && !missing) missing = f;
@@ -277,6 +298,24 @@
     }).then(function (v) { return v === 'ok' ? result : null; });
     setTimeout(function () { var first = inputs[opt.fields[0].name]; if (first && first.focus) first.focus(); }, 50);
     return p;
+  }
+
+  /**
+   * "13:05" -> "1.05 ptg" (berakhiran) atau "1.05" (tanpa). pg = sebelum 12, tgh = 12.xx, ptg = 1 hingga 6.59, mlm = 7 ke atas.
+   */
+  function fmtMasa(hhmm, akhiran) {
+    var m = /^(\d{2}):(\d{2})/.exec(hhmm || '');
+    if (!m) return hhmm || '';
+    var h = +m[1], h12 = h % 12 === 0 ? 12 : h % 12;
+    var s = h12 + '.' + m[2];
+    if (!akhiran) return s;
+    return s + ' ' + (h < 12 ? 'pg' : h < 13 ? 'tgh' : h < 19 ? 'ptg' : 'mlm');
+  }
+  function senaraiMasa(dari, hingga, langkah) {
+    var p = function (t) { var x = t.split(':'); return (+x[0]) * 60 + (+x[1]); };
+    var out = [];
+    for (var t = p(dari); t <= p(hingga); t += langkah) out.push(('0' + Math.floor(t / 60)).slice(-2) + ':' + ('0' + (t % 60)).slice(-2));
+    return out;
   }
 
   /** Rangka (skeleton) semasa data dimuatkan: beberapa kad dengan garisan berkilau. */
@@ -319,6 +358,6 @@
 
   window.App = {
     icon: icon, nextPage: nextPage, guard: guard, updateSesi: updateSesi, logout: logout, mount: mount,
-    dialog: dialog, confirm: confirmDialog, formDialog: formDialog, labelOf: labelOf, senaraiTahun: senaraiTahun, rangka: rangka, bebanBadge: bebanBadge, HARI_PENDEK: HARI_PENDEK, fmtDateTime: fmtDateTime, LABEL_ROLE: LABEL_ROLE
+    dialog: dialog, confirm: confirmDialog, formDialog: formDialog, labelOf: labelOf, senaraiTahun: senaraiTahun, rangka: rangka, fmtMasa: fmtMasa, senaraiMasa: senaraiMasa, bebanBadge: bebanBadge, HARI_PENDEK: HARI_PENDEK, fmtDateTime: fmtDateTime, LABEL_ROLE: LABEL_ROLE
   };
 })();

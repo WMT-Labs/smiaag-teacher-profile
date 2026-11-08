@@ -227,3 +227,15 @@ test('senarai guru (pentadbir) memaparkan jam kredit dan status beban', () => {
   const g = call('GURU_SENARAI', {}, ADM.token).data.guru.find((x) => x.id === gidA);
   assert.deepEqual([g.jam_berjadual, g.jam_tidak_berjadual, g.status_beban], [15.5, 7.5, 'dalam']);
 });
+
+test('warna jadual: guru simpan warna sendiri; pentadbir untuk guru lain; guru lain ditolak', () => {
+  const { call, A, B, ADM, gidA, subjek } = dunia();
+  const w = { [subjek.PI]: '#CFE3F5', 'label:Perhimpunan': '#d4f0dc' };
+  assert.equal(call('WARNA_JADUAL_SIMPAN', { warna: w }, A.token).data.disimpan, 2);
+  assert.deepEqual({ ...call('KURIKULUM_LIHAT', {}, A.token).data.warna }, { [subjek.PI]: '#cfe3f5', 'label:Perhimpunan': '#d4f0dc' });
+  assert.equal(call('WARNA_JADUAL_SIMPAN', { warna: { [subjek.PI]: 'merah' } }, A.token).code, 'VALIDASI');
+  assert.equal(call('WARNA_JADUAL_SIMPAN', { warna: { 'bukan kunci': '#ffffff' } }, A.token).code, 'VALIDASI');
+  assert.equal(call('WARNA_JADUAL_SIMPAN', { guru_id: gidA, warna: {} }, B.token).code, 'TIADA_KEBENARAN');
+  assert.equal(call('WARNA_JADUAL_SIMPAN', { guru_id: gidA, warna: { [subjek.PI]: '#000000' } }, ADM.token).ok, true);
+  assert.equal(Object.keys(call('KURIKULUM_LIHAT', {}, A.token).data.warna).length, 1, 'diganti, bukan ditambah');
+});

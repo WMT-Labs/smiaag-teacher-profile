@@ -104,15 +104,56 @@
       // ---------------- jadual waktu ----------------
       function minit(t) { var p = t.split(':'); return (+p[0]) * 60 + (+p[1]); }
       function slotTajuk(s) { return s.subjek || s.label || '—'; }
-      function jadual() {
+      // ---------------- warna subjek ----------------
+      var PALET = ['#cfe3f5', '#d4f0dc', '#fde7c2', '#f7d4d4', '#e5dcf5', '#d2f0ee', '#fbe0ee', '#e8ecc9', '#f3e0cf', '#dde3ea', '#c9e9f6', '#f0e6c8'];
+      function kunciSlot(s) { return s.subjek_id ? s.subjek_id : 'label:' + (s.label || '').trim(); }
+      /** Senarai subjek/aktiviti unik dalam jadual guru, setiap satu dengan warnanya (disimpan, atau palet lalai). */
+      function senaraiWarna() {
+        var o = {}, susunan = [];
+        K.slot.slice().sort(function (x, y) { return slotTajuk(x) < slotTajuk(y) ? -1 : 1; }).forEach(function (sl) {
+          var k = kunciSlot(sl);
+          if (!o[k]) { o[k] = { kunci: k, tajuk: slotTajuk(sl), nama: sl.subjek_id ? (K.ref.subjek.filter(function (x) { return x.id === sl.subjek_id; })[0] || {}).nama : sl.label }; susunan.push(o[k]); }
+        });
+        susunan.forEach(function (x, i) { x.warna = K.warna[x.kunci] || PALET[i % PALET.length]; });
+        return { map: o, senarai: susunan };
+      }
+      /** Warna teks yang terang/gelap mengikut kecerahan latar supaya sentiasa boleh dibaca. */
+      function warnaTeks(hex) {
+        var r = parseInt(hex.substr(1, 2), 16), g = parseInt(hex.substr(3, 2), 16), b = parseInt(hex.substr(5, 2), 16);
+        return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#1c2b36' : '#ffffff';
+      }
+      function borangWarna() {
+        var W = senaraiWarna().senarai;
+        if (!W.length) { UI.toast('Belum ada slot dalam jadual.'); return; }
+        var inputs = W.map(function (x) { return el('input', { type: 'color', value: x.warna, 'aria-label': 'Warna ' + x.tajuk, style: 'width:56px;height:36px;border:1px solid var(--border-strong);border-radius:8px;padding:2px;background:#fff' }); });
+        App.dialog({
+          title: 'Warna subjek',
+          body: [el('p', { class: 'muted', style: 'font-size:.875rem' }, 'Pilih warna untuk setiap subjek atau aktiviti. Warna dipakai di skrin dan semasa mencetak.'),
+            el('div', { class: 'stack', style: 'gap:8px' }, W.map(function (x, i) {
+              return el('label', { class: 'row', style: 'justify-content:space-between;padding:6px 10px;border:1px solid var(--border);border-radius:10px' }, [el('span', {}, [el('b', {}, x.tajuk), x.nama && x.nama !== x.tajuk ? el('span', { class: 'muted', style: 'font-size:.8125rem' }, ' · ' + x.nama) : null].filter(Boolean)), inputs[i]]);
+            }))],
+          actions: [
+            { text: 'Set semula', kind: 'btn-secondary', value: 'reset', onClick: function () { return call('WARNA_JADUAL_SIMPAN', { warna: {} }).then(function () { return true; }, function (e) { UI.toast(e.message); return false; }); } },
+            { text: 'Batal', kind: 'btn-secondary', value: null },
+            { text: 'Simpan', value: 'ok', onClick: function (b) {
+              b.disabled = true;
+              var w = {}; W.forEach(function (x, i) { w[x.kunci] = inputs[i].value; });
+              return call('WARNA_JADUAL_SIMPAN', { warna: w }).then(function () { return true; }, function (e) { UI.toast(e.message); b.disabled = false; return false; });
+            } }
+          ]
+        }).then(function (v) { if (v) { UI.toast('Warna disimpan.'); muat(); } });
+      }
+
+      /** Bina grid jadual (dipakai di skrin dan untuk cetakan). */
+      function binaGrid(untukCetak) {
         var W = K.ref.waktu, hariAktif = K.ref.hari.slice(0, 5);
         K.slot.forEach(function (s) { if (!hariAktif.some(function (h) { return h.kod === s.hari; })) { var h = K.ref.hari.filter(function (x) { return x.kod === s.hari; })[0]; if (h) hariAktif.push(h); } });
         var clash = {};
-        K.pertindihan.forEach(function (p) { if (p.jenis === 'guru') { clash[p.a.id] = true; clash[p.b.id] = true; } else { if (p.a.milik) clash[p.a.id] = true; if (p.b.milik) clash[p.b.id] = true; } });
-
-        var grid = el('div', { class: 'tt', style: 'grid-template-columns:52px repeat(' + W.length + ', minmax(48px, 1fr))' });
+        if (!untukCetak) K.pertindihan.forEach(function (p) { if (p.jenis === 'guru') { clash[p.a.id] = true; clash[p.b.id] = true; } else { if (p.a.milik) clash[p.a.id] = true; if (p.b.milik) clash[p.b.id] = true; } });
+        var warna = senaraiWarna().map;
+        var grid = el('div', { class: 'tt', style: 'grid-template-columns:52px repeat(' + W.length + ', minmax(' + (untukCetak ? 0 : 48) + 'px, 1fr))' });
         grid.appendChild(el('div'));
-        W.forEach(function (w) { grid.appendChild(el('div', { class: 'h' }, [el('b', {}, String(w.nombor)), w.masa_mula])); });
+        W.forEach(function (w) { grid.appendChild(el('div', { class: 'h' }, [el('b', {}, String(w.nombor)), App.fmtMasa(w.masa_mula) + (untukCetak ? '–' + App.fmtMasa(w.masa_akhir) : '')])); });
         hariAktif.forEach(function (h, r) {
           var row = r + 2;
           grid.appendChild(el('div', { class: 'd', style: 'grid-row:' + row + ';grid-column:1' }, App.HARI_PENDEK[h.kod] || h.label));
@@ -121,22 +162,29 @@
             var a = minit(s.masa_mula), b = minit(s.masa_akhir), start = -1, end = -1;
             W.forEach(function (w, i) { if (start < 0 && minit(w.masa_akhir) > a) start = i; if (minit(w.masa_mula) < b) end = i; });
             if (start < 0) return;
-            var cell = el('button', { type: 'button', class: 's' + (s.subjek ? '' : ' act') + (clash[s.id] ? ' clash' : ''),
-              style: 'grid-row:' + row + ';grid-column:' + (start + 2) + ' / ' + (end + 3),
-              title: s.masa_mula + '–' + s.masa_akhir }, [el('b', {}, slotTajuk(s)), el('span', {}, s.kelas.join(', ') || s.masa_mula + '–' + s.masa_akhir)]);
-            cell.addEventListener('click', function () { borangSlot(s); });
+            var bg = warna[kunciSlot(s)].warna;
+            var masa = App.fmtMasa(s.masa_mula) + '–' + App.fmtMasa(s.masa_akhir);
+            var cell = el(untukCetak ? 'div' : 'button', { type: untukCetak ? undefined : 'button', class: 's' + (clash[s.id] ? ' clash' : ''),
+              style: 'grid-row:' + row + ';grid-column:' + (start + 2) + ' / ' + (end + 3) + (clash[s.id] ? '' : ';background:' + bg + ';border-color:' + bg + ';color:' + warnaTeks(bg)),
+              title: masa }, [el('b', {}, slotTajuk(s)), el('span', { style: 'color:inherit;opacity:.8' }, s.kelas.join(', ') || masa)]);
+            if (!untukCetak) cell.addEventListener('click', function () { borangSlot(s); });
             grid.appendChild(cell);
           });
         });
+        return { grid: grid, hariAktif: hariAktif, clash: clash, warna: warna };
+      }
 
+      function jadual() {
+        var W = K.ref.waktu;
+        var G = binaGrid(false);
         var list = el('div', { class: 'day-list' });
-        hariAktif.forEach(function (h) {
+        G.hariAktif.forEach(function (h) {
           var hs = K.slot.filter(function (s) { return s.hari === h.kod; }).sort(function (x, y) { return minit(x.masa_mula) - minit(y.masa_mula); });
           list.appendChild(el('h3', {}, h.label));
           if (!hs.length) { list.appendChild(el('div', { class: 'slot-row', style: 'cursor:default' }, el('span', { class: 'muted' }, 'Tiada slot'))); return; }
           hs.forEach(function (s) {
-            var r = el('button', { type: 'button', class: 'slot-row' + (clash[s.id] ? ' clash' : '') }, [
-              el('span', { class: 't' }, s.masa_mula + '–' + s.masa_akhir),
+            var r = el('button', { type: 'button', class: 'slot-row' + (G.clash[s.id] ? ' clash' : ''), style: 'border-left:6px solid ' + G.warna[kunciSlot(s)].warna }, [
+              el('span', { class: 't' }, App.fmtMasa(s.masa_mula) + '–' + App.fmtMasa(s.masa_akhir)),
               el('div', { class: 'grow' }, [el('b', {}, slotTajuk(s)), el('div', { class: 'sub' }, s.kelas.join(', '))])
             ]);
             r.addEventListener('click', function () { borangSlot(s); });
@@ -146,29 +194,47 @@
 
         var body = [];
         if (!W.length) body.push(el('p', { class: 'empty-sm' }, 'Templat waktu persekolahan untuk ' + K.tahun + ' belum ditetapkan. Minta superadmin isi di Data rujukan.'));
-        else body.push(el('div', { class: 'tt-wrap' }, grid), list);
+        else body.push(el('div', { class: 'tt-wrap' }, G.grid), list);
         if (!K.slot.length && W.length) body.push(el('p', { class: 'empty-sm' }, 'Belum ada slot. Tekan "Tambah slot" untuk mula mengisi jadual anda.'));
-        return el('section', { class: 'card wide' }, [head('Jadual waktu ' + K.tahun, 'i-dashboard', W.length ? [btn('Tambah slot', function () { borangSlot(null); })] : [])].concat(body));
+        var acts = [];
+        if (W.length && K.slot.length) { acts.push(btn('Warna subjek', borangWarna, 'i-edit')); acts.push(btn('Cetak jadual', cetak, 'i-download')); }
+        if (W.length) acts.push(btn('Tambah slot', function () { borangSlot(null); }));
+        return el('section', { class: 'card wide' }, [head('Jadual waktu ' + K.tahun, 'i-dashboard', acts)].concat(body));
       }
 
-      function pilihanMasa(jenis) {
-        var set = {};
-        K.ref.waktu.forEach(function (w) { set[w.masa_mula] = set[w.masa_mula] || ('mula waktu ' + w.nombor); set[w.masa_akhir] = set[w.masa_akhir] || ('tamat waktu ' + w.nombor); });
-        for (var t = 7 * 60; t <= 18 * 60; t += 5) {
-          var hh = ('0' + Math.floor(t / 60)).slice(-2) + ':' + ('0' + (t % 60)).slice(-2);
-          if (!set[hh] && t % 15 === 0) set[hh] = '';
-        }
-        return Object.keys(set).sort().map(function (k) { return { value: k, label: k + (set[k] ? ' (' + set[k] + ')' : '') }; });
+      /** Cetak: bina kawasan cetakan berasingan (kepala + jadual + petunjuk warna), cetak A4 landskap. */
+      function cetak() {
+        var lama = document.getElementById('kawasan-cetak');
+        if (lama) lama.remove();
+        var G = binaGrid(true);
+        var hari = new Date();
+        var petunjuk = senaraiWarna().senarai.map(function (x) {
+          return el('span', { class: 'cetak-petunjuk' }, [el('i', { style: 'background:' + x.warna }), x.tajuk + (x.nama && x.nama !== x.tajuk ? ' · ' + x.nama : '')]);
+        });
+        var kawasan = el('div', { id: 'kawasan-cetak' }, [
+          el('div', { class: 'cetak-kepala' }, [
+            el('img', { src: 'assets/logo-96.png', alt: '', width: '56', height: '56' }),
+            el('div', {}, [el('h1', {}, K.guru.nama_penuh), el('p', {}, 'Jadual waktu ' + K.tahun + ' · ' + K.guru.guru_kod + ' · Sekolah Menengah Islam Al-Amin Gombak')]),
+            el('div', { class: 'cetak-jam' }, ['Jam kredit berjadual: ' + K.jam.berjadual + ' / ' + K.had.had_berjadual, el('br'), 'Tidak berjadual: ' + K.jam.tidak_berjadual + ' / ' + K.had.had_tidak_berjadual])
+          ]),
+          G.grid,
+          el('div', { class: 'cetak-kaki' }, [el('div', { class: 'cetak-petunjuk-senarai' }, petunjuk), el('span', {}, 'Dicetak ' + UI.fmtDate(hari.getFullYear() + '-' + ('0' + (hari.getMonth() + 1)).slice(-2) + '-' + ('0' + hari.getDate()).slice(-2)))])
+        ]);
+        document.body.appendChild(kawasan);
+        document.body.classList.add('mod-cetak');
+        var siap = function () { document.body.classList.remove('mod-cetak'); window.removeEventListener('afterprint', siap); };
+        window.addEventListener('afterprint', siap);
+        setTimeout(function () { window.print(); }, 50);
       }
+
       function borangSlot(s) {
         s = s || {};
-        var opsi = pilihanMasa();
         App.formDialog({
           title: s.id ? 'Sunting slot' : 'Tambah slot',
           fields: [
             { name: 'hari', label: 'Hari', type: 'select', required: true, options: K.ref.hari, value: s.hari || 'isnin' },
-            { name: 'masa_mula', label: 'Masa mula', type: 'select', required: true, options: opsi, value: s.masa_mula || (K.ref.waktu[1] || {}).masa_mula },
-            { name: 'masa_akhir', label: 'Masa tamat', type: 'select', required: true, options: opsi, value: s.masa_akhir || (K.ref.waktu[2] || {}).masa_akhir },
+            { name: 'masa_mula', label: 'Masa mula', type: 'masa', required: true, value: s.masa_mula || '07:40' },
+            { name: 'masa_akhir', label: 'Masa tamat', type: 'masa', required: true, value: s.masa_akhir || '08:40', hint: 'Pilih "Masa lain…" jika masa tidak ada dalam senarai (contoh 12.00 hingga 12.50).' },
             { name: 'subjek_id', label: 'Subjek', type: 'select', options: K.ref.subjek.map(function (x) { return { value: x.id, label: (x.kod ? x.kod + ' · ' : '') + x.nama }; }), value: s.subjek_id, placeholder: '— Bukan subjek —' },
             { name: 'label', label: 'Aktiviti (jika bukan subjek)', value: s.label, placeholder: 'contoh: Perhimpunan, Usrah, KOKU', attrs: { maxlength: '60' } },
             { name: 'kelas_ids', label: 'Kelas', type: 'multicheck', options: K.ref.kelas.map(function (k) { return { value: k.id, label: k.nama }; }), value: s.kelas_ids,
@@ -195,7 +261,7 @@
           var del = el('button', { class: 'btn btn-ghost', type: 'button', style: 'margin-right:auto;color:var(--red-700)' }, 'Padam slot');
           del.addEventListener('click', function () {
             document.querySelector('dialog').close();
-            App.confirm('Padam slot?', slotTajuk(s) + ', ' + App.labelOf(K.ref.hari, s.hari) + ' ' + s.masa_mula + '–' + s.masa_akhir, 'Padam', true).then(function (ok) {
+            App.confirm('Padam slot?', slotTajuk(s) + ', ' + App.labelOf(K.ref.hari, s.hari) + ' ' + App.fmtMasa(s.masa_mula) + '–' + App.fmtMasa(s.masa_akhir), 'Padam', true).then(function (ok) {
               if (ok) call('SLOT_PADAM', { id: s.id }).then(function () { UI.toast('Slot dipadam.'); muat(); }, function (e) { UI.toast(e.message); });
             });
           });
@@ -209,10 +275,10 @@
         K.pertindihan.forEach(function (p) {
           var a = p.a, b = p.b, hari = App.labelOf(K.ref.hari, a.hari);
           if (p.jenis === 'guru') {
-            out.push(el('div', { class: 'notice notice-error' }, el('span', {}, 'Pertindihan jadual: ' + slotTajuk(a) + ' (' + a.masa_mula + '–' + a.masa_akhir + ') dan ' + slotTajuk(b) + ' (' + b.masa_mula + '–' + b.masa_akhir + ') pada ' + hari + '.')));
+            out.push(el('div', { class: 'notice notice-error' }, el('span', {}, 'Pertindihan jadual: ' + slotTajuk(a) + ' (' + App.fmtMasa(a.masa_mula) + '–' + App.fmtMasa(a.masa_akhir) + ') dan ' + slotTajuk(b) + ' (' + App.fmtMasa(b.masa_mula) + '–' + App.fmtMasa(b.masa_akhir) + ') pada ' + hari + '.')));
           } else {
             var lain = a.milik ? b : a;
-            out.push(el('div', { class: 'notice notice-warn' }, el('span', {}, 'Kelas ' + p.kelas + ' juga ada ' + slotTajuk(lain) + (lain.guru ? ' bersama ' + lain.guru : '') + ' pada ' + hari + ' ' + lain.masa_mula + '–' + lain.masa_akhir + '. Abaikan jika ini kelas elektif yang dipecahkan.')));
+            out.push(el('div', { class: 'notice notice-warn' }, el('span', {}, 'Kelas ' + p.kelas + ' juga ada ' + slotTajuk(lain) + (lain.guru ? ' bersama ' + lain.guru : '') + ' pada ' + hari + ' ' + App.fmtMasa(lain.masa_mula) + '–' + App.fmtMasa(lain.masa_akhir) + '. Abaikan jika ini kelas elektif yang dipecahkan.')));
           }
         });
         return out;

@@ -53,6 +53,7 @@ function getActions() {
     KURIKULUM_LIHAT:      { roles: R_SEMUA, handler: aksiKurikulumLihat },
     SLOT_SIMPAN:          { roles: R_SEMUA, handler: aksiSlotSimpan },
     SLOT_PADAM:           { roles: R_SEMUA, handler: aksiSlotPadam },
+    WARNA_JADUAL_SIMPAN:  { roles: R_SEMUA, handler: aksiWarnaJadualSimpan },
     SLOT_KOSONG:          { roles: R_ADMIN, handler: aksiSlotKosong },
     SLOT_KOSONG_RUJUKAN:  { roles: R_ADMIN, handler: aksiSlotKosongRujukan },
     KURIKULUM_RUJUKAN:    { roles: R_SUPER, handler: aksiKurikulumRujukan },

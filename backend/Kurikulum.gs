@@ -186,6 +186,7 @@ function aksiKurikulumLihat(ctx, params) {
       return { jenis: p.jenis, kelas: p.kelas_id ? kelasNama[p.kelas_id] : null, a: huraiSlot(a), b: huraiSlot(b) };
     }),
     luar_opsyen: luarOpsyen,
+    warna: query('warna_jadual', { guru_id: guru.id }).reduce(function (o, w) { o[w.kunci] = w.warna; return o; }, {}),
     semakan_silang: { bilangan_slot: milik.length, waktu: milik.reduce(function (a, s) { return a + (s.tempoh || 0); }, 0), jam_jadual: _bundar(minitJadual / 60) },
     ref: {
       subjek: subjek, kelas: kelas.map(_pilih(['id', 'nama', 'tingkatan'])),
@@ -254,6 +255,23 @@ function aksiSlotPadam(ctx, params) {
   remove('jadual_slot', id);
   _auditJikaOrangLain(ctx, guru, 'SUNTING_JADUAL_GURU', 'slot dipadam');
   return { dipadam: true };
+}
+
+/**
+ * Simpan warna jadual guru (ganti semua). params: { guru_id?, warna: { kunci: '#rrggbb' } }
+ * Guru untuk diri sendiri; pentadbir untuk mana-mana guru.
+ */
+function aksiWarnaJadualSimpan(ctx, params) {
+  var guru = _sasaranGuru(ctx, params.guru_id);
+  var w = params.warna;
+  if (!w || typeof w !== 'object' || Array.isArray(w) || Object.keys(w).length > 60) throw new AppError('VALIDASI', 'Senarai warna tidak sah.');
+  var rows = Object.keys(w).map(function (k) {
+    if (!(UUID_RE.test(k) || /^label:.{1,60}$/.test(k))) throw new AppError('VALIDASI', 'Kunci warna tidak sah.');
+    if (typeof w[k] !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(w[k])) throw new AppError('VALIDASI', 'Warna mesti kod seperti #cfe3f5.');
+    return { guru_id: guru.id, kunci: k, warna: w[k].toLowerCase() };
+  });
+  replaceWhere('warna_jadual', { guru_id: guru.id }, rows, { actorId: ctx.akaunId, skipFk: true });
+  return { disimpan: rows.length };
 }
 
 /** Cari guru yang tiada kelas pada hari dan masa tertentu (untuk guru ganti). Pentadbir sahaja. */

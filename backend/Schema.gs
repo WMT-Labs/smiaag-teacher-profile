@@ -86,6 +86,12 @@ var _TABLE_DEFS = {
     cols: ['id:uuid!', 'slot_id:fk(jadual_slot)!', 'kelas_id:fk(kelas)!'],
     unique: [['slot_id', 'kelas_id']]
   },
+  warna_jadual: {
+    // Warna pilihan setiap guru untuk subjek/aktiviti dalam jadual (paparan dan cetakan).
+    // kunci = subjek_id, atau "label:<nama aktiviti>" untuk slot bukan subjek.
+    cols: ['id:uuid!', 'guru_id:fk(guru)!', 'kunci:text!', 'warna:text!'],
+    unique: [['guru_id', 'kunci']]
+  },
   waktu: {
     // Templat waktu persekolahan bagi setiap tahun (waktu 1 = 07:30-07:40, ...). Digunakan untuk borang jadual.
     cols: ['id:uuid!', 'tahun_akademik:year!', 'nombor:int[1..30]!', 'masa_mula:time!', 'masa_akhir:time!'],

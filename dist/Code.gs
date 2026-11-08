@@ -300,6 +300,12 @@ var _TABLE_DEFS = {
     cols: ['id:uuid!', 'slot_id:fk(jadual_slot)!', 'kelas_id:fk(kelas)!'],
     unique: [['slot_id', 'kelas_id']]
   },
+  warna_jadual: {
+    // Warna pilihan setiap guru untuk subjek/aktiviti dalam jadual (paparan dan cetakan).
+    // kunci = subjek_id, atau "label:<nama aktiviti>" untuk slot bukan subjek.
+    cols: ['id:uuid!', 'guru_id:fk(guru)!', 'kunci:text!', 'warna:text!'],
+    unique: [['guru_id', 'kunci']]
+  },
   waktu: {
     // Templat waktu persekolahan bagi setiap tahun (waktu 1 = 07:30-07:40, ...). Digunakan untuk borang jadual.
     cols: ['id:uuid!', 'tahun_akademik:year!', 'nombor:int[1..30]!', 'masa_mula:time!', 'masa_akhir:time!'],
@@ -2303,6 +2309,7 @@ function aksiKurikulumLihat(ctx, params) {
       return { jenis: p.jenis, kelas: p.kelas_id ? kelasNama[p.kelas_id] : null, a: huraiSlot(a), b: huraiSlot(b) };
     }),
     luar_opsyen: luarOpsyen,
+    warna: query('warna_jadual', { guru_id: guru.id }).reduce(function (o, w) { o[w.kunci] = w.warna; return o; }, {}),
     semakan_silang: { bilangan_slot: milik.length, waktu: milik.reduce(function (a, s) { return a + (s.tempoh || 0); }, 0), jam_jadual: _bundar(minitJadual / 60) },
     ref: {
       subjek: subjek, kelas: kelas.map(_pilih(['id', 'nama', 'tingkatan'])),
@@ -2371,6 +2378,23 @@ function aksiSlotPadam(ctx, params) {
   remove('jadual_slot', id);
   _auditJikaOrangLain(ctx, guru, 'SUNTING_JADUAL_GURU', 'slot dipadam');
   return { dipadam: true };
+}
+
+/**
+ * Simpan warna jadual guru (ganti semua). params: { guru_id?, warna: { kunci: '#rrggbb' } }
+ * Guru untuk diri sendiri; pentadbir untuk mana-mana guru.
+ */
+function aksiWarnaJadualSimpan(ctx, params) {
+  var guru = _sasaranGuru(ctx, params.guru_id);
+  var w = params.warna;
+  if (!w || typeof w !== 'object' || Array.isArray(w) || Object.keys(w).length > 60) throw new AppError('VALIDASI', 'Senarai warna tidak sah.');
+  var rows = Object.keys(w).map(function (k) {
+    if (!(UUID_RE.test(k) || /^label:.{1,60}$/.test(k))) throw new AppError('VALIDASI', 'Kunci warna tidak sah.');
+    if (typeof w[k] !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(w[k])) throw new AppError('VALIDASI', 'Warna mesti kod seperti #cfe3f5.');
+    return { guru_id: guru.id, kunci: k, warna: w[k].toLowerCase() };
+  });
+  replaceWhere('warna_jadual', { guru_id: guru.id }, rows, { actorId: ctx.akaunId, skipFk: true });
+  return { disimpan: rows.length };
 }
 
 /** Cari guru yang tiada kelas pada hari dan masa tertentu (untuk guru ganti). Pentadbir sahaja. */
@@ -3387,6 +3411,7 @@ function getActions() {
     KURIKULUM_LIHAT:      { roles: R_SEMUA, handler: aksiKurikulumLihat },
     SLOT_SIMPAN:          { roles: R_SEMUA, handler: aksiSlotSimpan },
     SLOT_PADAM:           { roles: R_SEMUA, handler: aksiSlotPadam },
+    WARNA_JADUAL_SIMPAN:  { roles: R_SEMUA, handler: aksiWarnaJadualSimpan },
     SLOT_KOSONG:          { roles: R_ADMIN, handler: aksiSlotKosong },
     SLOT_KOSONG_RUJUKAN:  { roles: R_ADMIN, handler: aksiSlotKosongRujukan },
     KURIKULUM_RUJUKAN:    { roles: R_SUPER, handler: aksiKurikulumRujukan },

@@ -447,3 +447,29 @@ table.data th[aria-sort="descending"]::after { content: " ▼"; font-size: .625r
 .rangka-kad i:first-child { height: 18px; }
 @keyframes kilau { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .rangka-kad i { animation: none; } }
+
+/* ======================= Cetak jadual ======================= */
+#kawasan-cetak { display: none; }
+.cetak-kepala { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+.cetak-kepala h1 { font-size: 16pt; margin: 0; }
+.cetak-kepala p { margin: 2px 0 0; font-size: 9pt; color: #444; }
+.cetak-jam { margin-left: auto; text-align: right; font-size: 9pt; color: #444; }
+.cetak-kaki { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 8pt; color: #555; }
+.cetak-petunjuk-senarai { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.cetak-petunjuk { display: inline-flex; align-items: center; gap: 4px; }
+.cetak-petunjuk i { width: 10px; height: 10px; border: 1px solid #999; display: inline-block; }
+@media print {
+  @page { size: A4 landscape; margin: 8mm; }
+  body.mod-cetak { background: #fff; }
+  body.mod-cetak > *:not(#kawasan-cetak) { display: none !important; }
+  body.mod-cetak #kawasan-cetak { display: block; color: #000; font-family: var(--font); }
+  #kawasan-cetak, #kawasan-cetak * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #kawasan-cetak .tt { min-width: 0; gap: 2px; font-size: 7.5pt; }
+  #kawasan-cetak .tt .h { font-size: 6.5pt; padding: 2px 0; color: #333; }
+  #kawasan-cetak .tt .h b { font-size: 8pt; }
+  #kawasan-cetak .tt .d { font-size: 9pt; background: #eef2f5; color: #0b3a5c; min-height: 22mm; }
+  #kawasan-cetak .tt .bg { background: #f6f8f9; min-height: 22mm; border: 1px solid #e3e8eb; }
+  #kawasan-cetak .tt .s { min-height: 22mm; padding: 3px; border-width: 1px; }
+  #kawasan-cetak .tt .s b { font-size: 9pt; }
+  #kawasan-cetak .tt .s span { font-size: 7pt; }
+}
