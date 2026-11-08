@@ -14,6 +14,37 @@
 
 function _isAdmin(ctx) { return ctx.role === 'pentadbir' || ctx.role === 'superadmin'; }
 
+/** Guru sebenar yang aktif (tidak termasuk akaun sistem seperti ADMIN01). Guna untuk SEMUA senarai/kiraan guru. */
+function senaraiGuruMengajar(opts) {
+  var f = { akaun_sistem: { ne: true } };
+  if (!(opts && opts.termasukTidakAktif)) f.aktif = true;
+  return query('guru', f, { orderBy: 'nama_penuh' });
+}
+
+var EMAIL_RE = /^[^\s@<>()",;:]{1,64}@[A-Za-z0-9.-]{1,200}\.[A-Za-z]{2,24}$/;
+
+/** Sahkan emel (pilihan) dan pastikan tiada guru lain menggunakannya. */
+function _semakEmel(email, guruIdSendiri) {
+  if (!email) return null;
+  email = String(email).trim().toLowerCase();
+  if (!EMAIL_RE.test(email) || email.length > 254) throw new AppError('VALIDASI', 'Alamat emel tidak sah.', { field: 'email' });
+  var lain = query('guru', { email: email }).filter(function (g) { return g.id !== guruIdSendiri; });
+  if (lain.length) throw new AppError('DUPLIKAT', 'Emel ini sudah digunakan oleh ' + lain[0].guru_kod + '.', { field: 'email' });
+  return email;
+}
+
+/** Nama ringkas untuk hebahan: nama_panggilan, atau perkataan sebelum bin/binti (maksimum 2 perkataan). */
+function namaPanggilan(g) {
+  if (g.nama_panggilan) return g.nama_panggilan;
+  var w = String(g.nama_penuh || '').split(/\s+/).filter(Boolean);
+  var out = [];
+  for (var i = 0; i < w.length && out.length < 2; i++) {
+    if (/^(bin|binti|bt|bte|b\.|a\/l|a\/p)$/i.test(w[i])) break;
+    out.push(w[i]);
+  }
+  return out.join(' ') || g.guru_kod;
+}
+
 /**
  * Tentukan guru sasaran. Tiada guru_id atau guru_id sendiri = diri sendiri.
  * guru_id lain hanya untuk pentadbir/superadmin.
@@ -35,8 +66,10 @@ function _auditJikaOrangLain(ctx, guru, tindakan, butiran) {
 function _guruUntukPelayar(ctx, guru) {
   var admin = _isAdmin(ctx);
   var out = {
-    id: guru.id, guru_kod: guru.guru_kod, nama_penuh: guru.nama_penuh, status_lantikan: guru.status_lantikan,
-    jawatan: guru.jawatan, tarikh_lantikan: guru.tarikh_lantikan, tarikh_disahkan: guru.tarikh_disahkan, aktif: guru.aktif,
+    id: guru.id, guru_kod: guru.guru_kod, nama_penuh: guru.nama_penuh, nama_panggilan: guru.nama_panggilan,
+    panggilan: namaPanggilan(guru), status_lantikan: guru.status_lantikan,
+    jawatan: guru.jawatan, tarikh_lantikan: guru.tarikh_lantikan, tarikh_tamat_praktikal: guru.tarikh_tamat_praktikal,
+    tarikh_disahkan: guru.tarikh_disahkan, email: guru.email, akaun_sistem: !!guru.akaun_sistem, aktif: guru.aktif,
     ada_telefon: !!guru.no_telefon,
     no_telefon: guru.no_telefon ? (admin ? formatPhone(guru.no_telefon) : maskPhone(guru.no_telefon)) : null,
     telefon_penuh: admin,
@@ -79,6 +112,7 @@ function aksiProfilLihat(ctx, params) {
     milik_sendiri: guru.id === ctx.guruId,
     boleh: { sunting: true, cerapan: true, sahkan_percubaan: _isAdmin(ctx) },
     percubaan: statusPercubaan(guru, hariIni()),
+    praktikal: statusPraktikal(guru, hariIni()),
     kelayakan: query('kelayakan', { guru_id: guru.id }, { orderBy: 'tahun_tamat', desc: true }).map(_pilih(['id', 'tahap', 'bidang', 'institusi', 'tahun_tamat'])),
     opsyen: opsyen,
     kursus: query('kursus', { guru_id: guru.id }, { orderBy: 'tarikh_mula', desc: true }).map(_pilih(['id', 'tajuk', 'penganjur', 'tarikh_mula', 'tarikh_tamat', 'jam', 'tahap'])),
@@ -103,8 +137,12 @@ function aksiProfilSimpanTeras(ctx, params) {
     nama_penuh: pStr(params, 'nama_penuh', { label: 'Nama penuh', min: 3, max: 150 }),
     status_lantikan: pStr(params, 'status_lantikan', { label: 'Status lantikan', max: 30 }),
     jawatan: pStr(params, 'jawatan', { label: 'Jawatan', max: 100, optional: true }),
-    tarikh_lantikan: pStr(params, 'tarikh_lantikan', { label: 'Tarikh lantikan', max: 10, optional: true })
+    tarikh_lantikan: pStr(params, 'tarikh_lantikan', { label: 'Tarikh lantikan', max: 10, optional: true }),
+    nama_panggilan: pStr(params, 'nama_panggilan', { label: 'Nama panggilan', max: 40, optional: true }),
+    tarikh_tamat_praktikal: pStr(params, 'tarikh_tamat_praktikal', { label: 'Tarikh tamat praktikal', max: 10, optional: true })
   };
+  if (patch.status_lantikan !== 'praktikal') patch.tarikh_tamat_praktikal = null;
+  if (params.email !== undefined) patch.email = _semakEmel(pStr(params, 'email', { label: 'Emel', max: 254, optional: true }), guru.id);
   if (patch.tarikh_lantikan && patch.tarikh_lantikan > hariIni()) {
     throw new AppError('VALIDASI', 'Tarikh lantikan tidak boleh pada masa depan.', { field: 'tarikh_lantikan' });
   }
@@ -263,6 +301,17 @@ function statusPercubaan(guru, hari) {
   return { tarikh_tamat: tamat, tamat: !!tamat && hari >= tamat, perlu_tarikh_lantikan: !tamat };
 }
 
+var HARI_AMARAN_PRAKTIKAL = 30;
+
+/** null jika bukan praktikal; jika ya { tarikh_tamat, tamat, hampir (dalam 30 hari), perlu_tarikh }. */
+function statusPraktikal(guru, hari) {
+  if (!guru || guru.status_lantikan !== 'praktikal') return null;
+  var t = guru.tarikh_tamat_praktikal;
+  if (!t) return { tarikh_tamat: null, tamat: false, hampir: false, perlu_tarikh: true };
+  var hariLagi = Math.round((Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10)) - Date.UTC(+hari.slice(0, 4), +hari.slice(5, 7) - 1, +hari.slice(8, 10))) / 86400000);
+  return { tarikh_tamat: t, tamat: hariLagi < 0, hampir: hariLagi >= 0 && hariLagi <= HARI_AMARAN_PRAKTIKAL, hari_lagi: hariLagi, perlu_tarikh: false };
+}
+
 function aksiPercubaanSahkan(ctx, params) {
   var guru = _sasaranGuru(ctx, pUuid(params, 'guru_id', 'Guru'));
   if (guru.status_lantikan !== 'percubaan') throw new AppError('VALIDASI', 'Guru ini bukan dalam tempoh percubaan.');
@@ -305,11 +354,11 @@ function aksiGuruSenarai(ctx) {
   return {
     tahun: tahun,
     had: had,
-    guru: query('guru', {}, { orderBy: 'nama_penuh' }).map(function (g) {
+    guru: senaraiGuruMengajar({ termasukTidakAktif: true }).map(function (g) {
       var jam = kiraJamKredit(tugasan[g.id] || []);
       return {
         id: g.id, guru_kod: g.guru_kod, nama_penuh: g.nama_penuh, jawatan: g.jawatan, status_lantikan: g.status_lantikan,
-        aktif: g.aktif, cerapan_tahun_ini: cerap[g.id] || 0, percubaan: statusPercubaan(g, hari),
+        aktif: g.aktif, cerapan_tahun_ini: cerap[g.id] || 0, percubaan: statusPercubaan(g, hari), praktikal: statusPraktikal(g, hari),
         jam_berjadual: jam.berjadual, jam_tidak_berjadual: jam.tidak_berjadual,
         status_beban: statusBebanKeseluruhan(jam, had)
       };

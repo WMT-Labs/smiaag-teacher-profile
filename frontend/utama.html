@@ -31,10 +31,12 @@
         return o.href ? el('a', { class: 'card link-card', href: o.href }, inner) : el('div', { class: 'card link-card soon' }, inner);
       }
       var links = el('section', { class: 'links', 'aria-label': 'Pautan pantas' });
-      links.appendChild(card({ icon: 'i-users', title: 'Profil saya', href: 'profil.html', desc: 'Maklumat teras, kelayakan, opsyen, kursus dan cerapan.' }));
-      links.appendChild(card({ icon: 'i-book', title: 'Kurikulum', href: 'kurikulum.html', desc: 'Tugasan, jam kredit dan jadual waktu anda.' }));
-      links.appendChild(card({ icon: 'i-trophy', title: 'Kokurikulum', href: 'koku.html', desc: 'Unit beruniform, kelab, rumah sukan dan pertandingan.' }));
-      links.appendChild(card({ icon: 'i-heart', title: 'HEM', href: 'hem.html', desc: 'Usrah pelajar, usrah guru dan kehadiran, Guru Tarbiah, Guru Kelas.' }));
+      if (!sesi.akaun_sistem) {
+        links.appendChild(card({ icon: 'i-users', title: 'Profil saya', href: 'profil.html', desc: 'Maklumat teras, kelayakan, opsyen, kursus dan cerapan.' }));
+        links.appendChild(card({ icon: 'i-book', title: 'Kurikulum', href: 'kurikulum.html', desc: 'Tugasan, jam kredit dan jadual waktu anda.' }));
+        links.appendChild(card({ icon: 'i-trophy', title: 'Kokurikulum', href: 'koku.html', desc: 'Unit beruniform, kelab, rumah sukan dan pertandingan.' }));
+        links.appendChild(card({ icon: 'i-heart', title: 'HEM', href: 'hem.html', desc: 'Usrah pelajar, usrah guru dan kehadiran, Guru Tarbiah, Guru Kelas.' }));
+      }
       if (admin) links.appendChild(card({ icon: 'i-clipboard', title: 'Senarai guru', href: 'guru.html', desc: 'Profil, jam kredit, percubaan dan cerapan setiap guru.' }));
       if (admin) links.appendChild(card({ icon: 'i-search', title: 'Cari guru ganti', href: 'slot-kosong.html', desc: 'Guru yang tiada kelas pada waktu tertentu.' }));
       if (admin) links.appendChild(card({ icon: 'i-trophy', title: 'Urus kokurikulum', href: 'koku-urus.html', desc: 'Kelab, unit, rumah sukan, juara dan pertandingan.' }));

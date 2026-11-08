@@ -29,7 +29,8 @@ function _barisAkaun(akaun, guru) {
   return {
     akaun_id: akaun.id, guru_id: guru ? guru.id : null,
     guru_kod: guru ? guru.guru_kod : '', nama_penuh: guru ? guru.nama_penuh : '',
-    status_lantikan: guru ? guru.status_lantikan : null,
+    status_lantikan: guru ? guru.status_lantikan : null, email: guru ? guru.email : null,
+    akaun_sistem: !!(guru && guru.akaun_sistem),
     role: akaun.role, aktif: !!akaun.aktif,
     wajib_tukar_password: !!akaun.wajib_tukar_password,
     persetujuan_pdpa_pada: akaun.persetujuan_pdpa_pada,
@@ -46,9 +47,13 @@ function aksiAkaunSenarai(ctx) {
     .sort(function (x, y) { return x.guru_kod < y.guru_kod ? -1 : 1; });
 }
 
-function _ciptaAkaunDalaman(kod, nama, status, role, actorId, tarikhLantikan) {
+/** opts: { tarikh_lantikan, email, akaun_sistem } */
+function _ciptaAkaunDalaman(kod, nama, status, role, actorId, opts) {
+  opts = typeof opts === 'string' ? { tarikh_lantikan: opts } : (opts || {});
   if (query('guru', { guru_kod: kod }).length) throw new AppError('DUPLIKAT', 'ID guru ' + kod + ' sudah wujud.', { field: 'guru_kod' });
-  var guru = insert('guru', { guru_kod: kod, nama_penuh: nama, status_lantikan: status, tarikh_lantikan: tarikhLantikan || null }, { actorId: actorId });
+  var email = _semakEmel(opts.email, null);
+  var guru = insert('guru', { guru_kod: kod, nama_penuh: nama, status_lantikan: status, tarikh_lantikan: opts.tarikh_lantikan || null,
+    email: email, akaun_sistem: opts.akaun_sistem === true }, { actorId: actorId });
   var pw = janaPasswordSementara();
   var salt = newSalt();
   var akaun;
@@ -68,7 +73,12 @@ function aksiAkaunCipta(ctx, params) {
   var role = pOneOf(params, 'role', SEMUA_ROLE, 'Peranan');
   var tarikh = pStr(params, 'tarikh_lantikan', { label: 'Tarikh lantikan', max: 10, optional: true });
   if (tarikh && tarikh > hariIni()) throw new AppError('VALIDASI', 'Tarikh lantikan tidak boleh pada masa depan.', { field: 'tarikh_lantikan' });
-  var r = _ciptaAkaunDalaman(kod, nama, status, role, ctx.akaunId, tarikh);
+  var sistem = params.akaun_sistem === true;
+  if (sistem && role === 'guru') throw new AppError('VALIDASI', 'Akaun sistem mesti berperanan Pentadbir atau Superadmin.', { field: 'role' });
+  var r = _ciptaAkaunDalaman(kod, nama, status, role, ctx.akaunId, {
+    tarikh_lantikan: tarikh, akaun_sistem: sistem,
+    email: pStr(params, 'email', { label: 'Emel', max: 254, optional: true })
+  });
   logAudit(ctx.akaunId, 'AKAUN_CIPTA', kod, 'peranan=' + role);
   return { akaun: _barisAkaun(r.akaun, r.guru), password_sementara: r.password };
 }
@@ -122,7 +132,8 @@ function aksiAkaunBukaKunci(ctx, params) {
 
 /**
  * Cipta superadmin pertama (sekali sahaja, dijalankan dari editor Apps Script).
- *  1. Project Settings > Script Properties: tambah BOOTSTRAP_GURU_KOD (contoh SM216) dan BOOTSTRAP_NAMA.
+ *  1. Project Settings > Script Properties: tambah BOOTSTRAP_GURU_KOD (contoh ADMIN01) dan BOOTSTRAP_NAMA
+ *     (contoh "Pentadbir Sistem"). Akaun ini ialah AKAUN SISTEM (bukan guru) dan tidak dikira sebagai guru.
  *  2. Pilih fungsi ini, tekan Run. Kata laluan sementara dipaparkan dalam Execution log.
  *  3. Log masuk dan tukar kata laluan. Dua property tadi dipadam automatik.
  * Fungsi ini menolak jika superadmin sudah wujud.
@@ -135,7 +146,7 @@ function ciptaSuperadminPertama() {
   if (!GURU_KOD_RE.test(kod) || nama.length < 3) {
     throw new Error('Tetapkan dahulu BOOTSTRAP_GURU_KOD dan BOOTSTRAP_NAMA dalam Project Settings > Script Properties.');
   }
-  var r = _ciptaAkaunDalaman(kod, nama, 'tetap', 'superadmin', 'setup');
+  var r = _ciptaAkaunDalaman(kod, nama, 'lain_lain', 'superadmin', 'setup', { akaun_sistem: true });
   props.deleteProperty('BOOTSTRAP_GURU_KOD');
   props.deleteProperty('BOOTSTRAP_NAMA');
   logAudit(r.akaun.id, 'AKAUN_CIPTA_SUPERADMIN_PERTAMA', kod);

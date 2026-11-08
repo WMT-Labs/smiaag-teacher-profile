@@ -266,7 +266,7 @@ function aksiSlotKosong(ctx, params) {
   var subjekId = params.subjek_id ? pUuid(params, 'subjek_id', 'Subjek') : null;
   var jabatan = pStr(params, 'jabatan', { label: 'Jabatan', max: 20, optional: true });
 
-  var guru = query('guru', { aktif: true }, { orderBy: 'nama_penuh' });
+  var guru = senaraiGuruMengajar();
   var kosong = cariGuruKosong(guru.map(function (g) { return g.id; }), _slotTahun(tahun, true), hari, mula, akhir);
   var set = {}; kosong.forEach(function (id) { set[id] = true; });
 

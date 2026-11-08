@@ -63,17 +63,20 @@
       .then(function () { Api.clearSession(); location.replace('index.html'); });
   }
 
-  function navItems(role) {
+  function navItems(role, sistem) {
     var admin = role === 'pentadbir' || role === 'superadmin';
     var items = [
       { label: 'Utama' },
-      { key: 'utama', href: 'utama.html', text: 'Laman utama', icon: 'i-dashboard' },
+      { key: 'utama', href: 'utama.html', text: 'Laman utama', icon: 'i-dashboard' }
+    ];
+    // Akaun sistem (contoh ADMIN01) bukan guru: tiada profil, kurikulum, koku atau HEM sendiri
+    if (!sistem) items = items.concat([
       { key: 'profil', href: 'profil.html', text: 'Profil saya', icon: 'i-users' },
       { label: 'Bahagian' },
       { key: 'kuri', href: 'kurikulum.html', text: 'Kurikulum', icon: 'i-book' },
       { key: 'koku', href: 'koku.html', text: 'Kokurikulum', icon: 'i-trophy' },
       { key: 'hem', href: 'hem.html', text: 'HEM', icon: 'i-heart' }
-    ];
+    ]);
     if (admin) {
       items.push({ label: 'Pentadbiran' });
       items.push({ key: 'dashboard', href: 'dashboard.html', text: 'Dashboard sekolah', icon: 'i-dashboard' });
@@ -95,7 +98,7 @@
   function mount(opt) {
     var sesi = opt.sesi;
     var nav = el('nav', { class: 'nav' });
-    navItems(sesi.role).forEach(function (it) {
+    navItems(sesi.role, sesi.akaun_sistem).forEach(function (it) {
       if (it.label) { nav.appendChild(el('div', { class: 'nav-label' }, it.label)); return; }
       var a = el('a', { href: it.href || '#' }, [icon(it.icon), it.text]);
       if (it.soon) { a.className = 'soon'; a.setAttribute('aria-disabled', 'true'); a.appendChild(el('span', { class: 'chip' }, it.soon)); }

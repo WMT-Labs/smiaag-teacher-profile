@@ -185,3 +185,23 @@ test('percubaan: guru boleh tukar status sendiri tetapi tidak boleh sahkan diri 
   assert.equal(call('PERCUBAAN_SAHKAN', { guru_id: gidA }, ADM.token).code, 'VALIDASI', 'sudah tetap');
   assert.ok(ctx.query('audit_log', { tindakan: 'SAHKAN_GURU_TETAP' }).length === 1);
 });
+
+test('nama panggilan, emel dan tarikh tamat praktikal', () => {
+  const { ctx, call, A, B, ADM, gidA } = dunia();
+  assert.equal(ctx.namaPanggilan({ nama_penuh: 'Farah Hanani binti Ahmad' }), 'Farah Hanani');
+  assert.equal(ctx.namaPanggilan({ nama_penuh: 'Muhammad Irfan Hakimi bin Ali' }), 'Muhammad Irfan');
+  assert.equal(ctx.namaPanggilan({ nama_penuh: 'Ali', nama_panggilan: 'Cikgu Ali' }), 'Cikgu Ali');
+  const base = { nama_penuh: 'Guru Contoh SMA01', status_lantikan: 'praktikal' };
+  assert.equal(call('PROFIL_SIMPAN_TERAS', { ...base, email: 'tak-sah' }, A.token).code, 'VALIDASI');
+  const r = call('PROFIL_SIMPAN_TERAS', { ...base, email: 'Guru.A@Contoh.com', nama_panggilan: 'Cg A', tarikh_tamat_praktikal: '2026-11-20' }, A.token).data;
+  assert.equal(r.email, 'guru.a@contoh.com', 'huruf kecil');
+  assert.equal(r.panggilan, 'Cg A');
+  assert.equal(call('PROFIL_SIMPAN_TERAS', { nama_penuh: 'Guru B', status_lantikan: 'tetap', email: 'guru.a@contoh.com' }, B.token).code, 'DUPLIKAT');
+  const p = call('PROFIL_LIHAT', { guru_id: gidA }, ADM.token).data;
+  assert.deepEqual([p.praktikal.hampir, p.praktikal.hari_lagi, p.praktikal.tamat], [true, 14, false]);
+  const s = call('GURU_SENARAI', {}, ADM.token).data.guru.find((g) => g.id === gidA);
+  assert.equal(s.praktikal.hampir, true);
+  call('PROFIL_SIMPAN_TERAS', { nama_penuh: 'Guru Contoh SMA01', status_lantikan: 'tetap' }, A.token);
+  assert.equal(ctx.getById('guru', gidA).tarikh_tamat_praktikal, null, 'dikosongkan bila bukan praktikal');
+  assert.equal(ctx.getById('guru', gidA).email, 'guru.a@contoh.com', 'emel kekal jika tidak dihantar');
+});

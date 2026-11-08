@@ -291,3 +291,41 @@ test('cipta akaun dengan status Percubaan dan tarikh lantikan', () => {
   assert.equal(call('AKAUN_CIPTA', { guru_kod: 'SMP03', nama_penuh: 'Guru Kontrak', status_lantikan: 'kontrak', role: 'guru' }, superToken).code, 'VALIDASI', 'kontrak tiada lagi');
   assert.equal(call('AKAUN_CIPTA', { guru_kod: 'SMP04', nama_penuh: 'Masa Depan', status_lantikan: 'percubaan', role: 'guru', tarikh_lantikan: '2030-01-01' }, superToken).code, 'VALIDASI');
 });
+
+test('akaun sistem (ADMIN01): bukan guru, dikecualikan daripada senarai dan kiraan', () => {
+  const { ctx, call, superToken, ciptaGuru } = setupWithSuperadmin();
+  const adm = ciptaGuru('ADX01', 'pentadbir');
+  assert.equal(call('AKAUN_CIPTA', { guru_kod: 'ADMIN99', nama_penuh: 'Akaun Ujian', status_lantikan: 'lain_lain', role: 'guru', akaun_sistem: true }, superToken).code, 'VALIDASI', 'akaun sistem mesti pentadbir/superadmin');
+  const r = call('AKAUN_CIPTA', { guru_kod: 'ADMIN01', nama_penuh: 'Pentadbir Sistem', status_lantikan: 'lain_lain', role: 'superadmin', akaun_sistem: true }, superToken);
+  assert.equal(r.ok, true, r.message);
+  assert.equal(r.data.akaun.akaun_sistem, true);
+  const senarai = call('GURU_SENARAI', {}, adm.token).data.guru.map((g) => g.guru_kod);
+  assert.ok(!senarai.includes('ADMIN01'));
+  assert.ok(senarai.includes('SA001'), 'akaun bukan sistem kekal dalam senarai guru');
+  const d = call('DASHBOARD', {}, adm.token).data.guru.map((g) => g.guru_kod);
+  assert.ok(!d.includes('ADMIN01'));
+  assert.ok(!call('KOKU_URUS', {}, adm.token).data.ref.guru.some((g) => g.guru_kod === 'ADMIN01'));
+  assert.ok(!call('HEM_URUS', {}, adm.token).data.guru_tanpa_usrah.some((g) => g.guru_kod === 'ADMIN01'));
+  assert.ok(!call('IMPORT_RUJUKAN', {}, adm.token).data.guru.some((g) => g.guru_kod === 'ADMIN01'));
+  assert.ok(call('AKAUN_SENARAI', {}, superToken).data.some((a) => a.guru_kod === 'ADMIN01' && a.akaun_sistem), 'masih dalam Urus akaun');
+  assert.ok(ctx);
+});
+
+test('ciptaSuperadminPertama mencipta akaun sistem', () => {
+  const { ctx, env } = loadReady();
+  env.props.BOOTSTRAP_GURU_KOD = 'ADMIN01';
+  env.props.BOOTSTRAP_NAMA = 'Pentadbir Sistem';
+  ctx.ciptaSuperadminPertama();
+  const g = ctx.query('guru', { guru_kod: 'ADMIN01' })[0];
+  assert.equal(g.akaun_sistem, true);
+  assert.equal(ctx.senaraiGuruMengajar().length, 0);
+});
+
+test('setupTemplate mencipta tab paparan lihat_akaun dengan formula (tiada UUID dipaparkan)', () => {
+  const { env } = loadReady();
+  const sh = env.ss.getSheetByName('lihat_akaun');
+  assert.ok(sh);
+  assert.deepEqual(sh.grid[0].slice(0, 3), ['ID guru', 'Nama', 'Peranan']);
+  assert.match(sh.grid[1][0], /^=ARRAYFORMULA\(IF\(akaun!A2:A="","",XLOOKUP\(akaun!B2:B,guru!A2:A,guru!B2:B,"\?"\)\)\)$/);
+  assert.match(sh.grid[1][1], /guru!C2:C/, 'nama_penuh');
+});

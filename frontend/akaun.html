@@ -97,6 +97,8 @@
         if (a.dikunci) badges.appendChild(badge('over', 'Dikunci'));
         if (a.aktif && a.wajib_tukar_password) badges.appendChild(badge('near', 'Kata laluan sementara'));
         if (a.aktif && !a.persetujuan_pdpa_pada) badges.appendChild(badge('neutral', 'Belum setuju PDPA'));
+        if (a.akaun_sistem) badges.appendChild(badge('neutral', 'Akaun sistem'));
+        if (!a.email) badges.appendChild(badge('near', 'Tiada emel'));
 
         var actions = el('div', { class: 'actions' });
         function act(text, kind, fn) { var b = el('button', { class: 'btn btn-sm ' + kind, type: 'button' }, text); b.addEventListener('click', function () { fn(a, b); }); actions.appendChild(b); }
@@ -128,7 +130,7 @@
       }
 
       // ---------- tindakan ----------
-      function tunjukPassword(tajuk, a, pw) {
+      function tunjukPassword(tajuk, a, pw, emel) {
         var copyBtn = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, 'Salin');
         copyBtn.addEventListener('click', function () {
           (navigator.clipboard ? navigator.clipboard.writeText(pw) : Promise.reject()).then(function () { copyBtn.textContent = 'Disalin'; }, function () { copyBtn.textContent = 'Salin manual'; });
@@ -138,8 +140,10 @@
           body: [
             el('dl', { class: 'kv' }, [el('dt', {}, 'Nama'), el('dd', {}, a.nama_penuh), el('dt', {}, 'ID guru'), el('dd', {}, a.guru_kod)]),
             el('div', {}, [el('div', { class: 'muted', style: 'font-size:.8125rem;margin-bottom:6px' }, 'Kata laluan sementara'), el('div', { class: 'secret' }, [el('span', {}, pw), copyBtn])]),
+            emel && emel.dihantar ? el('div', { class: 'notice notice-info' }, el('span', {}, 'Kata laluan sementara telah dihantar ke ' + emel.ke + '.'))
+              : emel && emel.ralat ? el('div', { class: 'notice notice-error' }, el('span', {}, 'Emel tidak dapat dihantar: ' + emel.ralat + ' Serahkan kata laluan secara terus.')) : null,
             el('div', { class: 'notice notice-warn' }, el('span', {}, 'Kata laluan ini dipaparkan sekali sahaja. Serahkan terus kepada guru berkenaan (bukan dalam kumpulan WhatsApp). Guru wajib menukarnya semasa log masuk pertama.'))
-          ],
+          ].filter(Boolean),
           actions: [{ text: 'Saya sudah catat', value: true }]
         });
       }
@@ -150,6 +154,8 @@
           nama: el('input', { class: 'input', id: 'n-nama', maxlength: '150' }),
           status: el('select', { class: 'select', id: 'n-status', style: 'min-height:46px' }, options(STATUS, 'tetap')),
           tarikh: el('input', { class: 'input', id: 'n-tarikh', type: 'date' }),
+          email: el('input', { class: 'input', id: 'n-email', type: 'email', maxlength: '254', autocomplete: 'off', placeholder: 'nama@contoh.com' }),
+          sistem: el('input', { type: 'checkbox', id: 'n-sistem' }),
           role: el('select', { class: 'select', id: 'n-role', style: 'min-height:46px' }, options(ROLES, 'guru'))
         };
         var alertText = el('span');
@@ -167,7 +173,9 @@
             field('n-nama', 'Nama penuh', f.nama),
             field('n-status', 'Status lantikan', f.status),
             field('n-tarikh', 'Tarikh lantikan (pilihan)', f.tarikh, 'Untuk status Percubaan, tempoh 6 bulan dikira dari tarikh ini.'),
-            field('n-role', 'Peranan', f.role)
+            field('n-email', 'Emel (pilihan)', f.email, 'Jika diisi, kata laluan sementara dihantar terus ke emel ini.'),
+            field('n-role', 'Peranan', f.role),
+            el('label', { class: 'check-inline', for: 'n-sistem' }, [f.sistem, 'Akaun sistem (bukan guru, contoh ADMIN01). Tidak dikira dalam senarai guru, dashboard dan guru ganti.'])
           ],
           actions: [
             { text: 'Batal', kind: 'btn-secondary', value: null },
@@ -176,7 +184,9 @@
               if (!f.kod.value.trim() || !f.nama.value.trim()) { alertText.textContent = 'Isi ID guru dan nama penuh.'; alertBox.hidden = false; return false; }
               if (f.status.value === 'percubaan' && !f.tarikh.value) { alertText.textContent = 'Isi tarikh lantikan untuk guru dalam percubaan.'; alertBox.hidden = false; return false; }
               b.disabled = true;
-              return Api.call('AKAUN_CIPTA', { guru_kod: f.kod.value, nama_penuh: f.nama.value, status_lantikan: f.status.value, role: f.role.value, tarikh_lantikan: f.tarikh.value || null })
+              if (f.sistem.checked && f.role.value === 'guru') { alertText.textContent = 'Akaun sistem mesti berperanan Pentadbir atau Superadmin.'; alertBox.hidden = false; return false; }
+              return Api.call('AKAUN_CIPTA', { guru_kod: f.kod.value, nama_penuh: f.nama.value, status_lantikan: f.status.value, role: f.role.value,
+                tarikh_lantikan: f.tarikh.value || null, email: f.email.value.trim() || null, akaun_sistem: f.sistem.checked })
                 .then(function (r) { created = r; return true; })
                 .catch(function (e) { alertText.textContent = e.message; alertBox.hidden = false; b.disabled = false; return false; });
             } }
@@ -186,7 +196,7 @@
           data.push(created.akaun);
           data.sort(function (x, y) { return x.guru_kod < y.guru_kod ? -1 : 1; });
           render();
-          tunjukPassword('Akaun dicipta', created.akaun, created.password_sementara);
+          tunjukPassword('Akaun dicipta', created.akaun, created.password_sementara, created.emel);
         });
         setTimeout(function () { f.kod.focus(); }, 50);
       }
@@ -197,7 +207,7 @@
           b.disabled = true;
           Api.call('AKAUN_RESET_PASSWORD', { akaun_id: a.akaun_id }).then(function (r) {
             ganti(r.akaun);
-            tunjukPassword('Kata laluan direset', r.akaun, r.password_sementara);
+            tunjukPassword('Kata laluan direset', r.akaun, r.password_sementara, r.emel);
           }).catch(function (e) { UI.toast(e.message); b.disabled = false; });
         });
       }

@@ -255,11 +255,15 @@ Unik: (kod)
 | id (PK) | uuid | ya |  |  |
 | guru_kod | text | ya |  |  |
 | nama_penuh | text | ya |  |  |
+| nama_panggilan | text |  |  |  |
 | status_lantikan | text | ya | ref → ref_status_lantikan |  |
 | jawatan | text |  |  |  |
 | tarikh_lantikan | date |  |  |  |
+| tarikh_tamat_praktikal | date |  |  |  |
 | no_telefon | text |  |  |  |
+| email | text |  |  |  |
 | tarikh_disahkan | date |  |  |  |
+| akaun_sistem | bool | ya |  | false |
 | aktif | bool | ya |  | true |
 | created_at | datetime |  |  |  |
 | updated_at | datetime |  |  |  |

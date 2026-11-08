@@ -204,7 +204,7 @@ function aksiKokuUrus(ctx, params) {
   var tahun = _tahunParam(params);
   var units = _unitTahun(tahun);
   var guruNama = {};
-  query('guru', { aktif: true }).forEach(function (g) { guruNama[g.id] = g.nama_penuh; });
+  senaraiGuruMengajar().forEach(function (g) { guruNama[g.id] = g.nama_penuh; });
   var ahli = {};
   query('keahlian_unit', { tahun_akademik: tahun }).forEach(function (k) {
     (ahli[k.unit_id] = ahli[k.unit_id] || []).push({ id: k.id, guru_id: k.guru_id, nama: guruNama[k.guru_id] || '?', jawatan: k.jawatan });
@@ -227,7 +227,7 @@ function aksiKokuUrus(ctx, params) {
     guru_tanpa_unit: Object.keys(guruNama).filter(function (id) { return !adaUnit[id]; }).length,
     jumlah_guru: Object.keys(guruNama).length,
     tahun_unit_sebelum: query('unit_kokurikulum', { tahun_akademik: String(+tahun - 1) }).length,
-    ref: Object.assign({ guru: query('guru', { aktif: true }, { orderBy: 'nama_penuh' }).map(_pilih(['id', 'nama_penuh', 'guru_kod'])) }, _kokuRef())
+    ref: Object.assign({ guru: senaraiGuruMengajar().map(_pilih(['id', 'nama_penuh', 'guru_kod'])) }, _kokuRef())
   };
 }
 

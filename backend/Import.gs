@@ -15,7 +15,7 @@ function aksiImportRujukan(ctx, params) {
   var tahun = _tahunParam(params);
   return {
     tahun: tahun,
-    guru: query('guru', { aktif: true }, { orderBy: 'nama_penuh' }).map(_pilih(['id', 'guru_kod', 'nama_penuh'])),
+    guru: senaraiGuruMengajar().map(_pilih(['id', 'guru_kod', 'nama_penuh'])),
     subjek: _subjekSenarai(),
     kelas: query('kelas', { tahun_akademik: tahun }, { orderBy: 'nama' }).map(_pilih(['id', 'nama', 'tingkatan'])),
     waktu: query('waktu', { tahun_akademik: tahun }, { orderBy: 'nombor' }).map(_pilih(['nombor', 'masa_mula', 'masa_akhir'])),

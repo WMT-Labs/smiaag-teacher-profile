@@ -47,7 +47,7 @@ function aksiDashboard(ctx, params) {
     if (!usrahGuru[u.murabbi_guru_id]) usrahGuru[u.murabbi_guru_id] = { kumpulan: u.nama_kumpulan, murabbi: true, peratus: null };
   });
 
-  var guru = query('guru', { aktif: true }, { orderBy: 'nama_penuh' }).map(function (g) {
+  var guru = senaraiGuruMengajar().map(function (g) {
     var t = tugasan[g.id] || [];
     var jam = kiraJamKredit(t);
     var subj = {}, ting = {}, jab = {};
@@ -59,7 +59,7 @@ function aksiDashboard(ctx, params) {
     var c = cerapan[g.id];
     return {
       id: g.id, guru_kod: g.guru_kod, nama_penuh: g.nama_penuh, jawatan: g.jawatan, status_lantikan: g.status_lantikan,
-      percubaan: statusPercubaan(g, hari),
+      percubaan: statusPercubaan(g, hari), praktikal: statusPraktikal(g, hari),
       jam_berjadual: jam.berjadual, jam_tidak_berjadual: jam.tidak_berjadual,
       status_berjadual: statusBeban(jam.berjadual, had.had_berjadual),
       status_tidak_berjadual: statusBeban(jam.tidak_berjadual, had.had_tidak_berjadual),

@@ -33,6 +33,7 @@ function setupTemplate() {
     report.push(_ensureTab(ss, SCHEMA[name]));
   });
   report.push(_seedRefs(ss));
+  report.push(_ensureLihatAkaun(ss));
   report.push(_seedHadJamKredit());
   report.push(_seedWaktu());
   report.push(_seedKoku());
@@ -45,6 +46,35 @@ function setupTemplate() {
   report.push('SELESAI. Ingat: JANGAN kongsi Sheet ini dan JANGAN guna "Publish to web".');
   Logger.log(report.join('\n'));
   return report;
+}
+
+/**
+ * Tab PAPARAN baca-sahaja `lihat_akaun`: akaun dengan ID guru dan nama (bukan ID panjang/UUID).
+ * Dibina dengan formula Sheets yang merujuk tab `akaun` dan `guru`; sistem tidak membaca atau menulis tab ini.
+ * Dibina semula setiap kali setupTemplate dijalankan.
+ */
+function _ensureLihatAkaun(ss) {
+  var name = 'lihat_akaun';
+  var sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  var A = SCHEMA.akaun.columns, G = SCHEMA.guru.columns;
+  var a = function (c) { var L = _hurufLajur(A.indexOf(c) + 1); return 'akaun!' + L + '2:' + L; };
+  var g = function (c) { var L = _hurufLajur(G.indexOf(c) + 1); return 'guru!' + L + '2:' + L; };
+  var ada = 'akaun!' + _hurufLajur(A.indexOf('id') + 1) + '2:' + _hurufLajur(A.indexOf('id') + 1);
+  var cari = function (col) { return '=ARRAYFORMULA(IF(' + ada + '="","",XLOOKUP(' + a('guru_id') + ',' + g('id') + ',' + g(col) + ',"?")))'; };
+  var terus = function (col) { return '=ARRAYFORMULA(IF(' + ada + '="","",' + a(col) + '))'; };
+  var tajuk = ['ID guru', 'Nama', 'Peranan', 'Akaun sistem', 'Akaun aktif', 'Wajib tukar kata laluan', 'Setuju PDPA pada', 'Percubaan gagal', 'Dicipta', 'Dikemas kini'];
+  var formula = [cari('guru_kod'), cari('nama_penuh'), terus('role'), cari('akaun_sistem'), terus('aktif'), terus('wajib_tukar_password'),
+    terus('persetujuan_pdpa_pada'), terus('percubaan_gagal'), terus('created_at'), terus('updated_at')];
+  sh.getRange(1, 1, 2, tajuk.length).setValues([tajuk, formula]);
+  sh.getRange(1, 1, 1, tajuk.length).setBackground('#566873').setFontColor('#ffffff').setFontWeight('bold');
+  sh.getRange(2, 7, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat(FORMAT_TARIKH_MASA);
+  sh.getRange(2, 9, Math.max(1, sh.getMaxRows() - 1), 2).setNumberFormat(FORMAT_TARIKH_MASA);
+  sh.setFrozenRows(1);
+  sh.setTabColor('#566873');
+  if (typeof sh.protect === 'function') {
+    try { sh.protect().setDescription('Paparan sahaja: dijana oleh setupTemplate').setWarningOnly(true); } catch (e) { /* abaikan */ }
+  }
+  return 'Tab paparan lihat_akaun: dikemas kini (baca sahaja)';
 }
 
 /** Semak sahaja: adakah semua tab dan tajuk lajur betul? Tidak mengubah apa-apa. */

@@ -24,8 +24,11 @@ var FORBIDDEN_COLUMN_WORDS = ['gaji', 'salary', 'ic', 'no_ic', 'no_kp', 'kad_pen
 var _TABLE_DEFS = {
   // ---- Teras ----
   guru: {
-    cols: ['id:uuid!', 'guru_kod:text!', 'nama_penuh:text!', 'status_lantikan:enum(ref_status_lantikan)!',
-      'jawatan:text', 'tarikh_lantikan:date', 'no_telefon:text', 'tarikh_disahkan:date', 'aktif:bool!=true'],
+    // nama_panggilan: nama ringkas untuk hebahan (contoh "Farah Hanani"). akaun_sistem: akaun pentadbiran sistem
+    // (contoh ADMIN01) yang BUKAN guru; dikecualikan daripada semua senarai dan kiraan guru.
+    cols: ['id:uuid!', 'guru_kod:text!', 'nama_penuh:text!', 'nama_panggilan:text', 'status_lantikan:enum(ref_status_lantikan)!',
+      'jawatan:text', 'tarikh_lantikan:date', 'tarikh_tamat_praktikal:date', 'no_telefon:text', 'email:text', 'tarikh_disahkan:date',
+      'akaun_sistem:bool!=false', 'aktif:bool!=true'],
     unique: [['guru_kod']]
   },
   akaun: {

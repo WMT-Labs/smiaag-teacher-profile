@@ -194,7 +194,7 @@ function aksiUsrahSesiPadam(ctx, params) {
 function aksiHemUrus(ctx, params) {
   var tahun = _tahunParam(params);
   var guruNama = _guruNamaMap();
-  var guruAktif = query('guru', { aktif: true }, { orderBy: 'nama_penuh' }).map(_pilih(['id', 'nama_penuh', 'guru_kod']));
+  var guruAktif = senaraiGuruMengajar().map(_pilih(['id', 'nama_penuh', 'guru_kod']));
   var usrah = query('usrah_guru', { tahun_akademik: tahun }, { orderBy: 'nama_kumpulan' }).map(function (u) {
     var L = _usrahLengkap(u, guruNama);
     delete L.kehadiran;

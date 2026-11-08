@@ -87,6 +87,10 @@
             row.push(sah);
           }
           kad.push(el('div', { style: 'padding:0 24px 24px' }, el('div', { class: 'notice ' + kind, style: 'align-items:center;flex-wrap:wrap' }, row)));
+        } else if (P.praktikal) {
+          var pk = P.praktikal;
+          var pmsg = pk.perlu_tarikh ? 'Guru praktikal. Isi tarikh tamat praktikal.' : pk.tamat ? 'Tempoh praktikal tamat pada ' + UI.fmtDate(pk.tarikh_tamat) + '.' : 'Praktikal sehingga ' + UI.fmtDate(pk.tarikh_tamat) + (pk.hampir ? ' (' + pk.hari_lagi + ' hari lagi).' : '.');
+          kad.push(el('div', { style: 'padding:0 24px 24px' }, el('div', { class: 'notice ' + (pk.tamat || pk.hampir || pk.perlu_tarikh ? 'notice-warn' : 'notice-info') }, el('span', {}, pmsg))));
         } else if (g.tarikh_disahkan) {
           meta.appendChild(el('div', { class: 'muted', style: 'font-size:.8125rem' }, 'Disahkan sebagai guru tetap pada ' + UI.fmtDate(g.tarikh_disahkan)));
         }
@@ -109,12 +113,15 @@
           : [el('span', { class: 'muted' }, 'Belum diisi')];
         var dl = el('dl', { class: 'kv-list' }, [
           el('dt', {}, 'Nama penuh'), el('dd', {}, g.nama_penuh),
+          el('dt', {}, 'Nama panggilan'), el('dd', {}, [g.panggilan, g.nama_panggilan ? null : el('span', { class: 'hint' }, 'Diambil daripada nama penuh. Digunakan dalam hebahan guru ganti.')].filter(Boolean)),
           el('dt', {}, 'ID guru'), el('dd', {}, g.guru_kod),
           el('dt', {}, 'Status lantikan'), el('dd', {}, App.labelOf(P.ref.status_lantikan, g.status_lantikan)),
           el('dt', {}, 'Jawatan'), el('dd', {}, g.jawatan || '—'),
-          el('dt', {}, 'Tarikh lantikan'), el('dd', {}, UI.fmtDate(g.tarikh_lantikan) || '—'),
+          el('dt', {}, 'Tarikh lantikan'), el('dd', {}, UI.fmtDate(g.tarikh_lantikan) || '—')
+        ].concat(g.status_lantikan === 'praktikal' ? [el('dt', {}, 'Tamat praktikal'), el('dd', {}, UI.fmtDate(g.tarikh_tamat_praktikal) || '—')] : []).concat([
+          el('dt', {}, 'Emel'), el('dd', {}, g.email || el('span', { class: 'muted' }, 'Belum diisi')),
           el('dt', {}, 'No. telefon'), el('dd', {}, tel.filter(Boolean))
-        ]);
+        ]));
         return section({ title: 'Maklumat teras', icon: 'i-users', action: 'Sunting', actionIcon: 'i-edit', onAction: suntingTeras, body: [dl] });
       }
       function suntingTeras() {
@@ -125,10 +132,13 @@
         }
         var fields = [
           { name: 'nama_penuh', label: 'Nama penuh', required: true, value: g.nama_penuh, attrs: { maxlength: '150' } },
+          { name: 'nama_panggilan', label: 'Nama panggilan', value: g.nama_panggilan, placeholder: g.panggilan, hint: 'Nama ringkas untuk hebahan, contoh "Farah Hanani". Biarkan kosong untuk guna nama penuh.', attrs: { maxlength: '40' } },
           { name: 'status_lantikan', label: 'Status lantikan', type: 'select', required: true, options: statusPilihan, value: g.status_lantikan,
             hint: g.status_lantikan === 'percubaan' && !P.boleh.sahkan_percubaan ? 'Pengesahan ke guru tetap dibuat oleh pentadbir selepas 6 bulan.' : null },
           { name: 'jawatan', label: 'Jawatan', value: g.jawatan, placeholder: 'contoh: Guru Akademik Biasa', attrs: { maxlength: '100' } },
           { name: 'tarikh_lantikan', label: 'Tarikh lantikan', type: 'date', value: g.tarikh_lantikan, hint: 'Untuk guru dalam percubaan, tempoh 6 bulan dikira dari tarikh ini.' },
+          { name: 'tarikh_tamat_praktikal', label: 'Tarikh tamat praktikal', type: 'date', value: g.tarikh_tamat_praktikal, hint: 'Isi jika status Praktikal sahaja.' },
+          { name: 'email', label: 'Emel', type: 'email', value: g.email, placeholder: 'nama@contoh.com', attrs: { maxlength: '254' } },
           { name: 'no_telefon_baru', label: g.ada_telefon ? 'Nombor telefon baharu' : 'Nombor telefon', type: 'tel', placeholder: 'contoh: 012-3456789',
             hint: g.ada_telefon ? 'Biarkan kosong jika tiada perubahan. Nombor semasa: ' + g.no_telefon : null, attrs: { inputmode: 'tel', maxlength: '20' } }
         ];

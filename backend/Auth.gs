@@ -234,6 +234,7 @@ function _padamSesiAkaun(akaunId, kecualiToken) {
 function _ringkasanSesi(akaun, guru) {
   return {
     akaun_id: akaun.id, guru_id: guru.id, guru_kod: guru.guru_kod, nama_penuh: guru.nama_penuh, role: akaun.role,
+    akaun_sistem: !!guru.akaun_sistem,
     wajib_tukar_password: !!akaun.wajib_tukar_password,
     perlu_persetujuan_pdpa: !akaun.persetujuan_pdpa_pada
   };

@@ -238,8 +238,11 @@ var FORBIDDEN_COLUMN_WORDS = ['gaji', 'salary', 'ic', 'no_ic', 'no_kp', 'kad_pen
 var _TABLE_DEFS = {
   // ---- Teras ----
   guru: {
-    cols: ['id:uuid!', 'guru_kod:text!', 'nama_penuh:text!', 'status_lantikan:enum(ref_status_lantikan)!',
-      'jawatan:text', 'tarikh_lantikan:date', 'no_telefon:text', 'tarikh_disahkan:date', 'aktif:bool!=true'],
+    // nama_panggilan: nama ringkas untuk hebahan (contoh "Farah Hanani"). akaun_sistem: akaun pentadbiran sistem
+    // (contoh ADMIN01) yang BUKAN guru; dikecualikan daripada semua senarai dan kiraan guru.
+    cols: ['id:uuid!', 'guru_kod:text!', 'nama_penuh:text!', 'nama_panggilan:text', 'status_lantikan:enum(ref_status_lantikan)!',
+      'jawatan:text', 'tarikh_lantikan:date', 'tarikh_tamat_praktikal:date', 'no_telefon:text', 'email:text', 'tarikh_disahkan:date',
+      'akaun_sistem:bool!=false', 'aktif:bool!=true'],
     unique: [['guru_kod']]
   },
   akaun: {
@@ -1003,6 +1006,7 @@ function setupTemplate() {
     report.push(_ensureTab(ss, SCHEMA[name]));
   });
   report.push(_seedRefs(ss));
+  report.push(_ensureLihatAkaun(ss));
   report.push(_seedHadJamKredit());
   report.push(_seedWaktu());
   report.push(_seedKoku());
@@ -1015,6 +1019,35 @@ function setupTemplate() {
   report.push('SELESAI. Ingat: JANGAN kongsi Sheet ini dan JANGAN guna "Publish to web".');
   Logger.log(report.join('\n'));
   return report;
+}
+
+/**
+ * Tab PAPARAN baca-sahaja `lihat_akaun`: akaun dengan ID guru dan nama (bukan ID panjang/UUID).
+ * Dibina dengan formula Sheets yang merujuk tab `akaun` dan `guru`; sistem tidak membaca atau menulis tab ini.
+ * Dibina semula setiap kali setupTemplate dijalankan.
+ */
+function _ensureLihatAkaun(ss) {
+  var name = 'lihat_akaun';
+  var sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  var A = SCHEMA.akaun.columns, G = SCHEMA.guru.columns;
+  var a = function (c) { var L = _hurufLajur(A.indexOf(c) + 1); return 'akaun!' + L + '2:' + L; };
+  var g = function (c) { var L = _hurufLajur(G.indexOf(c) + 1); return 'guru!' + L + '2:' + L; };
+  var ada = 'akaun!' + _hurufLajur(A.indexOf('id') + 1) + '2:' + _hurufLajur(A.indexOf('id') + 1);
+  var cari = function (col) { return '=ARRAYFORMULA(IF(' + ada + '="","",XLOOKUP(' + a('guru_id') + ',' + g('id') + ',' + g(col) + ',"?")))'; };
+  var terus = function (col) { return '=ARRAYFORMULA(IF(' + ada + '="","",' + a(col) + '))'; };
+  var tajuk = ['ID guru', 'Nama', 'Peranan', 'Akaun sistem', 'Akaun aktif', 'Wajib tukar kata laluan', 'Setuju PDPA pada', 'Percubaan gagal', 'Dicipta', 'Dikemas kini'];
+  var formula = [cari('guru_kod'), cari('nama_penuh'), terus('role'), cari('akaun_sistem'), terus('aktif'), terus('wajib_tukar_password'),
+    terus('persetujuan_pdpa_pada'), terus('percubaan_gagal'), terus('created_at'), terus('updated_at')];
+  sh.getRange(1, 1, 2, tajuk.length).setValues([tajuk, formula]);
+  sh.getRange(1, 1, 1, tajuk.length).setBackground('#566873').setFontColor('#ffffff').setFontWeight('bold');
+  sh.getRange(2, 7, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat(FORMAT_TARIKH_MASA);
+  sh.getRange(2, 9, Math.max(1, sh.getMaxRows() - 1), 2).setNumberFormat(FORMAT_TARIKH_MASA);
+  sh.setFrozenRows(1);
+  sh.setTabColor('#566873');
+  if (typeof sh.protect === 'function') {
+    try { sh.protect().setDescription('Paparan sahaja: dijana oleh setupTemplate').setWarningOnly(true); } catch (e) { /* abaikan */ }
+  }
+  return 'Tab paparan lihat_akaun: dikemas kini (baca sahaja)';
 }
 
 /** Semak sahaja: adakah semua tab dan tajuk lajur betul? Tidak mengubah apa-apa. */
@@ -1393,6 +1426,7 @@ function _padamSesiAkaun(akaunId, kecualiToken) {
 function _ringkasanSesi(akaun, guru) {
   return {
     akaun_id: akaun.id, guru_id: guru.id, guru_kod: guru.guru_kod, nama_penuh: guru.nama_penuh, role: akaun.role,
+    akaun_sistem: !!guru.akaun_sistem,
     wajib_tukar_password: !!akaun.wajib_tukar_password,
     perlu_persetujuan_pdpa: !akaun.persetujuan_pdpa_pada
   };
@@ -1518,7 +1552,8 @@ function _barisAkaun(akaun, guru) {
   return {
     akaun_id: akaun.id, guru_id: guru ? guru.id : null,
     guru_kod: guru ? guru.guru_kod : '', nama_penuh: guru ? guru.nama_penuh : '',
-    status_lantikan: guru ? guru.status_lantikan : null,
+    status_lantikan: guru ? guru.status_lantikan : null, email: guru ? guru.email : null,
+    akaun_sistem: !!(guru && guru.akaun_sistem),
     role: akaun.role, aktif: !!akaun.aktif,
     wajib_tukar_password: !!akaun.wajib_tukar_password,
     persetujuan_pdpa_pada: akaun.persetujuan_pdpa_pada,
@@ -1535,9 +1570,13 @@ function aksiAkaunSenarai(ctx) {
     .sort(function (x, y) { return x.guru_kod < y.guru_kod ? -1 : 1; });
 }
 
-function _ciptaAkaunDalaman(kod, nama, status, role, actorId, tarikhLantikan) {
+/** opts: { tarikh_lantikan, email, akaun_sistem } */
+function _ciptaAkaunDalaman(kod, nama, status, role, actorId, opts) {
+  opts = typeof opts === 'string' ? { tarikh_lantikan: opts } : (opts || {});
   if (query('guru', { guru_kod: kod }).length) throw new AppError('DUPLIKAT', 'ID guru ' + kod + ' sudah wujud.', { field: 'guru_kod' });
-  var guru = insert('guru', { guru_kod: kod, nama_penuh: nama, status_lantikan: status, tarikh_lantikan: tarikhLantikan || null }, { actorId: actorId });
+  var email = _semakEmel(opts.email, null);
+  var guru = insert('guru', { guru_kod: kod, nama_penuh: nama, status_lantikan: status, tarikh_lantikan: opts.tarikh_lantikan || null,
+    email: email, akaun_sistem: opts.akaun_sistem === true }, { actorId: actorId });
   var pw = janaPasswordSementara();
   var salt = newSalt();
   var akaun;
@@ -1557,7 +1596,12 @@ function aksiAkaunCipta(ctx, params) {
   var role = pOneOf(params, 'role', SEMUA_ROLE, 'Peranan');
   var tarikh = pStr(params, 'tarikh_lantikan', { label: 'Tarikh lantikan', max: 10, optional: true });
   if (tarikh && tarikh > hariIni()) throw new AppError('VALIDASI', 'Tarikh lantikan tidak boleh pada masa depan.', { field: 'tarikh_lantikan' });
-  var r = _ciptaAkaunDalaman(kod, nama, status, role, ctx.akaunId, tarikh);
+  var sistem = params.akaun_sistem === true;
+  if (sistem && role === 'guru') throw new AppError('VALIDASI', 'Akaun sistem mesti berperanan Pentadbir atau Superadmin.', { field: 'role' });
+  var r = _ciptaAkaunDalaman(kod, nama, status, role, ctx.akaunId, {
+    tarikh_lantikan: tarikh, akaun_sistem: sistem,
+    email: pStr(params, 'email', { label: 'Emel', max: 254, optional: true })
+  });
   logAudit(ctx.akaunId, 'AKAUN_CIPTA', kod, 'peranan=' + role);
   return { akaun: _barisAkaun(r.akaun, r.guru), password_sementara: r.password };
 }
@@ -1611,7 +1655,8 @@ function aksiAkaunBukaKunci(ctx, params) {
 
 /**
  * Cipta superadmin pertama (sekali sahaja, dijalankan dari editor Apps Script).
- *  1. Project Settings > Script Properties: tambah BOOTSTRAP_GURU_KOD (contoh SM216) dan BOOTSTRAP_NAMA.
+ *  1. Project Settings > Script Properties: tambah BOOTSTRAP_GURU_KOD (contoh ADMIN01) dan BOOTSTRAP_NAMA
+ *     (contoh "Pentadbir Sistem"). Akaun ini ialah AKAUN SISTEM (bukan guru) dan tidak dikira sebagai guru.
  *  2. Pilih fungsi ini, tekan Run. Kata laluan sementara dipaparkan dalam Execution log.
  *  3. Log masuk dan tukar kata laluan. Dua property tadi dipadam automatik.
  * Fungsi ini menolak jika superadmin sudah wujud.
@@ -1624,7 +1669,7 @@ function ciptaSuperadminPertama() {
   if (!GURU_KOD_RE.test(kod) || nama.length < 3) {
     throw new Error('Tetapkan dahulu BOOTSTRAP_GURU_KOD dan BOOTSTRAP_NAMA dalam Project Settings > Script Properties.');
   }
-  var r = _ciptaAkaunDalaman(kod, nama, 'tetap', 'superadmin', 'setup');
+  var r = _ciptaAkaunDalaman(kod, nama, 'lain_lain', 'superadmin', 'setup', { akaun_sistem: true });
   props.deleteProperty('BOOTSTRAP_GURU_KOD');
   props.deleteProperty('BOOTSTRAP_NAMA');
   logAudit(r.akaun.id, 'AKAUN_CIPTA_SUPERADMIN_PERTAMA', kod);
@@ -1651,6 +1696,37 @@ function ciptaSuperadminPertama() {
 
 function _isAdmin(ctx) { return ctx.role === 'pentadbir' || ctx.role === 'superadmin'; }
 
+/** Guru sebenar yang aktif (tidak termasuk akaun sistem seperti ADMIN01). Guna untuk SEMUA senarai/kiraan guru. */
+function senaraiGuruMengajar(opts) {
+  var f = { akaun_sistem: { ne: true } };
+  if (!(opts && opts.termasukTidakAktif)) f.aktif = true;
+  return query('guru', f, { orderBy: 'nama_penuh' });
+}
+
+var EMAIL_RE = /^[^\s@<>()",;:]{1,64}@[A-Za-z0-9.-]{1,200}\.[A-Za-z]{2,24}$/;
+
+/** Sahkan emel (pilihan) dan pastikan tiada guru lain menggunakannya. */
+function _semakEmel(email, guruIdSendiri) {
+  if (!email) return null;
+  email = String(email).trim().toLowerCase();
+  if (!EMAIL_RE.test(email) || email.length > 254) throw new AppError('VALIDASI', 'Alamat emel tidak sah.', { field: 'email' });
+  var lain = query('guru', { email: email }).filter(function (g) { return g.id !== guruIdSendiri; });
+  if (lain.length) throw new AppError('DUPLIKAT', 'Emel ini sudah digunakan oleh ' + lain[0].guru_kod + '.', { field: 'email' });
+  return email;
+}
+
+/** Nama ringkas untuk hebahan: nama_panggilan, atau perkataan sebelum bin/binti (maksimum 2 perkataan). */
+function namaPanggilan(g) {
+  if (g.nama_panggilan) return g.nama_panggilan;
+  var w = String(g.nama_penuh || '').split(/\s+/).filter(Boolean);
+  var out = [];
+  for (var i = 0; i < w.length && out.length < 2; i++) {
+    if (/^(bin|binti|bt|bte|b\.|a\/l|a\/p)$/i.test(w[i])) break;
+    out.push(w[i]);
+  }
+  return out.join(' ') || g.guru_kod;
+}
+
 /**
  * Tentukan guru sasaran. Tiada guru_id atau guru_id sendiri = diri sendiri.
  * guru_id lain hanya untuk pentadbir/superadmin.
@@ -1672,8 +1748,10 @@ function _auditJikaOrangLain(ctx, guru, tindakan, butiran) {
 function _guruUntukPelayar(ctx, guru) {
   var admin = _isAdmin(ctx);
   var out = {
-    id: guru.id, guru_kod: guru.guru_kod, nama_penuh: guru.nama_penuh, status_lantikan: guru.status_lantikan,
-    jawatan: guru.jawatan, tarikh_lantikan: guru.tarikh_lantikan, tarikh_disahkan: guru.tarikh_disahkan, aktif: guru.aktif,
+    id: guru.id, guru_kod: guru.guru_kod, nama_penuh: guru.nama_penuh, nama_panggilan: guru.nama_panggilan,
+    panggilan: namaPanggilan(guru), status_lantikan: guru.status_lantikan,
+    jawatan: guru.jawatan, tarikh_lantikan: guru.tarikh_lantikan, tarikh_tamat_praktikal: guru.tarikh_tamat_praktikal,
+    tarikh_disahkan: guru.tarikh_disahkan, email: guru.email, akaun_sistem: !!guru.akaun_sistem, aktif: guru.aktif,
     ada_telefon: !!guru.no_telefon,
     no_telefon: guru.no_telefon ? (admin ? formatPhone(guru.no_telefon) : maskPhone(guru.no_telefon)) : null,
     telefon_penuh: admin,
@@ -1716,6 +1794,7 @@ function aksiProfilLihat(ctx, params) {
     milik_sendiri: guru.id === ctx.guruId,
     boleh: { sunting: true, cerapan: true, sahkan_percubaan: _isAdmin(ctx) },
     percubaan: statusPercubaan(guru, hariIni()),
+    praktikal: statusPraktikal(guru, hariIni()),
     kelayakan: query('kelayakan', { guru_id: guru.id }, { orderBy: 'tahun_tamat', desc: true }).map(_pilih(['id', 'tahap', 'bidang', 'institusi', 'tahun_tamat'])),
     opsyen: opsyen,
     kursus: query('kursus', { guru_id: guru.id }, { orderBy: 'tarikh_mula', desc: true }).map(_pilih(['id', 'tajuk', 'penganjur', 'tarikh_mula', 'tarikh_tamat', 'jam', 'tahap'])),
@@ -1740,8 +1819,12 @@ function aksiProfilSimpanTeras(ctx, params) {
     nama_penuh: pStr(params, 'nama_penuh', { label: 'Nama penuh', min: 3, max: 150 }),
     status_lantikan: pStr(params, 'status_lantikan', { label: 'Status lantikan', max: 30 }),
     jawatan: pStr(params, 'jawatan', { label: 'Jawatan', max: 100, optional: true }),
-    tarikh_lantikan: pStr(params, 'tarikh_lantikan', { label: 'Tarikh lantikan', max: 10, optional: true })
+    tarikh_lantikan: pStr(params, 'tarikh_lantikan', { label: 'Tarikh lantikan', max: 10, optional: true }),
+    nama_panggilan: pStr(params, 'nama_panggilan', { label: 'Nama panggilan', max: 40, optional: true }),
+    tarikh_tamat_praktikal: pStr(params, 'tarikh_tamat_praktikal', { label: 'Tarikh tamat praktikal', max: 10, optional: true })
   };
+  if (patch.status_lantikan !== 'praktikal') patch.tarikh_tamat_praktikal = null;
+  if (params.email !== undefined) patch.email = _semakEmel(pStr(params, 'email', { label: 'Emel', max: 254, optional: true }), guru.id);
   if (patch.tarikh_lantikan && patch.tarikh_lantikan > hariIni()) {
     throw new AppError('VALIDASI', 'Tarikh lantikan tidak boleh pada masa depan.', { field: 'tarikh_lantikan' });
   }
@@ -1900,6 +1983,17 @@ function statusPercubaan(guru, hari) {
   return { tarikh_tamat: tamat, tamat: !!tamat && hari >= tamat, perlu_tarikh_lantikan: !tamat };
 }
 
+var HARI_AMARAN_PRAKTIKAL = 30;
+
+/** null jika bukan praktikal; jika ya { tarikh_tamat, tamat, hampir (dalam 30 hari), perlu_tarikh }. */
+function statusPraktikal(guru, hari) {
+  if (!guru || guru.status_lantikan !== 'praktikal') return null;
+  var t = guru.tarikh_tamat_praktikal;
+  if (!t) return { tarikh_tamat: null, tamat: false, hampir: false, perlu_tarikh: true };
+  var hariLagi = Math.round((Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10)) - Date.UTC(+hari.slice(0, 4), +hari.slice(5, 7) - 1, +hari.slice(8, 10))) / 86400000);
+  return { tarikh_tamat: t, tamat: hariLagi < 0, hampir: hariLagi >= 0 && hariLagi <= HARI_AMARAN_PRAKTIKAL, hari_lagi: hariLagi, perlu_tarikh: false };
+}
+
 function aksiPercubaanSahkan(ctx, params) {
   var guru = _sasaranGuru(ctx, pUuid(params, 'guru_id', 'Guru'));
   if (guru.status_lantikan !== 'percubaan') throw new AppError('VALIDASI', 'Guru ini bukan dalam tempoh percubaan.');
@@ -1942,11 +2036,11 @@ function aksiGuruSenarai(ctx) {
   return {
     tahun: tahun,
     had: had,
-    guru: query('guru', {}, { orderBy: 'nama_penuh' }).map(function (g) {
+    guru: senaraiGuruMengajar({ termasukTidakAktif: true }).map(function (g) {
       var jam = kiraJamKredit(tugasan[g.id] || []);
       return {
         id: g.id, guru_kod: g.guru_kod, nama_penuh: g.nama_penuh, jawatan: g.jawatan, status_lantikan: g.status_lantikan,
-        aktif: g.aktif, cerapan_tahun_ini: cerap[g.id] || 0, percubaan: statusPercubaan(g, hari),
+        aktif: g.aktif, cerapan_tahun_ini: cerap[g.id] || 0, percubaan: statusPercubaan(g, hari), praktikal: statusPraktikal(g, hari),
         jam_berjadual: jam.berjadual, jam_tidak_berjadual: jam.tidak_berjadual,
         status_beban: statusBebanKeseluruhan(jam, had)
       };
@@ -2248,7 +2342,7 @@ function aksiSlotKosong(ctx, params) {
   var subjekId = params.subjek_id ? pUuid(params, 'subjek_id', 'Subjek') : null;
   var jabatan = pStr(params, 'jabatan', { label: 'Jabatan', max: 20, optional: true });
 
-  var guru = query('guru', { aktif: true }, { orderBy: 'nama_penuh' });
+  var guru = senaraiGuruMengajar();
   var kosong = cariGuruKosong(guru.map(function (g) { return g.id; }), _slotTahun(tahun, true), hari, mula, akhir);
   var set = {}; kosong.forEach(function (id) { set[id] = true; });
 
@@ -2400,7 +2494,7 @@ function aksiImportRujukan(ctx, params) {
   var tahun = _tahunParam(params);
   return {
     tahun: tahun,
-    guru: query('guru', { aktif: true }, { orderBy: 'nama_penuh' }).map(_pilih(['id', 'guru_kod', 'nama_penuh'])),
+    guru: senaraiGuruMengajar().map(_pilih(['id', 'guru_kod', 'nama_penuh'])),
     subjek: _subjekSenarai(),
     kelas: query('kelas', { tahun_akademik: tahun }, { orderBy: 'nama' }).map(_pilih(['id', 'nama', 'tingkatan'])),
     waktu: query('waktu', { tahun_akademik: tahun }, { orderBy: 'nombor' }).map(_pilih(['nombor', 'masa_mula', 'masa_akhir'])),
@@ -2697,7 +2791,7 @@ function aksiKokuUrus(ctx, params) {
   var tahun = _tahunParam(params);
   var units = _unitTahun(tahun);
   var guruNama = {};
-  query('guru', { aktif: true }).forEach(function (g) { guruNama[g.id] = g.nama_penuh; });
+  senaraiGuruMengajar().forEach(function (g) { guruNama[g.id] = g.nama_penuh; });
   var ahli = {};
   query('keahlian_unit', { tahun_akademik: tahun }).forEach(function (k) {
     (ahli[k.unit_id] = ahli[k.unit_id] || []).push({ id: k.id, guru_id: k.guru_id, nama: guruNama[k.guru_id] || '?', jawatan: k.jawatan });
@@ -2720,7 +2814,7 @@ function aksiKokuUrus(ctx, params) {
     guru_tanpa_unit: Object.keys(guruNama).filter(function (id) { return !adaUnit[id]; }).length,
     jumlah_guru: Object.keys(guruNama).length,
     tahun_unit_sebelum: query('unit_kokurikulum', { tahun_akademik: String(+tahun - 1) }).length,
-    ref: Object.assign({ guru: query('guru', { aktif: true }, { orderBy: 'nama_penuh' }).map(_pilih(['id', 'nama_penuh', 'guru_kod'])) }, _kokuRef())
+    ref: Object.assign({ guru: senaraiGuruMengajar().map(_pilih(['id', 'nama_penuh', 'guru_kod'])) }, _kokuRef())
   };
 }
 
@@ -3014,7 +3108,7 @@ function aksiUsrahSesiPadam(ctx, params) {
 function aksiHemUrus(ctx, params) {
   var tahun = _tahunParam(params);
   var guruNama = _guruNamaMap();
-  var guruAktif = query('guru', { aktif: true }, { orderBy: 'nama_penuh' }).map(_pilih(['id', 'nama_penuh', 'guru_kod']));
+  var guruAktif = senaraiGuruMengajar().map(_pilih(['id', 'nama_penuh', 'guru_kod']));
   var usrah = query('usrah_guru', { tahun_akademik: tahun }, { orderBy: 'nama_kumpulan' }).map(function (u) {
     var L = _usrahLengkap(u, guruNama);
     delete L.kehadiran;
@@ -3153,7 +3247,7 @@ function aksiDashboard(ctx, params) {
     if (!usrahGuru[u.murabbi_guru_id]) usrahGuru[u.murabbi_guru_id] = { kumpulan: u.nama_kumpulan, murabbi: true, peratus: null };
   });
 
-  var guru = query('guru', { aktif: true }, { orderBy: 'nama_penuh' }).map(function (g) {
+  var guru = senaraiGuruMengajar().map(function (g) {
     var t = tugasan[g.id] || [];
     var jam = kiraJamKredit(t);
     var subj = {}, ting = {}, jab = {};
@@ -3165,7 +3259,7 @@ function aksiDashboard(ctx, params) {
     var c = cerapan[g.id];
     return {
       id: g.id, guru_kod: g.guru_kod, nama_penuh: g.nama_penuh, jawatan: g.jawatan, status_lantikan: g.status_lantikan,
-      percubaan: statusPercubaan(g, hari),
+      percubaan: statusPercubaan(g, hari), praktikal: statusPraktikal(g, hari),
       jam_berjadual: jam.berjadual, jam_tidak_berjadual: jam.tidak_berjadual,
       status_berjadual: statusBeban(jam.berjadual, had.had_berjadual),
       status_tidak_berjadual: statusBeban(jam.tidak_berjadual, had.had_tidak_berjadual),
