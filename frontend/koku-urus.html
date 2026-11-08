@@ -42,33 +42,44 @@
       }
 
       // ---------------- unit ----------------
-      function unit() {
-        var acts = [btn('Tambah unit atau kelab', function () { borangUnit(null); }, 'btn', 'i-plus')];
-        if (U.tahun_unit_sebelum) acts.unshift(btn('Salin dari ' + (+U.tahun - 1), salin));
-        var groups = U.ref.jenis_unit.map(function (j) {
-          var list = U.unit.filter(function (u) { return u.jenis === j.kod; });
-          return el('div', { class: 'unit-group' }, [el('div', { class: 'group-label' }, j.label + ' (' + list.length + ')')].concat(list.length ? list.map(function (u) {
-            var susun = u.ahli.slice().sort(function (a, b) { var o = ['penasihat', 'penyelaras', 'ajk', 'lain_lain']; return o.indexOf(a.jawatan) - o.indexOf(b.jawatan); });
-            return el('div', { class: 'unit-row' }, [
-              el('div', { class: 'grow' }, [el('b', {}, u.nama), el('div', { class: 'peserta' }, susun.length ? susun.map(function (a) { return a.nama + ' (' + App.labelOf(U.ref.jawatan_unit, a.jawatan) + ')'; }).join(', ') : 'Belum ada guru')]),
-              el('span', { class: 'badge badge-neutral' }, u.ahli.length + ' guru'),
-              iconBtn('i-edit', 'Sunting ' + u.nama, function () { borangUnit(u); }),
-              iconBtn('i-trash', 'Padam ' + u.nama, function () { padamUnit(u); }, true)
-            ]);
-          }) : [el('span', { class: 'muted', style: 'font-size:.875rem' }, j.kod === 'kelab_persatuan' ? 'Belum ada kelab. Tekan "Tambah unit atau kelab".' : 'Tiada')]));
-        });
-        return el('section', { class: 'card wide' }, [head('Unit kokurikulum ' + U.tahun, 'Guru mendaftar sendiri ke unit dalam senarai ini melalui menu Kokurikulum.', acts)].concat(groups));
+      // Setiap jenis unit dalam kotak berasingan, masing-masing dengan Tambah dan Tambah pukal.
+      function unit(j) {
+        var list = U.unit.filter(function (u) { return u.jenis === j.kod; });
+        var nama = j.label.replace(/\s*\(.*\)$/, '').toLowerCase();
+        var acts = [btn('Tambah pukal', function () { pukalUnit(j); }), btn('Tambah', function () { borangUnit(null, j); }, 'btn', 'i-plus')];
+        var body = list.length ? el('div', { class: 'unit-group' }, list.map(function (u) {
+          var susun = u.ahli.slice().sort(function (a, b) { var o = ['penasihat', 'penyelaras', 'ajk', 'lain_lain']; return o.indexOf(a.jawatan) - o.indexOf(b.jawatan); });
+          return el('div', { class: 'unit-row' }, [
+            el('div', { class: 'grow' }, [el('b', {}, u.nama), el('div', { class: 'peserta' }, susun.length ? susun.map(function (a) { return a.nama + ' (' + App.labelOf(U.ref.jawatan_unit, a.jawatan) + ')'; }).join(', ') : 'Belum ada guru')]),
+            el('span', { class: 'badge badge-neutral' }, u.ahli.length + ' guru'),
+            iconBtn('i-edit', 'Sunting ' + u.nama, function () { borangUnit(u, j); }),
+            iconBtn('i-trash', 'Padam ' + u.nama, function () { padamUnit(u); }, true)
+          ]);
+        })) : el('p', { class: 'empty-sm' }, 'Belum ada ' + nama + ' untuk ' + U.tahun + '. Tekan "Tambah" atau "Tambah pukal".');
+        return el('section', { class: 'card' }, [head(j.label + ' (' + list.length + ')', 'Guru mendaftar sendiri melalui menu Kokurikulum.', acts), body]);
       }
-      function borangUnit(u) {
+      function borangUnit(u, j) {
         u = u || {};
+        var jenis = j ? j.kod : u.jenis;
         App.formDialog({
-          title: u.id ? 'Sunting unit' : 'Tambah unit ' + U.tahun,
-          fields: [
-            { name: 'nama', label: 'Nama', required: true, value: u.nama, placeholder: 'contoh: Kelab Bahasa Arab', attrs: { maxlength: '120' } },
-            { name: 'jenis', label: 'Jenis', type: 'select', required: true, options: U.ref.jenis_unit, value: u.jenis || 'kelab_persatuan' }
-          ],
-          onSubmit: function (v) { v.tahun = U.tahun; if (u.id) v.id = u.id; return Api.call('UNIT_SIMPAN', v); }
+          title: (u.id ? 'Sunting: ' : 'Tambah: ') + App.labelOf(U.ref.jenis_unit, jenis),
+          fields: [{ name: 'nama', label: 'Nama', required: true, value: u.nama, placeholder: jenis === 'pasukan_sekolah' ? 'contoh: Pasukan Bola Sepak' : 'contoh: Kelab Bahasa Arab', attrs: { maxlength: '120' } }],
+          onSubmit: function (v) { v.tahun = U.tahun; v.jenis = jenis; if (u.id) v.id = u.id; return Api.call('UNIT_SIMPAN', v); }
         }).then(selepas('Unit disimpan.'));
+      }
+      function pukalUnit(j) {
+        App.formDialog({
+          title: 'Tambah pukal: ' + j.label,
+          fields: [{ name: 'teks', label: 'Satu nama setiap baris', type: 'textarea', required: true,
+            placeholder: j.kod === 'pasukan_sekolah' ? 'Pasukan Bola Sepak\nPasukan Bola Jaring\nPasukan E-Sport' : 'Kelab Bahasa Arab\nKelab Robotik\nKelab Kaligrafi',
+            hint: 'Boleh tampal terus dari Excel. Nama yang sudah ada untuk ' + U.tahun + ' dilangkau.' }],
+          submitText: 'Tambah',
+          onSubmit: function (v) { return Api.call('UNIT_PUKAL', { tahun: U.tahun, jenis: j.kod, teks: v.teks }); }
+        }).then(function (r) { if (r) { UI.toast(r.ditambah.length + ' ditambah' + (r.dilangkau.length ? ', ' + r.dilangkau.length + ' sudah ada' : '') + '.'); muat(); } });
+      }
+      function salinKad() {
+        if (!U.tahun_unit_sebelum) return null;
+        return el('div', { class: 'notice notice-info', style: 'align-items:center;flex-wrap:wrap' }, [el('span', { style: 'flex:1' }, 'Ada ' + U.tahun_unit_sebelum + ' unit pada ' + (+U.tahun - 1) + '. Salin senarai itu ke ' + U.tahun + ' (tanpa ahli)?'), btn('Salin dari ' + (+U.tahun - 1), salin)]);
       }
       function padamUnit(u) {
         App.confirm('Padam unit?', 'Padam "' + u.nama + '" (' + U.tahun + ')?', 'Padam', true).then(function (ok) {
@@ -84,15 +95,38 @@
       // ---------------- rumah sukan ----------------
       function rumah() {
         return el('section', { class: 'card wide' }, [
-          head('Rumah sukan ' + U.tahun, 'Guru memilih rumah sendiri melalui menu Kokurikulum.'),
+          head('Rumah sukan ' + U.tahun, 'Rumah sukan setiap guru ditetapkan oleh pentadbir di sini.'),
           el('div', { class: 'card-pad' }, el('div', { class: 'houses' }, U.rumah.map(function (r) {
             return el('div', { class: 'card house-card', style: '--hc:' + r.warna }, [
-              el('div', { class: 'row', style: 'justify-content:space-between' }, [chip(r), iconBtn('i-edit', 'Sunting ' + r.nama, function () { borangRumah(r); })]),
+              el('div', { class: 'row', style: 'justify-content:space-between' }, [chip(r), iconBtn('i-edit', 'Sunting nama/warna ' + r.nama, function () { borangRumah(r); })]),
               el('div', { class: 'big-num', style: 'font-size:1.75rem' }, String(r.guru.length)),
-              el('div', { class: 'peserta' }, r.guru.length ? r.guru.map(function (g) { return g.nama + (g.jawatan ? ' (' + g.jawatan + ')' : ''); }).join(', ') : 'Belum ada guru')
+              r.guru.length ? el('div', { class: 'stack', style: 'gap:4px' }, r.guru.map(function (g) {
+                var j = el('button', { class: 'btn-link', type: 'button', style: 'padding:0;min-height:auto;font-size:.8125rem;text-align:left' }, g.nama + (g.jawatan ? ' (' + g.jawatan + ')' : ''));
+                j.title = 'Tetapkan jawatan';
+                j.addEventListener('click', function () { borangJawatanRumah(g); });
+                return j;
+              })) : el('div', { class: 'peserta' }, 'Belum ada guru'),
+              (function () { var b = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, 'Tetapkan guru'); b.addEventListener('click', function () { borangAhliRumah(r); }); return b; })()
             ]);
           })))
         ]);
+      }
+      function borangAhliRumah(r) {
+        var lain = {};
+        U.rumah.forEach(function (x) { if (x.id !== r.id) x.guru.forEach(function (g) { lain[g.guru_id] = x.nama; }); });
+        App.formDialog({
+          title: 'Guru rumah ' + r.nama + ' ' + U.tahun,
+          fields: [{ name: 'guru_ids', label: 'Guru', type: 'multicheck', options: U.ref.guru.filter(function (g) { return !lain[g.id]; }).map(function (g) { return { value: g.id, label: g.nama_penuh }; }),
+            value: r.guru.map(function (g) { return g.guru_id; }), hint: 'Guru yang sudah dalam rumah lain tidak disenaraikan. Tekan nama guru pada kad untuk menetapkan jawatan.' }],
+          onSubmit: function (v) { return Api.call('RUMAH_AHLI_SIMPAN', { tahun: U.tahun, rumah_sukan_id: r.id, guru_ids: v.guru_ids }); }
+        }).then(selepas('Guru rumah disimpan.'));
+      }
+      function borangJawatanRumah(g) {
+        App.formDialog({
+          title: 'Jawatan: ' + g.nama,
+          fields: [{ name: 'jawatan', label: 'Jawatan dalam rumah', value: g.jawatan, placeholder: 'contoh: Ketua Rumah, Penolong, Ahli', attrs: { maxlength: '60' } }],
+          onSubmit: function (v) { return Api.call('REKOD_SIMPAN', { jadual: 'guru_rumah', id: g.id, data: { jawatan: v.jawatan } }); }
+        }).then(selepas('Jawatan disimpan.'));
       }
       function borangRumah(r) {
         App.formDialog({
@@ -202,7 +236,8 @@
         sel.addEventListener('change', function () { tahun = sel.value; muat(); });
         c.appendChild(el('div', { class: 'row end' }, sel));
         c.appendChild(ringkasan());
-        c.appendChild(unit());
+        var sk = salinKad(); if (sk) c.appendChild(sk);
+        c.appendChild(el('div', { class: 'grid-3' }, U.ref.jenis_unit.map(unit)));
         c.appendChild(rumah());
         c.appendChild(juara());
         c.appendChild(pertandingan());

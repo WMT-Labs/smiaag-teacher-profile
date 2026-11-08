@@ -256,6 +256,56 @@ function aksiUnitPadam(ctx, params) {
   return { dipadam: true };
 }
 
+/** Tambah unit secara pukal untuk satu jenis: satu nama setiap baris. Yang sudah wujud dilangkau. */
+function aksiUnitPukal(ctx, params) {
+  var tahun = _tahunParam(params);
+  var jenis = pStr(params, 'jenis', { label: 'Jenis', max: 30 });
+  if (!_refSenarai('ref_jenis_unit').some(function (j) { return j.kod === jenis; })) throw new AppError('VALIDASI', 'Jenis unit tidak sah.');
+  var teks = pStr(params, 'teks', { label: 'Senarai unit', max: 8000 });
+  var ada = {};
+  query('unit_kokurikulum', { tahun_akademik: tahun }).forEach(function (u) { ada[u.nama.toLowerCase()] = true; });
+  var baru = [], dilangkau = [];
+  teks.split(/\r?\n/).map(function (x) { return x.trim().replace(/\s+/g, ' '); }).filter(Boolean).forEach(function (nama) {
+    nama = nama.slice(0, 120);
+    if (ada[nama.toLowerCase()]) { dilangkau.push(nama); return; }
+    ada[nama.toLowerCase()] = true;
+    baru.push({ nama: nama, jenis: jenis, tahun_akademik: tahun });
+  });
+  if (baru.length) insertMany('unit_kokurikulum', baru, { actorId: ctx.akaunId });
+  logAudit(ctx.akaunId, 'UNIT_PUKAL', tahun, jenis + ': ' + baru.length + ' unit');
+  return { ditambah: baru.map(function (u) { return u.nama; }), dilangkau: dilangkau };
+}
+
+/**
+ * Tetapkan guru dalam satu rumah sukan bagi satu tahun (ganti senarai). Jawatan guru yang kekal disimpan.
+ * Guru yang sudah dalam rumah lain tahun itu ditolak (alihkan dahulu).
+ */
+function aksiRumahAhliSimpan(ctx, params) {
+  var tahun = _tahunParam(params);
+  var rid = pUuid(params, 'rumah_sukan_id', 'Rumah');
+  var r = getById('rumah_sukan', rid);
+  if (!r) throw new AppError('TIDAK_JUMPA', 'Rumah sukan tidak dijumpai.');
+  var ids = params.guru_ids;
+  if (!Array.isArray(ids) || ids.length > 200) throw new AppError('VALIDASI', 'Senarai guru tidak sah.');
+  var guru = {}; senaraiGuruMengajar().forEach(function (g) { guru[g.id] = g; });
+  var rumahNama = {}; _rumahSemua().forEach(function (x) { rumahNama[x.id] = x.nama; });
+  var lain = {}, sedia = {};
+  query('guru_rumah', { tahun_akademik: tahun }).forEach(function (x) {
+    if (x.rumah_sukan_id === rid) sedia[x.guru_id] = x; else lain[x.guru_id] = rumahNama[x.rumah_sukan_id] || 'lain';
+  });
+  var seen = {};
+  ids.forEach(function (g) {
+    if (!guru[g]) throw new AppError('VALIDASI', 'Guru tidak dijumpai.');
+    if (lain[g]) throw new AppError('VALIDASI', guru[g].nama_penuh + ' sudah dalam rumah ' + lain[g] + '.');
+    if (seen[g]) throw new AppError('VALIDASI', 'Guru berulang.');
+    seen[g] = true;
+  });
+  var rows = ids.map(function (g) { return { guru_id: g, rumah_sukan_id: rid, tahun_akademik: tahun, jawatan: sedia[g] ? sedia[g].jawatan : null }; });
+  replaceWhere('guru_rumah', { tahun_akademik: tahun, rumah_sukan_id: rid }, rows, { actorId: ctx.akaunId, skipFk: true });
+  logAudit(ctx.akaunId, 'RUMAH_AHLI_SIMPAN', r.nama, tahun + ': ' + rows.length + ' guru');
+  return { guru: rows.length };
+}
+
 /** Salin senarai unit (tanpa ahli) dari tahun lepas ke tahun ini. Unit yang sudah ada dilangkau. */
 function aksiUnitSalin(ctx, params) {
   var tahun = _tahunParam(params);

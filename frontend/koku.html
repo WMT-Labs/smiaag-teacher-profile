@@ -31,26 +31,27 @@
       function rumahChip(nama, warna) { return el('span', { class: 'house' }, [el('i', { style: 'background:' + (warna || '#999') }), nama]); }
 
       // ---------------- unit ----------------
-      function unit() {
-        var groups = K.ref.jenis_unit.map(function (j) {
-          var list = K.keahlian.filter(function (k) { return k.jenis === j.kod; });
-          return el('div', { class: 'unit-group' }, [el('div', { class: 'group-label' }, j.label)].concat(list.length ? list.map(function (k) {
+      // Setiap jenis unit (Syabab, Kelab, Pasukan) dalam kotak berasingan, dengan butang Tambah sendiri.
+      function unit(j) {
+        var list = K.keahlian.filter(function (k) { return k.jenis === j.kod; });
+        var ikon = { badan_beruniform: 'i-shield', kelab_persatuan: 'i-users', pasukan_sekolah: 'i-trophy' }[j.kod] || 'i-trophy';
+        var body = list.length ? el('div', { class: 'unit-group' }, list.map(function (k) {
             return el('div', { class: 'unit-row' }, [
               el('div', { class: 'grow' }, [el('b', {}, k.unit_nama), el('div', { class: 'sub muted', style: 'font-size:.8125rem' }, App.labelOf(K.ref.jawatan_unit, k.jawatan))]),
               iconBtn('i-edit', 'Tukar jawatan', function () { borangUnit(k); }),
               iconBtn('i-trash', 'Keluar', function () { padam('keahlian_unit', k.id, k.unit_nama); }, true)
             ]);
-          }) : [el('span', { class: 'muted', style: 'font-size:.875rem' }, 'Tiada')]));
-        });
-        return el('section', { class: 'card' }, [head('Unit beruniform, kelab dan pasukan', 'i-trophy', [btn('Tambah', function () { borangUnit(null); })])].concat(groups));
+          })) : el('p', { class: 'empty-sm' }, 'Tiada.');
+        return el('section', { class: 'card' }, [head(j.label, ikon, [btn('Tambah', function () { borangUnit(null, j); })]), body]);
       }
-      function borangUnit(k) {
+      function borangUnit(k, j) {
         k = k || {};
+        var jenis = j ? j.kod : k.jenis;
         var ada = {}; K.keahlian.forEach(function (x) { if (x.id !== k.id) ada[x.unit_id] = true; });
-        var pilihan = K.ref.unit.filter(function (u) { return !ada[u.id]; }).map(function (u) { return { value: u.id, label: u.nama + ' · ' + App.labelOf(K.ref.jenis_unit, u.jenis) }; });
-        if (!pilihan.length) { UI.toast('Tiada unit lain untuk ' + K.tahun + '. Pentadbir menambah kelab di Urus kokurikulum.'); return; }
+        var pilihan = K.ref.unit.filter(function (u) { return !ada[u.id] && u.jenis === jenis; }).map(function (u) { return { value: u.id, label: u.nama }; });
+        if (!pilihan.length) { UI.toast('Tiada ' + App.labelOf(K.ref.jenis_unit, jenis).toLowerCase() + ' lain untuk ' + K.tahun + '. Senarai ditambah oleh pentadbir.'); return; }
         App.formDialog({
-          title: k.id ? 'Tukar jawatan' : 'Tambah unit ' + K.tahun,
+          title: k.id ? 'Tukar jawatan' : 'Tambah: ' + App.labelOf(K.ref.jenis_unit, jenis),
           fields: [
             { name: 'unit_id', label: 'Unit', type: 'select', required: true, options: pilihan, value: k.unit_id || pilihan[0].value, hint: 'Kelab yang tiada dalam senarai ditambah oleh pentadbir.' },
             { name: 'jawatan', label: 'Jawatan', type: 'select', required: true, options: K.ref.jawatan_unit, value: k.jawatan || 'ajk' }
@@ -75,8 +76,9 @@
           el('div', { style: 'font-size:1.25rem' }, rumahChip(r.nama, r.warna)),
           el('dl', { class: 'kv', style: 'margin:0' }, [el('dt', {}, 'Jawatan'), el('dd', {}, r.jawatan || '—')])
         ]) : el('p', { class: 'empty-sm' }, 'Belum ditetapkan untuk ' + K.tahun + '.');
-        var acts = [btn(r ? 'Tukar' : 'Tetapkan', borangRumah, r ? 'i-edit' : 'i-plus')];
-        return el('section', { class: 'card' }, [head('Rumah sukan ' + K.tahun, 'i-heart', acts), body]);
+        // Rumah sukan ditetapkan oleh pentadbir (di Urus kokurikulum); guru melihat sahaja.
+        return el('section', { class: 'card' }, [head('Rumah sukan ' + K.tahun, 'i-heart'), body,
+          el('p', { class: 'muted', style: 'font-size:.8125rem;padding:10px 24px 16px;border-top:1px solid var(--border)' }, 'Ditetapkan oleh pentadbir.')]);
       }
       function borangRumah() {
         var r = K.rumah || {};
@@ -143,7 +145,7 @@
         sel.addEventListener('change', function () { tahun = sel.value; muat(); });
         top.appendChild(sel);
         c.appendChild(top);
-        c.appendChild(el('div', { class: 'profile-grid' }, [unit(), rumah(), pertandingan()]));
+        c.appendChild(el('div', { class: 'profile-grid' }, K.ref.jenis_unit.map(unit).concat([rumah(), pertandingan()])));
       }
       function muat() {
         return call('KOKU_LIHAT', { tahun: tahun }).then(function (d) { K = d; render(); }, function (e) { c.textContent = ''; c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message))); });

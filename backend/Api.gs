@@ -76,6 +76,8 @@ function getActions() {
     UNIT_SIMPAN:          { roles: R_ADMIN, handler: aksiUnitSimpan },
     UNIT_PADAM:           { roles: R_ADMIN, handler: aksiUnitPadam },
     UNIT_SALIN:           { roles: R_ADMIN, handler: aksiUnitSalin },
+    UNIT_PUKAL:           { roles: R_ADMIN, handler: aksiUnitPukal },
+    RUMAH_AHLI_SIMPAN:    { roles: R_ADMIN, handler: aksiRumahAhliSimpan },
     RUMAH_SIMPAN:         { roles: R_ADMIN, handler: aksiRumahSimpan },
     JUARA_SIMPAN:         { roles: R_ADMIN, handler: aksiJuaraSimpan },
     JUARA_IMPORT:         { roles: R_ADMIN, handler: aksiJuaraImport },

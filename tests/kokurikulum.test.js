@@ -40,8 +40,10 @@ test('guru isi keahlian unit dan rumah sukan sendiri; unit mesti tahun yang sama
   assert.equal(call('REKOD_SIMPAN', { jadual: 'keahlian_unit', data: { unit_id: unit.KASPA, tahun_akademik: '2026', jawatan: 'penasihat' } }, A.token).ok, true);
   assert.equal(call('REKOD_SIMPAN', { jadual: 'keahlian_unit', data: { unit_id: unit.KASPA, tahun_akademik: '2026', jawatan: 'ajk' } }, A.token).code, 'DUPLIKAT');
   assert.equal(call('REKOD_SIMPAN', { jadual: 'keahlian_unit', data: { unit_id: unit.KRS, tahun_akademik: '2025', jawatan: 'ajk' } }, A.token).code, 'VALIDASI');
-  assert.equal(call('REKOD_SIMPAN', { jadual: 'guru_rumah', data: { rumah_sukan_id: rumah.Najah, tahun_akademik: '2026', jawatan: 'Ketua Rumah' } }, A.token).ok, true);
-  assert.equal(call('REKOD_SIMPAN', { jadual: 'guru_rumah', data: { rumah_sukan_id: rumah.Fatah, tahun_akademik: '2026' } }, A.token).code, 'DUPLIKAT', 'satu rumah setahun');
+  assert.equal(call('REKOD_SIMPAN', { jadual: 'guru_rumah', data: { rumah_sukan_id: rumah.Najah, tahun_akademik: '2026' } }, A.token).code, 'TIADA_KEBENARAN', 'rumah sukan oleh pentadbir sahaja');
+  const gidA = ctx.getById('akaun', A.akaunId).guru_id;
+  assert.equal(call('REKOD_SIMPAN', { jadual: 'guru_rumah', guru_id: gidA, data: { rumah_sukan_id: rumah.Najah, tahun_akademik: '2026', jawatan: 'Ketua Rumah' } }, ADM.token).ok, true);
+  assert.equal(call('REKOD_SIMPAN', { jadual: 'guru_rumah', guru_id: gidA, data: { rumah_sukan_id: rumah.Fatah, tahun_akademik: '2026' } }, ADM.token).code, 'DUPLIKAT', 'satu rumah setahun');
   const k = call('KOKU_LIHAT', {}, A.token).data;
   assert.equal(k.keahlian[0].unit_nama, 'KASPA');
   assert.equal(k.keahlian[0].jenis, 'badan_beruniform');
@@ -118,4 +120,29 @@ test('juara rumah sukan: simpan setahun (ganti), import sejarah, kiraan', () => 
   assert.equal(u.kiraan_juara[rumah.Fatah].johan, 2);
   assert.equal(u.kiraan_juara[rumah.Solah].johan, 1);
   assert.equal(u.juara.length, 5);
+});
+
+test('rumah sukan: pentadbir tetapkan ahli secara pukal, jawatan kekal, tolak guru dari rumah lain', () => {
+  const { ctx, call, A, B, ADM, gidA, gidB, rumah } = dunia();
+  assert.equal(call('RUMAH_AHLI_SIMPAN', { rumah_sukan_id: rumah.Najah, guru_ids: [gidA] }, A.token).code, 'TIADA_KEBENARAN');
+  assert.equal(call('RUMAH_AHLI_SIMPAN', { rumah_sukan_id: rumah.Najah, guru_ids: [gidA, gidB] }, ADM.token).data.guru, 2);
+  const ra = ctx.query('guru_rumah', { guru_id: gidA })[0];
+  call('REKOD_SIMPAN', { jadual: 'guru_rumah', id: ra.id, data: { jawatan: 'Ketua Rumah' } }, ADM.token);
+  call('RUMAH_AHLI_SIMPAN', { rumah_sukan_id: rumah.Najah, guru_ids: [gidA] }, ADM.token);
+  assert.equal(ctx.query('guru_rumah', { guru_id: gidA })[0].jawatan, 'Ketua Rumah', 'jawatan kekal');
+  assert.equal(ctx.query('guru_rumah', { guru_id: gidB }).length, 0, 'B dikeluarkan');
+  assert.match(call('RUMAH_AHLI_SIMPAN', { rumah_sukan_id: rumah.Fatah, guru_ids: [gidA] }, ADM.token).message, /sudah dalam rumah Najah/);
+  assert.equal(call('KOKU_LIHAT', {}, A.token).data.rumah.nama, 'Najah', 'guru lihat rumah sendiri');
+  assert.ok(B);
+});
+
+test('tambah unit pukal mengikut jenis; yang sedia ada dilangkau', () => {
+  const { ctx, call, A, ADM } = dunia();
+  const r = call('UNIT_PUKAL', { jenis: 'kelab_persatuan', teks: 'Kelab Bahasa Arab\nKelab Robotik\n  Kelab   Robotik \n\nKelab Kaligrafi' }, ADM.token).data;
+  assert.deepEqual([...r.ditambah], ['Kelab Bahasa Arab', 'Kelab Robotik', 'Kelab Kaligrafi']);
+  assert.equal(r.dilangkau.length, 1);
+  assert.equal(call('UNIT_PUKAL', { jenis: 'pasukan_sekolah', teks: 'Pasukan Bola Sepak\nKASPA' }, ADM.token).data.dilangkau[0], 'KASPA');
+  assert.equal(ctx.query('unit_kokurikulum', { jenis: 'pasukan_sekolah' }).length, 1);
+  assert.equal(call('UNIT_PUKAL', { jenis: 'bukan', teks: 'X' }, ADM.token).code, 'VALIDASI');
+  assert.equal(call('UNIT_PUKAL', { jenis: 'kelab_persatuan', teks: 'X' }, A.token).code, 'TIADA_KEBENARAN');
 });

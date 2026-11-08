@@ -228,6 +228,8 @@ function _semakRekod(jadual, row) {
 /** Tugasan guru diisi oleh pentadbir sahaja (keputusan pemilik): guru tidak perlu mengisi satu persatu. */
 function _semakPenulisTugasan(ctx, jadual) {
   if (jadual === 'tugasan_guru' && !_isAdmin(ctx)) throw new AppError('TIADA_KEBENARAN', 'Tugasan diisi oleh pentadbir. Hubungi pentadbir jika ada pembetulan.');
+  // Rumah sukan ditetapkan oleh pentadbir sahaja (keputusan pemilik 08/11/2026)
+  if (jadual === 'guru_rumah' && !_isAdmin(ctx)) throw new AppError('TIADA_KEBENARAN', 'Rumah sukan ditetapkan oleh pentadbir.');
 }
 
 function aksiRekodSimpan(ctx, params) {

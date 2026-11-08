@@ -473,3 +473,5 @@ table.data th[aria-sort="descending"]::after { content: " ▼"; font-size: .625r
   #kawasan-cetak .tt .s b { font-size: 9pt; }
   #kawasan-cetak .tt .s span { font-size: 7pt; }
 }
+.grid-3 > .card > .card-head { flex-direction: column; align-items: stretch; }
+.grid-3 > .card > .card-head > .row { justify-content: flex-start; }
