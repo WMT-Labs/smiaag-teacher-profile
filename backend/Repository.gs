@@ -13,10 +13,14 @@
  *   appendLog(table, row, ctx)    -> tambah baris TANPA membaca tab (untuk audit_log yang sentiasa bertambah)
  *
  * Kelajuan (cache):
- *   - Dalam satu permintaan, setiap tab dibaca sekali sahaja (memo), kemudian diguna semula.
- *   - Jadual rujukan yang jarang berubah (ref_*, subjek, kelas, waktu, ...) disimpan dalam CacheService
- *     selama CACHE_TTL_SAAT antara permintaan.
- *   - Setiap tulisan membaca data SEGAR dan membatalkan cache tab itu serta-merta.
+ *   - Dalam satu permintaan, setiap tab dibaca sekali sahaja (memo), dan Spreadsheet dibuka sekali sahaja.
+ *   - Semua tab (kecuali audit_log dan sessions) disimpan dalam CacheService (dipecah jika besar) dengan
+ *     "versi" setiap tab. Setiap tulisan menukar versi SELEPAS menulis ke Sheet, jadi data lama tidak
+ *     mungkin dipulangkan selepas sistem menulis. Pembaca menetapkan versi SEBELUM membaca Sheet.
+ *   - Pencetus panaskanCache() (setiap jam) mengisi cache supaya bacaan pertama juga laju.
+ *   - Suntingan TERUS dalam Sheet (bukan melalui sistem) tidak membatalkan cache: kelihatan dalam
+ *     sistem selepas pencetus seterusnya (maksimum ~1 jam) atau jalankan segarkanCache() secara manual.
+ *   - Setiap tulisan membaca data SEGAR (bukan cache).
  *   - Cache hanya aktif dalam handleRequest (mulaPermintaan/tamatPermintaan); ujian di luar tidak terjejas.
  *
  * Kenapa begini: apabila pindah ke Supabase, hanya fail ini yang diganti.
@@ -34,22 +38,87 @@
 
 var _REF_CACHE = {};
 
-var CACHE_TTL_SAAT = 300;
-var _CACHE = { aktif: false, memo: {}, bacaan: 0 };
+var CACHE_TTL_SAAT = 21600;          // had maksimum CacheService (6 jam)
+var CACHE_SAIZ_PECAHAN = 30000;      // aksara setiap kepingan (< 100KB walaupun UTF-8 3 bait)
+var CACHE_TANPA = ['audit_log', 'sessions'];
+var _CACHE = { aktif: false, memo: {}, bacaan: 0, ss: null, sheets: {}, versi: null };
 
 function _bolehCacheKekal(name) {
-  return /^ref_/.test(name) || ['subjek', 'kelas', 'waktu', 'had_jam_kredit', 'unit_kokurikulum', 'rumah_sukan'].indexOf(name) !== -1;
+  return CACHE_TANPA.indexOf(name) === -1;
 }
 
-function mulaPermintaan() { _CACHE.aktif = true; _CACHE.memo = {}; _CACHE.bacaan = 0; }
-function tamatPermintaan() { _CACHE.aktif = false; _CACHE.memo = {}; }
+function mulaPermintaan() { _CACHE.aktif = true; _CACHE.memo = {}; _CACHE.bacaan = 0; _CACHE.ss = null; _CACHE.sheets = {}; _CACHE.versi = null; }
+function tamatPermintaan() { _CACHE.aktif = false; _CACHE.memo = {}; _CACHE.ss = null; _CACHE.sheets = {}; _CACHE.versi = null; }
 function bilanganBacaan() { return _CACHE.bacaan; }
 
-/** Dipanggil selepas SETIAP tulisan: batalkan cache tab dan maklumkan modul lain (contoh cache sesi). */
+function _cacheSkrip() {
+  try { return CacheService.getScriptCache(); } catch (e) { return null; }
+}
+
+/** Versi semua tab dalam SATU panggilan CacheService setiap permintaan. */
+function _versiTab(name) {
+  var c = _cacheSkrip();
+  if (!c) return null;
+  if (!_CACHE.versi) {
+    var keys = Object.keys(SCHEMA).filter(_bolehCacheKekal).map(function (n) { return 'jv:' + n; });
+    try { _CACHE.versi = c.getAll(keys) || {}; } catch (e) { _CACHE.versi = {}; }
+  }
+  return _CACHE.versi['jv:' + name] || null;
+}
+
+function _setVersi(name) {
+  var c = _cacheSkrip();
+  if (!c) return null;
+  var v = Utilities.getUuid().slice(0, 8);
+  try { c.put('jv:' + name, v, CACHE_TTL_SAAT); } catch (e) { return null; }
+  if (_CACHE.versi) _CACHE.versi['jv:' + name] = v;
+  return v;
+}
+
+function _ambilCacheTab(name, v) {
+  var c = _cacheSkrip();
+  if (!c || !v) return null;
+  var k = 'jd:' + name + ':' + v + ':';
+  try {
+    var first = c.get(k + '0');
+    if (!first) return null;
+    var bar = first.indexOf('|');
+    var n = Number(first.slice(0, bar));
+    var parts = [first.slice(bar + 1)];
+    if (n > 1) {
+      var keys = [];
+      for (var i = 1; i < n; i++) keys.push(k + i);
+      var got = c.getAll(keys);
+      for (var j = 0; j < keys.length; j++) {
+        if (typeof got[keys[j]] !== 'string') return null;
+        parts.push(got[keys[j]]);
+      }
+    }
+    return JSON.parse(parts.join(''));
+  } catch (e) { return null; }
+}
+
+function _simpanCacheTab(name, v, rows) {
+  var c = _cacheSkrip();
+  if (!c || !v) return;
+  try {
+    var json = JSON.stringify(rows), parts = [];
+    for (var i = 0; i < json.length; i += CACHE_SAIZ_PECAHAN) parts.push(json.slice(i, i + CACHE_SAIZ_PECAHAN));
+    if (!parts.length) parts.push('');
+    var obj = {}, k = 'jd:' + name + ':' + v + ':';
+    parts.forEach(function (p, idx) { obj[k + idx] = idx === 0 ? parts.length + '|' + p : p; });
+    c.putAll(obj, CACHE_TTL_SAAT);
+  } catch (e) { /* terlalu besar atau cache penuh: abaikan, baca dari Sheet */ }
+}
+
+/**
+ * Dipanggil selepas SETIAP tulisan (selepas data ditulis ke Sheet, masih dalam kunci):
+ * tukar versi tab supaya cache lama tidak digunakan lagi, dan maklumkan modul lain (contoh cache sesi).
+ */
 function _selepasTulis(name, rows) {
   delete _CACHE.memo[name];
   delete _REF_CACHE[name];
-  try { CacheService.getScriptCache().remove('jd:' + name); } catch (e) { /* abaikan */ }
+  if (_bolehCacheKekal(name)) _setVersi(name);
   if (typeof onTulisJadual === 'function') {
     (rows || []).forEach(function (r) { if (r) onTulisJadual(name, r); });
   }
@@ -68,8 +137,13 @@ function _isDate(v) { return Object.prototype.toString.call(v) === '[object Date
 // ---------------------------------------------------------------------------
 
 function _sheetOf(schema) {
-  var sh = getSpreadsheet().getSheetByName(schema.name);
+  if (_CACHE.aktif && _CACHE.sheets[schema.name]) return _CACHE.sheets[schema.name];
+  var ss;
+  if (_CACHE.aktif) ss = _CACHE.ss || (_CACHE.ss = getSpreadsheet());   // buka Spreadsheet sekali setiap permintaan
+  else ss = getSpreadsheet();
+  var sh = ss.getSheetByName(schema.name);
   if (!sh) throw new AppError('TAB_TIADA', 'Tab "' + schema.name + '" tiada dalam Sheet. Jalankan setupTemplate().');
+  if (_CACHE.aktif) _CACHE.sheets[schema.name] = sh;
   return sh;
 }
 
@@ -114,27 +188,47 @@ function _toCell(def, v) {
 /** Baca semua baris. segar=true wajib untuk laluan tulisan (bukan daripada cache). */
 function _readAll(schema, segar) {
   var name = schema.name;
-  if (!segar && _CACHE.aktif) {
-    if (_CACHE.memo[name]) return _CACHE.memo[name];
-    if (_bolehCacheKekal(name)) {
-      var c = null;
-      try { c = CacheService.getScriptCache().get('jd:' + name); } catch (e) { c = null; }
-      if (c) {
-        var dc = { sheet: null, rows: JSON.parse(c) };
-        _CACHE.memo[name] = dc;
-        return dc;
-      }
+  if (!_CACHE.aktif) return _readSheet(schema);
+  if (!segar && _CACHE.memo[name]) return _CACHE.memo[name];
+  var v = null;
+  if (!segar && _bolehCacheKekal(name)) {
+    v = _versiTab(name);
+    var rows = _ambilCacheTab(name, v);
+    if (rows) {
+      var dc = { sheet: null, rows: rows };
+      _CACHE.memo[name] = dc;
+      return dc;
     }
+    if (!v) v = _setVersi(name);    // tetapkan versi SEBELUM membaca Sheet (lihat nota di atas)
   }
   var data = _readSheet(schema);
-  if (_CACHE.aktif) {
-    _CACHE.memo[name] = data;
-    if (_bolehCacheKekal(name)) {
-      try { CacheService.getScriptCache().put('jd:' + name, JSON.stringify(data.rows), CACHE_TTL_SAAT); } catch (e) { /* terlalu besar: abaikan */ }
-    }
-  }
+  _CACHE.memo[name] = data;
+  if (v) _simpanCacheTab(name, v, data.rows);
   return data;
 }
+
+/**
+ * Pencetus masa (setiap jam, dipasang oleh setupTemplate): isi cache semua tab supaya permintaan
+ * pengguna jarang perlu membaca Sheet. Juga boleh dijalankan secara manual: segarkanCache().
+ */
+function panaskanCache() {
+  mulaPermintaan();
+  try {
+    Object.keys(SCHEMA).filter(_bolehCacheKekal).forEach(function (name) {
+      var s = getTableSchema(name);
+      var v = _setVersi(name);
+      var data = _readSheet(s);
+      if (v) _simpanCacheTab(name, v, data.rows);
+      // Suntingan manual pada akaun/guru (contoh nyahaktif terus dalam Sheet) juga membatalkan cache sesi.
+      if (typeof onTulisJadual === 'function' && (name === 'akaun' || name === 'guru')) {
+        data.rows.forEach(function (r) { onTulisJadual(name, r); });
+      }
+    });
+  } finally { tamatPermintaan(); }
+}
+
+/** Jalankan selepas menyunting Sheet secara terus supaya sistem nampak perubahan serta-merta. */
+function segarkanCache() { panaskanCache(); }
 
 function _readSheet(schema) {
   _CACHE.bacaan++;

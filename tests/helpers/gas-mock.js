@@ -92,6 +92,7 @@ function createEnv(opts = {}) {
     cache,
     drive,
     mel: [],
+    pencetus: [],
     MailApp: { sendEmail: (o) => { if (String(o.to).includes('gagal')) throw new Error('kuota'); env.mel.push(o); } },
     DriveApp: {
       createFolder: (name) => { const id = 'folder-' + (drive.folders.size + 1); const f = makeFolder(id, name); drive.folders.set(id, f); return f; },
@@ -102,8 +103,13 @@ function createEnv(opts = {}) {
       get: (k) => { const e = cache.get(k); return e && e.until > now() ? e.v : null; },
       put: (k, v, ttl = 600) => { cache.set(k, { v: String(v), until: now() + Math.min(ttl, 21600) * 1000 }); },
       remove: (k) => { cache.delete(k); },
-      getAll: (keys) => { const o = {}; keys.forEach((k) => { const e = cache.get(k); if (e && e.until > now()) o[k] = e.v; }); return o; }
+      getAll: (keys) => { const o = {}; keys.forEach((k) => { const e = cache.get(k); if (e && e.until > now()) o[k] = e.v; }); return o; },
+      putAll: (obj, ttl = 600) => { Object.keys(obj).forEach((k) => cache.set(k, { v: String(obj[k]), until: now() + Math.min(ttl, 21600) * 1000 })); }
     }) },
+    ScriptApp: {
+      getProjectTriggers: () => env.pencetus.map((h) => ({ getHandlerFunction: () => h })),
+      newTrigger: (h) => ({ timeBased: () => ({ everyHours: () => ({ create: () => { env.pencetus.push(h); } }) }) })
+    },
     ContentService: { MimeType: { JSON: 'JSON' }, createTextOutput: (t) => ({ text: t, setMimeType() { return this; } }) },
     Utilities: {
       getUuid: () => crypto.randomUUID(),

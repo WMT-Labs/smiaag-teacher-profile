@@ -37,6 +37,7 @@ function setupTemplate() {
   report.push(_seedHadJamKredit());
   report.push(_seedWaktu());
   report.push(_seedKoku());
+  report.push(_pasangPencetusCache());
 
   var blank = ss.getSheetByName('Sheet1') || ss.getSheetByName('Helaian1');
   if (blank && ss.getSheets().length > 1 && blank.getLastRow() === 0 && blank.getLastColumn() === 0) {
@@ -53,6 +54,18 @@ function setupTemplate() {
  * Dibina dengan formula Sheets yang merujuk tab `akaun` dan `guru`; sistem tidak membaca atau menulis tab ini.
  * Dibina semula setiap kali setupTemplate dijalankan.
  */
+/** Pasang pencetus panaskanCache() setiap jam (sekali sahaja; selamat diulang). */
+function _pasangPencetusCache() {
+  try {
+    var ada = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'panaskanCache'; });
+    if (!ada) ScriptApp.newTrigger('panaskanCache').timeBased().everyHours(1).create();
+    panaskanCache();
+    return 'Cache: pencetus setiap jam ' + (ada ? 'sudah wujud' : 'dipasang') + ', cache diisi.';
+  } catch (e) {
+    return 'Cache: pencetus GAGAL dipasang (' + e.message + '). Sistem tetap berfungsi, cuma bacaan pertama lebih perlahan.';
+  }
+}
+
 function _ensureLihatAkaun(ss) {
   var name = 'lihat_akaun';
   var sh = ss.getSheetByName(name) || ss.insertSheet(name);

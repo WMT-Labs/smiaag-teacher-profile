@@ -479,3 +479,12 @@ table.data th[aria-sort="descending"]::after { content: " ▼"; font-size: .625r
   .items li { flex-wrap: wrap; }
   .items li > .grow { flex-basis: 60%; }
 }
+
+/* Kotak unit koku (Syabab / Kelab / Pasukan): saiz tetap, senarai panjang skrol di dalam kotak sahaja */
+.grid-3 .unit-group {
+  max-height: 420px; overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent;
+}
+.grid-3 .unit-group::-webkit-scrollbar { width: 8px; }
+.grid-3 .unit-group::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; }
+@media (max-width: 1100px) { .grid-3 .unit-group { max-height: 360px; } }

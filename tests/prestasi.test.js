@@ -114,3 +114,70 @@ test('setupTemplate: tukar teks tarikh lama, sisip lajur baharu, data kekal', ()
   assert.equal(Object.prototype.toString.call(sh.grid[1][cols.indexOf('created_at')]), '[object Date]', 'teks ditukar kepada tarikh');
   assert.equal(ctx.verifySetup().length, 0);
 });
+
+test('cache semua tab: permintaan kedua PROFIL_LIHAT dan DASHBOARD tidak membaca Sheet', () => {
+  const w = setupWithSuperadmin();
+  const { call, env } = w;
+  const g = w.ciptaGuru('SMC10');
+  const adm = w.ciptaGuru('ADC10', 'pentadbir');
+  call('PROFIL_LIHAT', {}, g.token); call('DASHBOARD', { tahun: 2026 }, adm.token);
+  env.logs.length = 0;
+  call('PROFIL_LIHAT', {}, g.token); call('DASHBOARD', { tahun: 2026 }, adm.token);
+  const m = masa(env);
+  assert.equal(m[0].bacaan, 0, 'profil daripada cache');
+  assert.equal(m[1].bacaan, 0, 'dashboard daripada cache');
+});
+
+test('cache semua tab: tulisan melalui sistem kelihatan serta-merta kepada pengguna lain', () => {
+  const w = setupWithSuperadmin();
+  const { call, ctx } = w;
+  const g = w.ciptaGuru('SMC11');
+  g.guruId = ctx.getById('akaun', g.akaunId).guru_id;
+  const adm = w.ciptaGuru('ADC11', 'pentadbir');
+  const sebelum = call('GURU_SENARAI', {}, adm.token).data;
+  assert.equal(call('PROFIL_SIMPAN_TERAS', { nama_penuh: 'Guru Contoh SMC11', status_lantikan: 'tetap', nama_panggilan: 'Cikgu Cache' }, g.token).ok, true);
+  const selepas = call('PROFIL_LIHAT', { guru_id: g.guruId }, adm.token);
+  assert.equal(selepas.ok, true);
+  assert.equal(selepas.data.guru.nama_panggilan, 'Cikgu Cache');
+  assert.ok(sebelum);
+});
+
+test('cache semua tab: suntingan terus dalam Sheet kelihatan selepas segarkanCache()', () => {
+  const w = setupWithSuperadmin();
+  const { call, env, ctx } = w;
+  const g = w.ciptaGuru('SMC12');
+  call('PROFIL_LIHAT', {}, g.token);
+  const sh = env.ss.getSheetByName('guru');
+  const vals = sh.grid;
+  const colNama = vals[0].indexOf('nama_panggilan');
+  const r = vals.findIndex((row) => row[vals[0].indexOf('guru_kod')] === 'SMC12');
+  sh.grid[r][colNama] = 'Suntingan Manual';
+  assert.notEqual(call('PROFIL_LIHAT', {}, g.token).data.guru.nama_panggilan, 'Suntingan Manual', 'masih cache');
+  ctx.segarkanCache();
+  assert.equal(call('PROFIL_LIHAT', {}, g.token).data.guru.nama_panggilan, 'Suntingan Manual');
+});
+
+test('cache semua tab: data besar dipecah kepada beberapa kepingan dan dibaca semula dengan betul', () => {
+  const { ctx } = loadReady();
+  ctx.CACHE_SAIZ_PECAHAN = 500;
+  const rows = [];
+  for (let i = 0; i < 40; i++) rows.push({ nama: 'Subjek panjang nombor ' + i + ' — ' + 'x'.repeat(30), kategori: 'subjek' });
+  ctx.insertMany('subjek', rows);
+  ctx.mulaPermintaan();
+  const a = ctx.query('subjek', {}).length;
+  ctx.tamatPermintaan();
+  ctx.mulaPermintaan();
+  const b = ctx.query('subjek', {});
+  const bacaan = ctx.bilanganBacaan();
+  ctx.tamatPermintaan();
+  assert.equal(a, 40);
+  assert.equal(b.length, 40);
+  assert.equal(bacaan, 0, 'dibaca daripada kepingan cache');
+  assert.ok(b.some((x) => x.nama.includes('—')));
+});
+
+test('setupTemplate memasang pencetus panaskanCache sekali sahaja', () => {
+  const { ctx, env } = loadReady();
+  ctx.setupTemplate();
+  assert.deepEqual([...env.pencetus], ['panaskanCache']);
+});

@@ -119,6 +119,12 @@ Masa: kira-kira 15 minit. Anda perlukan akaun Google sekolah atau peribadi yang 
 
 Emel kata laluan sementara dihantar daripada akaun Google yang men-deploy Web App ("Execute as: Me"). Untuk menghantar daripada emel admin baharu, salin projek Apps Script ke akaun itu dan deploy semula dari sana. Had harian: akaun Gmail biasa kira-kira 100 emel, Google Workspace kira-kira 1500 (semak dengan Google untuk akaun anda).
 
+### C4. Cache dan suntingan terus dalam Sheet
+
+`setupTemplate` memasang pencetus `panaskanCache` (setiap jam) supaya sistem jarang perlu membaca Sheet.
+Perubahan melalui sistem kelihatan serta-merta. Jika anda menyunting Sheet **secara terus**, jalankan
+`segarkanCache` dalam editor Apps Script supaya perubahan kelihatan serta-merta (jika tidak, maksimum ~1 jam).
+
 ### D. Hubungkan frontend
 
 1. Buka `frontend/js/config.js`, isi `API_URL` dengan URL tadi.

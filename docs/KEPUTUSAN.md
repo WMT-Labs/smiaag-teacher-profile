@@ -136,3 +136,18 @@ Dikemas kini pada penghujung setiap fasa. Rujuk dokumen arahan projek (Seksyen 1
 |---|---|
 | Fail eksport aSc sebenar (untuk menyemak format) | Bila tersedia |
 | Senarai tetap subjek dan kelas (superadmin boleh isi sendiri di Data rujukan, tambah pukal) | Sebelum guna sebenar |
+
+## Kelajuan peringkat 2 (09/11/2026)
+
+Ukuran pemilik selepas P0: log masuk 6 s, profil 6 s, dashboard 10 s, tukar tahun 6 s. Executions menunjukkan
+`SESI_SAYA` (dari cache) ~0.85 s, tetapi aksi data 3–9 s, jadi kos utama ialah membaca tab Sheet.
+
+- **Semua tab dicache** dalam CacheService (kecuali `audit_log`, `sessions`), dipecah kepada kepingan 30k aksara,
+  TTL 6 jam. Setiap tab ada "versi"; setiap tulisan menukar versi SELEPAS menulis (dalam kunci), pembaca
+  menetapkan versi SEBELUM membaca Sheet. Jadi data lama tidak dipulangkan selepas sistem menulis.
+- **Spreadsheet dibuka sekali setiap permintaan** (sebelum ini `openById` dipanggil untuk setiap tab).
+- **Pencetus `panaskanCache` setiap jam** (dipasang oleh `setupTemplate`) mengisi cache dan membatalkan cache sesi.
+- **Andaian / kesan:** suntingan TERUS dalam Sheet (bukan melalui sistem) muncul dalam sistem selepas maksimum
+  ~1 jam. Untuk serta-merta: jalankan `segarkanCache` dalam editor Apps Script.
+- Hash kata laluan 1000 ulangan semasa log masuk tidak dikurangkan (keselamatan Seksyen 3).
+- Koku urus: senarai unit dalam setiap kotak terhad 420 px dan skrol di dalam kotak.
