@@ -125,7 +125,8 @@ Butiran andaian dan nota teknikal: `docs/KEPUTUSAN.md` ("Penambahbaikan 08/11/20
 - Emel admin sebenar (pemilik akan sediakan).
 - Nilai `ref_*` tidak aktif (contoh `kontrak`) masih diterima server untuk rekod baharu jika dihantar terus
   melalui API (UI tidak menawarkannya). Pertimbangkan tolak dalam Fasa 7.
-- Kelajuan selepas P0 belum diukur di Apps Script sebenar.
+- Kelajuan: selepas P0 masih 6–10 s; selepas cache semua tab (09/11/2026) pemilik ukur **2–3 s setiap tukar halaman**.
+  Pilihan seterusnya jika perlu: cache di pelayar (papar data lama serta-merta, kemas kini di belakang).
 
 ---
 
