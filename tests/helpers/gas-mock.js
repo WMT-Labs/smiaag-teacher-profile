@@ -19,6 +19,7 @@ class FakeSheet {
   getMaxRows() { return this.maxRows; }
   insertRowsAfter() { this.maxRows++; }
   deleteRow(n) { this.grid.splice(n - 1, 1); }
+  deleteRows(n, k) { this.grid.splice(n - 1, k); }
   setFrozenRows() {} setTabColor() {}
   getRange(r, c, nr = 1, nc = 1) {
     const sh = this;
@@ -108,7 +109,7 @@ function createEnv(opts = {}) {
     }) },
     ScriptApp: {
       getProjectTriggers: () => env.pencetus.map((h) => ({ getHandlerFunction: () => h })),
-      newTrigger: (h) => ({ timeBased: () => ({ everyHours: () => ({ create: () => { env.pencetus.push(h); } }) }) })
+      newTrigger: (h) => { const b = { everyHours: () => b, everyDays: () => b, atHour: () => b, create: () => { env.pencetus.push(h); } }; return { timeBased: () => b }; }
     },
     ContentService: { MimeType: { JSON: 'JSON' }, createTextOutput: (t) => ({ text: t, setMimeType() { return this; } }) },
     Utilities: {

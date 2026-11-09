@@ -54,15 +54,22 @@ function setupTemplate() {
  * Dibina dengan formula Sheets yang merujuk tab `akaun` dan `guru`; sistem tidak membaca atau menulis tab ini.
  * Dibina semula setiap kali setupTemplate dijalankan.
  */
-/** Pasang pencetus panaskanCache() setiap jam (sekali sahaja; selamat diulang). */
+/** Pasang pencetus masa (sekali sahaja; selamat diulang): cache setiap jam, penyelenggaraan harian. */
+function _pasangPencetus(fungsi, bina) {
+  var ada = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === fungsi; });
+  if (!ada) bina(ScriptApp.newTrigger(fungsi).timeBased()).create();
+  return ada;
+}
+
 function _pasangPencetusCache() {
   try {
-    var ada = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'panaskanCache'; });
-    if (!ada) ScriptApp.newTrigger('panaskanCache').timeBased().everyHours(1).create();
+    var a = _pasangPencetus('panaskanCache', function (b) { return b.everyHours(1); });
+    var h = _pasangPencetus('penyelenggaraanHarian', function (b) { return b.everyDays(1).atHour(3); });
     panaskanCache();
-    return 'Cache: pencetus setiap jam ' + (ada ? 'sudah wujud' : 'dipasang') + ', cache diisi.';
+    return 'Pencetus: cache setiap jam ' + (a ? 'sudah wujud' : 'dipasang') + '; penyelenggaraan harian (3 pagi) ' +
+      (h ? 'sudah wujud' : 'dipasang') + '. Cache diisi.';
   } catch (e) {
-    return 'Cache: pencetus GAGAL dipasang (' + e.message + '). Sistem tetap berfungsi, cuma bacaan pertama lebih perlahan.';
+    return 'Pencetus GAGAL dipasang (' + e.message + '). Sistem tetap berfungsi, cuma bacaan pertama lebih perlahan.';
   }
 }
 

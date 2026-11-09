@@ -179,5 +179,5 @@ test('cache semua tab: data besar dipecah kepada beberapa kepingan dan dibaca se
 test('setupTemplate memasang pencetus panaskanCache sekali sahaja', () => {
   const { ctx, env } = loadReady();
   ctx.setupTemplate();
-  assert.deepEqual([...env.pencetus], ['panaskanCache']);
+  assert.deepEqual([...env.pencetus], ['panaskanCache', 'penyelenggaraanHarian']);
 });

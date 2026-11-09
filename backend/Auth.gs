@@ -324,4 +324,4 @@ function aksiSetujuPdpa(ctx, params) {
 }
 
 /** Naikkan nombor ini jika isi notis privasi berubah dengan ketara (rekod dalam audit_log). */
-var PDPA_VERSI = '1.1'; // 1.1: emel ditambah
+var PDPA_VERSI = '1.2'; // 1.1: emel ditambah; 1.2: tempoh simpanan 2 tahun + muat turun data sendiri

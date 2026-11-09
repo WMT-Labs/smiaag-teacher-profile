@@ -2,20 +2,23 @@
 
 > Dokumen ini ialah titik mula untuk sesi seterusnya. Baca keseluruhannya sebelum menulis kod.
 > Dikemas kini: 08/11/2026. Branch: `claude/dreamy-einstein-9ucbl7` (repo `WMT-Labs/smiaag-teacher-profile`).
-> Ujian automatik: **132 lulus, 0 gagal** (`npm test`). Semak `git log` untuk commit terkini.
+> Ujian automatik: **150 lulus, 0 gagal** (`npm test`). Semak `git log` untuk commit terkini.
 
 ---
 
 ## 1. Di mana kita berhenti
 
-- **Fasa 0 hingga 6 siap** dan sudah diuji pemilik (Sheet + Apps Script + Netlify sebenar).
-- **12 item penambahbaikan 08/11/2026 + P0 kelajuan + bar loading SIAP** (Seksyen 4). Pemilik sudah
-  menjawab semua soalan terbuka; jawapan direkod dalam `docs/KEPUTUSAN.md`.
-- **Langkah seterusnya:** pemilik kemas kini Sheet ujian dan uji semula mengikut
-  `docs/SENARAI-SEMAK-PENAMBAHBAIKAN-1.md`, termasuk ukur semula masa (log `[MASA]` dalam Executions).
-  Tunggu pengesahan pemilik, kemudian **Fasa 7** (Seksyen 6).
-- Emel kata laluan sementara sekarang dihantar dari akaun Google pemilik skrip (latihan). Pemilik akan
-  buat emel admin baharu kemudian; hanya tukar pemilik/deploy, tiada perubahan kod dijangka.
+- **Fasa 0 hingga 6 siap** dan diuji pemilik. **12 item penambahbaikan + kelajuan siap** (pemilik ukur 2–3 s setiap halaman).
+- **Fasa 7 SIAP (09/11/2026), menunggu ujian pemilik** mengikut `docs/SENARAI-SEMAK-FASA-7.md`:
+  - Audit keselamatan: `docs/AUDIT-KESELAMATAN.md` (3 jurang dibaiki: header/CSP dalam `frontend/_headers`,
+    nilai ref tidak aktif ditolak, `logKeluarSemua()`); ujian sapuan semua aksi `tests/keselamatan.test.js`.
+  - PDPA (`backend/Pdpa.gs`): `PDPA_EKSPORT` (guru sendiri / superadmin), `PDPA_SENARAI_TAMAT`, `PDPA_PADAM`
+    (nyahnama rekod guru, padam data milik, kekalkan rekod dikongsi); `guru.dinyahaktif_pada`; simpanan 2 tahun
+    (padam manual oleh superadmin); pencetus harian `penyelenggaraanHarian` (sesi tamat + audit_log > 2 tahun).
+  - `docs/PELAN-KEBOCORAN-DATA.md`, `docs/MIGRASI-SUPABASE.md`, `docs/supabase/schema.sql` (dijana `npm run sql`,
+    diuji pada PostgreSQL tempatan dengan `docs/supabase/ujian-rls.sql`).
+- Selepas pemilik sahkan Fasa 7: semua fasa dalam dokumen arahan selesai. Kerja seterusnya ikut permintaan pemilik
+  (contoh cache pelayar untuk kelajuan, fail aSc sebenar, migrasi Supabase).
 
 ---
 
@@ -123,8 +126,6 @@ Butiran andaian dan nota teknikal: `docs/KEPUTUSAN.md` ("Penambahbaikan 08/11/20
 ### Perkara yang masih terbuka
 - **Fail eksport aSc sebenar** belum diterima; semak dan laraskan `frontend/js/asc.js` bila diterima.
 - Emel admin sebenar (pemilik akan sediakan).
-- Nilai `ref_*` tidak aktif (contoh `kontrak`) masih diterima server untuk rekod baharu jika dihantar terus
-  melalui API (UI tidak menawarkannya). Pertimbangkan tolak dalam Fasa 7.
 - Kelajuan: selepas P0 masih 6–10 s; selepas cache semua tab (09/11/2026) pemilik ukur **2–3 s setiap tukar halaman**.
   Pilihan seterusnya jika perlu: cache di pelayar (papar data lama serta-merta, kemas kini di belakang).
 
@@ -132,13 +133,10 @@ Butiran andaian dan nota teknikal: `docs/KEPUTUSAN.md` ("Penambahbaikan 08/11/20
 
 ## 5. Urutan kerja seterusnya
 
-1. Tunggu keputusan ujian semula pemilik (`docs/SENARAI-SEMAK-PENAMBAHBAIKAN-1.md`) dan masa baharu.
-   Baiki apa-apa isu yang dilaporkan dahulu.
-2. **Fasa 7**: audit keselamatan terhadap Seksyen 3 (senarai peraturan + bukti ujian); PDPA — superadmin
-   eksport dan padam data seorang guru, tempoh simpanan 2 tahun selepas nyahaktif (penanda/arkib + fungsi
-   pembersihan), senarai semak kebocoran data; `docs/MIGRASI-SUPABASE.md` (SQL `CREATE TABLE` dijana
-   daripada `Schema.gs`, RLS, import CSV, Supabase Auth menggantikan `akaun`/`sessions`, kunci `anon`
-   sahaja di frontend). Ambil kira tarikh kini nilai Date dalam Sheet (format eksport CSV).
+1. Tunggu keputusan ujian Fasa 7 pemilik (`docs/SENARAI-SEMAK-FASA-7.md`). Baiki isu yang dilaporkan.
+2. Pilihan yang sudah dibincang (tunggu keputusan pemilik): cache di pelayar (papar data terakhir serta-merta,
+   kemas kini di belakang; padam semasa log keluar); laraskan `js/asc.js` bila fail aSc sebenar diterima;
+   migrasi Supabase ikut `docs/MIGRASI-SUPABASE.md` (termasuk skrip eksport tarikh ISO dan penyesuai `js/api.js`).
 
-Setiap perubahan skema: kemas kini `Schema.gs`, `npm run bundle`, `npm run skema-md`, ujian, senarai semak
+Setiap perubahan skema: kemas kini `Schema.gs`, `npm run bundle`, `npm run skema-md`, `npm run sql`, ujian, senarai semak
 yang menerangkan langkah kemas kini Sheet sedia ada (pemilik sudah ada Sheet ujian dengan data).

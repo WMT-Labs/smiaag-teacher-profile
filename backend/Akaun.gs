@@ -35,7 +35,9 @@ function _barisAkaun(akaun, guru) {
     wajib_tukar_password: !!akaun.wajib_tukar_password,
     persetujuan_pdpa_pada: akaun.persetujuan_pdpa_pada,
     percubaan_gagal: akaun.percubaan_gagal || 0,
-    dikunci: guru ? adaKunci(guru.guru_kod) : false
+    dikunci: guru ? adaKunci(guru.guru_kod) : false,
+    dinyahaktif_pada: guru ? guru.dinyahaktif_pada : null,
+    tarikh_layak_padam: guru && !akaun.aktif ? tarikhLayakPadam(guru) : null
   };
 }
 
@@ -144,7 +146,7 @@ function aksiAkaunSetAktif(ctx, params) {
   var x = _akaunDanGuru(id);
   if (!aktif && x.akaun.role === 'superadmin') _pastikanAdaSuperadminLain(id);
   var akaun = update('akaun', id, { aktif: aktif }, { actorId: ctx.akaunId });
-  if (x.guru) update('guru', x.guru.id, { aktif: aktif }, { actorId: ctx.akaunId });
+  if (x.guru) update('guru', x.guru.id, { aktif: aktif, dinyahaktif_pada: aktif ? null : nowIso() }, { actorId: ctx.akaunId });
   if (!aktif) _padamSesiAkaun(id, null);
   logAudit(ctx.akaunId, aktif ? 'AKAUN_AKTIFKAN' : 'AKAUN_NYAHAKTIF', x.guru ? x.guru.guru_kod : id);
   return _barisAkaun(akaun, getById('guru', akaun.guru_id));

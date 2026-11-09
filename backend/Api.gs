@@ -97,6 +97,10 @@ function getActions() {
     USRAH_GURU_SIMPAN:    { roles: R_ADMIN, handler: aksiUsrahGuruSimpan },
     USRAH_AHLI_SIMPAN:    { roles: R_ADMIN, handler: aksiUsrahAhliSimpan },
     USRAH_GURU_PADAM:     { roles: R_ADMIN, handler: aksiUsrahGuruPadam },
+    // ---- PDPA (Fasa 7) — eksport: guru untuk diri sendiri, superadmin untuk sesiapa ----
+    PDPA_EKSPORT:         { roles: R_SEMUA, handler: aksiPdpaEksport },
+    PDPA_SENARAI_TAMAT:   { roles: R_SUPER, handler: aksiPdpaSenaraiTamat },
+    PDPA_PADAM:           { roles: R_SUPER, handler: aksiPdpaPadam },
     // ---- Dashboard (Fasa 6) ----
     DASHBOARD:            { roles: R_ADMIN, handler: aksiDashboard }
   };

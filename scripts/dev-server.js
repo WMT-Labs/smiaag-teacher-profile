@@ -14,6 +14,11 @@ const { loadReady } = require('../tests/helpers/load-gas');
 const PORT = +process.env.PORT || 8080;
 let seedDemo = null; try { seedDemo = require('./demo-data').seedDemo; } catch (e) { /* tiada data demo */ }
 const FRONT = path.join(__dirname, '..', 'frontend');
+// Header yang sama seperti Netlify (frontend/_headers) supaya CSP diuji semasa pembangunan.
+const HEADERS = {};
+fs.readFileSync(path.join(FRONT, '_headers'), 'utf8').split('\n').forEach((l) => {
+  const m = /^\s+([A-Za-z-]+):\s*(.+)$/.exec(l); if (m) HEADERS[m[1]] = m[2].trim();
+});
 const { ctx } = loadReady({ realClock: true });
 
 // Akaun contoh (palsu).
@@ -53,7 +58,7 @@ http.createServer((req, res) => {
   }
   const file = path.normalize(path.join(FRONT, url === '/' ? 'index.html' : url));
   if (!file.startsWith(FRONT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end('Tiada'); return; }
-  res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
+  res.writeHead(200, Object.assign({ 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' }, HEADERS));
   fs.createReadStream(file).pipe(res);
 }).listen(PORT, () => {
   console.log(`Pelayan dev: http://localhost:${PORT}  (data dalam memori, palsu)`);

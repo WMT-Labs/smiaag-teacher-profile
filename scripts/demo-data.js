@@ -90,5 +90,13 @@ function seedDemo(ctx, a) {
   // Guru baharu dalam percubaan (tamat 02/09/2026, perlu disahkan)
   ctx.update('guru', a.g2.guru.id, { status_lantikan: 'percubaan', tarikh_lantikan: '2026-03-02', jawatan: 'Guru Akademik Biasa' });
   ctx.insert('tugasan_guru', { guru_id: a.g2.guru.id, tahun_akademik: '2026', jenis_tugasan: 'berjadual', kumpulan: 'subjek', nama_tugasan: 'Sains T1', subjek_id: S.SNS, bilangan_kelas: 4, jam_kredit: 23 });
+
+  // Bekas guru (PDPA): dinyahaktif lebih 2 tahun lalu -> muncul dalam "Tempoh simpanan data"
+  const lama = ctx._ciptaAkaunDalaman('SM903', 'Bekas Guru Contoh', 'tetap', 'guru', null, {});
+  const lamaGuru = ctx.query('guru', { guru_kod: 'SM903' })[0];
+  ctx.insert('kursus', { guru_id: lamaGuru.id, tajuk: 'Kursus Contoh Lama', tahap: 'sekolah', tarikh_mula: '2023-05-02' });
+  ctx.update('akaun', ctx.query('akaun', { guru_id: lamaGuru.id })[0].id, { aktif: false });
+  ctx.update('guru', lamaGuru.id, { aktif: false, dinyahaktif_pada: '2024-03-01T08:00:00+08:00' });
+  return lama;
 }
 module.exports = { seedDemo };

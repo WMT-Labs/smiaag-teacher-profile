@@ -356,8 +356,55 @@
     return m[3] + '/' + m[2] + '/' + m[1] + ', ' + h12 + ':' + m[5] + ' ' + ampm;
   }
 
+  /** Muat turun objek sebagai fail JSON (dijana dalam pelayar; tiada pelayan lain terlibat). */
+  function muatTurunJson(namaFail, obj) {
+    var blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = el('a', { href: url, download: namaFail });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+
+  /** Eksport data peribadi (PDPA). guruId kosong = data sendiri. */
+  function eksportPdpa(guruId, guruKod, btn) {
+    if (btn) btn.disabled = true;
+    return Api.call('PDPA_EKSPORT', guruId ? { guru_id: guruId } : {}).then(function (d) {
+      muatTurunJson('data-peribadi-' + (guruKod || d.guru.guru_kod) + '-' + d.dijana_pada.slice(0, 10) + '.json', d);
+      UI.toast('Fail data peribadi dimuat turun.');
+    }).catch(function (e) { UI.toast(e.message); })
+      .then(function () { if (btn) btn.disabled = false; });
+  }
+
+  /** Padam kekal data guru tidak aktif (superadmin). Pulang true jika dipadam. */
+  function padamPdpa(g) {
+    var input = el('input', { class: 'input', autocomplete: 'off', 'aria-label': 'Taip ID guru untuk sahkan' });
+    var alertBox = el('div', { class: 'notice notice-error', hidden: true }), alertText = el('span');
+    alertBox.appendChild(alertText);
+    setTimeout(function () { input.focus(); }, 50);
+    return dialog({
+      title: 'Padam kekal data guru?',
+      body: [
+        el('dl', { class: 'kv' }, [el('dt', {}, 'Nama'), el('dd', {}, g.nama_penuh), el('dt', {}, 'ID guru'), el('dd', {}, g.guru_kod)]),
+        el('div', { class: 'notice notice-warn' }, el('span', {}, 'Akaun, profil, kelayakan, kursus, cerapan, jadual, tugasan dan keahlian guru ini dipadam dan TIDAK boleh dipulihkan. ' +
+          'Rekod yang dikongsi dengan guru lain (kumpulan usrah, rekod relief) kekal dengan nama "Guru dipadam". Muat turun data dahulu jika perlu disimpan.')),
+        el('label', { class: 'field' }, [el('span', { class: 'label' }, 'Taip ' + g.guru_kod + ' untuk mengesahkan'), input]),
+        alertBox
+      ],
+      actions: [
+        { text: 'Batal', kind: 'btn-secondary', value: false },
+        { text: 'Padam kekal', kind: 'btn-danger', value: true, onClick: function (b) {
+          b.disabled = true; alertBox.hidden = true;
+          return Api.call('PDPA_PADAM', { guru_id: g.guru_id, sahkan_kod: input.value.trim() })
+            .then(function () { UI.toast('Data ' + g.guru_kod + ' telah dipadam.'); return true; })
+            .catch(function (e) { alertText.textContent = e.message; alertBox.hidden = false; b.disabled = false; return false; });
+        } }
+      ]
+    });
+  }
+
   window.App = {
     icon: icon, nextPage: nextPage, guard: guard, updateSesi: updateSesi, logout: logout, mount: mount,
-    dialog: dialog, confirm: confirmDialog, formDialog: formDialog, labelOf: labelOf, senaraiTahun: senaraiTahun, rangka: rangka, fmtMasa: fmtMasa, senaraiMasa: senaraiMasa, bebanBadge: bebanBadge, HARI_PENDEK: HARI_PENDEK, fmtDateTime: fmtDateTime, LABEL_ROLE: LABEL_ROLE
+    dialog: dialog, confirm: confirmDialog, formDialog: formDialog, labelOf: labelOf, senaraiTahun: senaraiTahun, rangka: rangka, fmtMasa: fmtMasa, senaraiMasa: senaraiMasa, bebanBadge: bebanBadge, HARI_PENDEK: HARI_PENDEK, fmtDateTime: fmtDateTime, LABEL_ROLE: LABEL_ROLE,
+    muatTurunJson: muatTurunJson, eksportPdpa: eksportPdpa, padamPdpa: padamPdpa
   };
 })();

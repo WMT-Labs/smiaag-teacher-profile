@@ -118,6 +118,7 @@ function _simpanCacheTab(name, v, rows) {
 function _selepasTulis(name, rows) {
   delete _CACHE.memo[name];
   delete _REF_CACHE[name];
+  delete _REF_CACHE[name + ':aktif'];
   if (_bolehCacheKekal(name)) _setVersi(name);
   if (typeof onTulisJadual === 'function') {
     (rows || []).forEach(function (r) { if (r) onTulisJadual(name, r); });
@@ -330,6 +331,7 @@ function insert(table, row, ctx) {
       throw new AppError('DUPLIKAT', 'Rekod dengan id ini sudah wujud.');
     }
     _checkUnique(s, clean, null, data.rows);
+    _semakRefAktif(s, clean, null);
     var line = s.columns.map(function (c) { return _toCell(s.defs[c], clean[c]); });
     data.sheet.getRange(data.sheet.getLastRow() + 1, 1, 1, s.columns.length).setValues([line]);
     _selepasTulis(s.name, [clean]);
@@ -350,6 +352,7 @@ function update(table, id, patch, ctx) {
     s.columns.forEach(function (c) { merged[c] = (c in clean) ? clean[c] : current[c]; });
     if (s.audit) { merged.updated_at = nowIso(); merged.updated_by = ctx.actorId || null; }
     _checkUnique(s, merged, id, data.rows);
+    _semakRefAktif(s, merged, current);
     var line = s.columns.map(function (c) { return _toCell(s.defs[c], merged[c]); });
     data.sheet.getRange(current.__row, 1, 1, s.columns.length).setValues([line]);
     _selepasTulis(s.name, [merged]);
@@ -404,6 +407,7 @@ function _sediakanBaris(s, rows, semua, ctx) {
       if (!clean[s.pk]) clean[s.pk] = uuid();
       if (semua.some(function (r) { return r[s.pk] === clean[s.pk]; })) throw new AppError('DUPLIKAT', 'Rekod dengan id ini sudah wujud.');
       _checkUnique(s, clean, null, semua);
+      _semakRefAktif(s, clean, null);
     } catch (e) {
       if (e && e.name === 'AppError') { e.message = 'Baris ' + (i + 1) + ': ' + e.message; e.details = { baris: i + 1, field: e.details && e.details.field }; }
       throw e;
@@ -517,6 +521,25 @@ function _refKods(refTable) {
     _REF_CACHE[refTable] = _readAll(getTableSchema(refTable)).rows.map(function (r) { return r.kod; });
   }
   return _REF_CACHE[refTable];
+}
+
+/** Kod rujukan yang masih AKTIF. Nilai tidak aktif (contoh 'kontrak') kekal sah untuk rekod lama sahaja. */
+function _refAktif(refTable) {
+  var k = refTable + ':aktif';
+  if (!_REF_CACHE[k]) {
+    _REF_CACHE[k] = _readAll(getTableSchema(refTable)).rows.filter(function (r) { return r.aktif !== false; }).map(function (r) { return r.kod; });
+  }
+  return _REF_CACHE[k];
+}
+
+/** Tolak nilai rujukan tidak aktif bagi rekod baharu, atau bila nilai ditukar kepada nilai tidak aktif. */
+function _semakRefAktif(s, clean, current) {
+  s.columns.forEach(function (c) {
+    var def = s.defs[c];
+    if (!def.ref || clean[c] === null || clean[c] === undefined) return;
+    if (current && current[c] === clean[c]) return;
+    if (_refAktif(def.ref).indexOf(clean[c]) === -1) _bad(c, 'Nilai "' + clean[c] + '" tidak lagi digunakan untuk "' + c + '".');
+  });
 }
 
 function _bad(field, msg) { throw new AppError('VALIDASI', msg, { field: field }); }

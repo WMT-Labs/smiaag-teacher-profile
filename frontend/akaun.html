@@ -55,6 +55,39 @@
           tbody
         ]))
       ]));
+      // ---------- tempoh simpanan data (PDPA), superadmin sahaja ----------
+      var pdpaBody = el('div');
+      if (isSuper) {
+        c.appendChild(el('section', { class: 'card' }, [
+          el('div', { class: 'card-head' }, [el('h2', {}, 'Tempoh simpanan data (PDPA)')]),
+          el('p', { class: 'muted', style: 'font-size:.875rem;margin:0;padding:var(--s-4) var(--s-5) 0' }, 'Data guru disimpan 2 tahun selepas akaun dinyahaktifkan. Selepas tarikh itu, semak dan padam di sini. Sistem tidak memadam secara automatik.'),
+          pdpaBody
+        ]));
+      }
+      function muatPdpa() {
+        if (!isSuper) return;
+        pdpaBody.textContent = '';
+        pdpaBody.appendChild(App.rangka(2));
+        Api.call('PDPA_SENARAI_TAMAT').then(function (rows) {
+          pdpaBody.textContent = '';
+          var layak = rows.filter(function (r) { return r.layak; });
+          if (!layak.length) {
+            pdpaBody.appendChild(el('p', { class: 'empty-sm' }, rows.length ? 'Tiada data yang melepasi tempoh simpanan. ' + rows.length + ' guru tidak aktif masih dalam tempoh.' : 'Tiada guru tidak aktif.'));
+            return;
+          }
+          pdpaBody.appendChild(el('ul', { class: 'items' }, layak.map(function (g) {
+            var bE = el('button', { class: 'btn btn-sm btn-secondary', type: 'button' }, 'Eksport');
+            bE.addEventListener('click', function () { App.eksportPdpa(g.guru_id, g.guru_kod, bE); });
+            var bP = el('button', { class: 'btn btn-sm btn-danger', type: 'button' }, 'Padam kekal');
+            bP.addEventListener('click', function () { App.padamPdpa(g).then(function (ok) { if (ok) { muat(); muatPdpa(); } }); });
+            return el('li', {}, [
+              el('div', { class: 'grow' }, [el('b', {}, g.nama_penuh), el('div', { class: 'muted', style: 'font-size:.8125rem' }, g.guru_kod + ' · layak dipadam sejak ' + UI.fmtDate(g.tarikh_layak_padam))]),
+              bE, bP
+            ]);
+          })));
+        }).catch(function (e) { pdpaBody.textContent = ''; pdpaBody.appendChild(el('p', { class: 'empty-sm' }, e.message)); });
+      }
+
       if (!isSuper) {
         c.appendChild(el('p', { class: 'muted', style: 'font-size:.875rem' }, 'Sebagai pentadbir, anda boleh melihat akaun dan membuka kunci akaun yang terkunci. Tindakan lain dibuat oleh superadmin.'));
       }
@@ -99,6 +132,10 @@
         if (a.aktif && !a.persetujuan_pdpa_pada) badges.appendChild(badge('neutral', 'Belum setuju PDPA'));
         if (a.akaun_sistem) badges.appendChild(badge('neutral', 'Akaun sistem'));
         if (!a.email) badges.appendChild(badge('near', 'Tiada emel'));
+        if (!a.aktif && a.tarikh_layak_padam) {
+          var kini = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10); // tarikh Malaysia
+          badges.appendChild(a.tarikh_layak_padam <= kini ? badge('over', 'Layak dipadam') : badge('neutral', 'Simpan hingga ' + UI.fmtDate(a.tarikh_layak_padam)));
+        }
 
         var actions = el('div', { class: 'actions' });
         function act(text, kind, fn) { var b = el('button', { class: 'btn btn-sm ' + kind, type: 'button' }, text); b.addEventListener('click', function () { fn(a, b); }); actions.appendChild(b); }
@@ -106,6 +143,10 @@
         if (isSuper && !diri) {
           act('Reset kata laluan', 'btn-secondary', resetPassword);
           act(a.aktif ? 'Nyahaktif' : 'Aktifkan', a.aktif ? 'btn-ghost' : 'btn-secondary', setAktif);
+          if (!a.aktif) {
+            act('Eksport data', 'btn-ghost', function (x, b) { App.eksportPdpa(x.guru_id, x.guru_kod, b); });
+            act('Padam data', 'btn-ghost btn-danger-text', function (x) { App.padamPdpa(x).then(function (ok) { if (ok) { muat(); muatPdpa(); } }); });
+          }
         }
         if (!actions.childNodes.length) actions.appendChild(el('span', { class: 'muted', style: 'font-size:.8125rem' }, '—'));
 
@@ -243,6 +284,7 @@
       }
 
       muat();
+      muatPdpa();
     })();
   </script>
 </body>

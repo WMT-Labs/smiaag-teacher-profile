@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { build: bundle } = require('../scripts/bundle-gas');
 const { build: skema } = require('../scripts/jana-skema-md');
+const { build: sql } = require('../scripts/jana-sql');
 
 const root = path.join(__dirname, '..');
 test('dist/Code.gs sepadan dengan backend/*.gs (jalankan: npm run bundle)', () => {
@@ -13,6 +14,12 @@ test('dist/Code.gs sepadan dengan backend/*.gs (jalankan: npm run bundle)', () =
 });
 test('docs/SKEMA.md sepadan dengan Schema.gs (jalankan: npm run skema-md)', () => {
   assert.equal(fs.readFileSync(path.join(root, 'docs/SKEMA.md'), 'utf8'), skema());
+});
+test('docs/supabase/schema.sql sepadan dengan Schema.gs dan setiap jadual ada dasar RLS (jalankan: npm run sql)', () => {
+  const s = sql(); // lontar ralat jika jadual tiada dasar RLS
+  assert.equal(fs.readFileSync(path.join(root, 'docs/supabase/schema.sql'), 'utf8'), s);
+  assert.ok(!/using \(true\)|check \(true\)/.test(s), 'tiada dasar terbuka kepada semua pengguna Auth');
+  assert.ok(!/password_hash|\bsalt\b/.test(s), 'kata laluan diurus Supabase Auth');
 });
 test('dist/Code.gs boleh dimuat sebagai satu skrip (tiada pengisytiharan bertindih)', () => {
   const vm = require('node:vm');

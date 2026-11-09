@@ -265,6 +265,7 @@ Unik: (kod)
 | tarikh_disahkan | date |  |  |  |
 | akaun_sistem | bool | ya |  | false |
 | aktif | bool | ya |  | true |
+| dinyahaktif_pada | datetime |  |  |  |
 | created_at | datetime |  |  |  |
 | updated_at | datetime |  |  |  |
 | updated_by | text |  |  |  |

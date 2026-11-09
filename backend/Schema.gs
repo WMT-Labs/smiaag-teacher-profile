@@ -28,7 +28,8 @@ var _TABLE_DEFS = {
     // (contoh ADMIN01) yang BUKAN guru; dikecualikan daripada semua senarai dan kiraan guru.
     cols: ['id:uuid!', 'guru_kod:text!', 'nama_penuh:text!', 'nama_panggilan:text', 'status_lantikan:enum(ref_status_lantikan)!',
       'jawatan:text', 'tarikh_lantikan:date', 'tarikh_tamat_praktikal:date', 'no_telefon:text', 'email:text', 'tarikh_disahkan:date',
-      'akaun_sistem:bool!=false', 'aktif:bool!=true'],
+      'akaun_sistem:bool!=false', 'aktif:bool!=true', 'dinyahaktif_pada:datetime'],
+    // dinyahaktif_pada: diisi bila akaun dinyahaktif; tempoh simpanan PDPA = 2 tahun dari tarikh ini.
     unique: [['guru_kod']]
   },
   akaun: {

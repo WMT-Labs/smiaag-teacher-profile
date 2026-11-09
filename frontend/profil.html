@@ -292,6 +292,22 @@
           ])
         ]));
         c.appendChild(el('div', { class: 'profile-grid' }, [kepala(), teras(), cerapan(), kelayakan(), opsyen(), kursus()]));
+        if (!orangLain || sesi.role === 'superadmin') c.appendChild(dataPeribadi());
+      }
+
+      // PDPA: hak akses. Guru muat turun data sendiri; superadmin boleh eksport bagi pihak guru.
+      function dataPeribadi() {
+        var b = el('button', { class: 'btn btn-secondary btn-sm', type: 'button' }, orangLain ? 'Eksport data guru ini' : 'Muat turun data saya');
+        b.addEventListener('click', function () { App.eksportPdpa(orangLain ? P.guru.id : null, P.guru.guru_kod, b); });
+        return el('section', { class: 'card card-pad row', style: 'justify-content:space-between;flex-wrap:wrap;margin-top:var(--s-5)' }, [
+          el('div', { style: 'flex:1;min-width:220px' }, [
+            el('b', {}, 'Data peribadi (PDPA)'),
+            el('div', { class: 'muted', style: 'font-size:.8125rem' }, orangLain
+              ? 'Salinan semua data guru ini dalam satu fail JSON. Tindakan ini direkod.'
+              : 'Salinan semua data anda yang disimpan oleh sistem, dalam satu fail (JSON). Kata laluan tidak disertakan.')
+          ]),
+          b
+        ]);
       }
       function muat() {
         return call('PROFIL_LIHAT').then(function (d) { P = d; render(); }, function (e) {

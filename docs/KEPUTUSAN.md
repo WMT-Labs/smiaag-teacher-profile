@@ -151,3 +151,18 @@ Ukuran pemilik selepas P0: log masuk 6 s, profil 6 s, dashboard 10 s, tukar tahu
   ~1 jam. Untuk serta-merta: jalankan `segarkanCache` dalam editor Apps Script.
 - Hash kata laluan 1000 ulangan semasa log masuk tidak dikurangkan (keselamatan Seksyen 3).
 - Koku urus: senarai unit dalam setiap kotak terhad 420 px dan skrol di dalam kotak.
+
+## Fasa 7 (09/11/2026): andaian
+
+- **Padam selepas 2 tahun dibuat manual oleh superadmin**, bukan automatik. Sebab: pemadaman tidak boleh diundur;
+  sistem memaparkan senarai "layak dipadam" dan lencana di Urus akaun. Boleh ditukar kepada automatik jika pemilik mahu.
+- **Padam = nyahnama + padam data milik.** Rekod `guru` kekal sebagai "Guru dipadam" (ID `PADAM-xxxx`) supaya kumpulan
+  usrah, rekod relief dan ketidakhadiran yang dikongsi dengan guru lain tidak rosak. Sebab ketidakhadiran dikosongkan.
+- **Guru boleh memadam? Tidak.** Guru memohon kepada pentadbir (notis privasi). Guru boleh memuat turun data sendiri.
+- **Eksport dalam JSON** (format mudah alih, semua jadual dalam satu fail). Tanpa hash/salt kata laluan.
+- **audit_log disimpan 2 tahun** (log keselamatan), dibuang oleh pencetus harian 3 pagi.
+- **Tarikh nyahaktif untuk data lama**: jika `dinyahaktif_pada` kosong (akaun dinyahaktif sebelum Fasa 7), `updated_at` digunakan.
+- **CSP** membenarkan `'unsafe-inline'` kerana skrip halaman berada dalam fail HTML; `connect-src` tetap terhad kepada
+  laman sendiri dan Google Apps Script.
+- **Supabase**: kata laluan tidak dipindah (guru tetapkan semula melalui emel); `guru_awam` view untuk nama rakan sekerja;
+  pendaftaran awam Supabase Auth dimatikan.

@@ -152,7 +152,7 @@ Perlu Node 20 ke atas. Tiada pemasangan pakej diperlukan.
 npm test
 ```
 
-Selepas mengubah apa-apa dalam `backend/`, jalankan `npm run bundle` dan `npm run skema-md` untuk mengemas kini `dist/Code.gs` dan `docs/SKEMA.md`. Ujian akan gagal jika terlupa.
+Selepas mengubah apa-apa dalam `backend/`, jalankan `npm run bundle`, `npm run skema-md` dan `npm run sql` untuk mengemas kini `dist/Code.gs`, `docs/SKEMA.md` dan `docs/supabase/schema.sql`. Ujian akan gagal jika terlupa.
 
 ## Peraturan keselamatan (ringkasan)
 
@@ -171,10 +171,18 @@ Butiran penuh dalam dokumen arahan projek, Seksyen 3. Yang sudah berkuat kuasa p
 - Semua penulisan melalui `Repository.gs`: sahkan jenis, julat, nilai rujukan dan kunci asing, tambah awalan `'` pada nilai berbahaya (`= + - @`), dan buang nombor yang menyerupai IC daripada teks bebas.
 - Gaji dan IC tidak mempunyai lajur langsung (ada ujian yang menjaganya).
 - `PEPPER` dijana secara rawak dan disimpan dalam Script Properties sahaja.
+- Nilai rujukan yang dinyahaktif (contoh `kontrak`) ditolak untuk rekod baharu.
+- Header keselamatan dan Content-Security-Policy dalam `frontend/_headers` (ikut dimuat naik bersama folder `frontend`).
+- Kecemasan: fungsi `logKeluarSemua` (editor Apps Script) membatalkan semua sesi. Lihat `docs/PELAN-KEBOCORAN-DATA.md`.
+- Audit penuh: [`docs/AUDIT-KESELAMATAN.md`](docs/AUDIT-KESELAMATAN.md).
 
 ## PDPA dan lokasi data
 
-Google (Sheets dan Apps Script) dan, pada masa depan, Supabase **mungkin menyimpan data di luar Malaysia**. Pemilik projek perlu mempertimbangkan perkara ini dan memaklumkan guru dalam notis privasi. Notis privasi dan persetujuan sudah ada (Fasa 1). Eksport dan padam data seorang guru, tempoh simpanan dan senarai semak kebocoran dibina pada Fasa 7.
+Google (Sheets dan Apps Script) dan, pada masa depan, Supabase **mungkin menyimpan data di luar Malaysia**. Pemilik projek perlu mempertimbangkan perkara ini dan memaklumkan guru dalam notis privasi. Notis privasi dan persetujuan sudah ada (Fasa 1). Fasa 7:
+- Guru memuat turun salinan data sendiri (Profil > Muat turun data saya).
+- Data disimpan 2 tahun selepas akaun dinyahaktif; superadmin menyemak dan memadam di Urus akaun > Tempoh simpanan data. Rekod dikongsi dengan guru lain kekal dengan nama "Guru dipadam".
+- `audit_log` melebihi 2 tahun dibuang oleh pencetus harian `penyelenggaraanHarian` (dipasang oleh `setupTemplate`).
+- Pelan kebocoran data: [`docs/PELAN-KEBOCORAN-DATA.md`](docs/PELAN-KEBOCORAN-DATA.md).
 
 ## Fasa pembinaan
 
@@ -186,7 +194,7 @@ Google (Sheets dan Apps Script) dan, pada masa depan, Supabase **mungkin menyimp
 | 3 | Kurikulum: subjek, kelas, tugasan, jadual, jam kredit, pertindihan, slot kosong, import aSc dan tugasan | Siap (format aSc sebenar akan disemak) |
 | 4 | Kokurikulum: unit Syabab dan kelab, rumah sukan, juara, pertandingan | Siap |
 | 5 | HEM: usrah pelajar, usrah guru dan kehadiran, Guru Tarbiah, Guru Kelas, disiplin | Siap |
-| 6 | Dashboard: penapis, kad, carta, jadual, cerapan, kokurikulum, HEM, eksport CSV | **Siap** |
-| 7 | Pengukuhan, audit keselamatan, `MIGRASI-SUPABASE.md` | Seterusnya |
+| 6 | Dashboard: penapis, kad, carta, jadual, cerapan, kokurikulum, HEM, eksport CSV | Siap |
+| 7 | Audit keselamatan, PDPA (eksport, padam, simpanan 2 tahun), pelan kebocoran, `MIGRASI-SUPABASE.md` + SQL | **Siap** (menunggu ujian pemilik) |
 
-Lihat juga: [`docs/SERAH-TUGAS.md`](docs/SERAH-TUGAS.md) (status terkini dan kerja seterusnya), [`docs/PANDUAN-UJIAN.md`](docs/PANDUAN-UJIAN.md) (langkah demi langkah untuk menguji), [`docs/SKEMA.md`](docs/SKEMA.md), [`docs/SENARAI-SEMAK-FASA-0.md`](docs/SENARAI-SEMAK-FASA-0.md), [`docs/SENARAI-SEMAK-FASA-1.md`](docs/SENARAI-SEMAK-FASA-1.md), [`docs/SENARAI-SEMAK-FASA-2.md`](docs/SENARAI-SEMAK-FASA-2.md), [`docs/SENARAI-SEMAK-FASA-3.md`](docs/SENARAI-SEMAK-FASA-3.md), [`docs/SENARAI-SEMAK-FASA-4.md`](docs/SENARAI-SEMAK-FASA-4.md), [`docs/SENARAI-SEMAK-FASA-5.md`](docs/SENARAI-SEMAK-FASA-5.md), [`docs/SENARAI-SEMAK-FASA-6.md`](docs/SENARAI-SEMAK-FASA-6.md), [`docs/KEPUTUSAN.md`](docs/KEPUTUSAN.md).
+Lihat juga: [`docs/SERAH-TUGAS.md`](docs/SERAH-TUGAS.md) (status terkini dan kerja seterusnya), [`docs/MIGRASI-SUPABASE.md`](docs/MIGRASI-SUPABASE.md), [`docs/SENARAI-SEMAK-FASA-7.md`](docs/SENARAI-SEMAK-FASA-7.md), [`docs/PANDUAN-UJIAN.md`](docs/PANDUAN-UJIAN.md) (langkah demi langkah untuk menguji), [`docs/SKEMA.md`](docs/SKEMA.md), [`docs/SENARAI-SEMAK-FASA-0.md`](docs/SENARAI-SEMAK-FASA-0.md), [`docs/SENARAI-SEMAK-FASA-1.md`](docs/SENARAI-SEMAK-FASA-1.md), [`docs/SENARAI-SEMAK-FASA-2.md`](docs/SENARAI-SEMAK-FASA-2.md), [`docs/SENARAI-SEMAK-FASA-3.md`](docs/SENARAI-SEMAK-FASA-3.md), [`docs/SENARAI-SEMAK-FASA-4.md`](docs/SENARAI-SEMAK-FASA-4.md), [`docs/SENARAI-SEMAK-FASA-5.md`](docs/SENARAI-SEMAK-FASA-5.md), [`docs/SENARAI-SEMAK-FASA-6.md`](docs/SENARAI-SEMAK-FASA-6.md), [`docs/KEPUTUSAN.md`](docs/KEPUTUSAN.md).
