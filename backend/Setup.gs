@@ -28,6 +28,10 @@ function setupTemplate() {
     props.setProperty(PROP.PEPPER, Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, ''));
     report.push('PEPPER baharu dijana dan disimpan dalam Script Properties.');
   }
+  if (!props.getProperty(PROP.ECUTI_SSO)) {
+    props.setProperty(PROP.ECUTI_SSO, Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, ''));
+    report.push('ECUTI_SSO_SECRET baharu dijana. Salin nilainya ke Script Properties projek e-Cuti (nama yang sama).');
+  }
 
   TABLE_ORDER.forEach(function (name) {
     report.push(_ensureTab(ss, SCHEMA[name]));

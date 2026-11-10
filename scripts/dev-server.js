@@ -53,7 +53,30 @@ http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split('?')[0]);
   if (url === '/js/config.js') {
     res.writeHead(200, { 'Content-Type': 'text/javascript' });
-    res.end("window.APP_CONFIG = { API_URL: '/api', SESSION_KEY: 'smiaag_session', REQUEST_TIMEOUT_MS: 25000 };");
+    res.end("window.APP_CONFIG = { API_URL: '/api', ECUTI_URL: '/ecuti-demo.html', SESSION_KEY: 'smiaag_session', REQUEST_TIMEOUT_MS: 25000 };");
+    return;
+  }
+  if (url === '/ecuti-demo.html') {
+    // Ganti e-Cuti sebenar semasa pembangunan: tunjuk bahawa tiket SSO sampai dan tandatangannya sah.
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`<!doctype html><meta charset="utf-8"><title>e-Cuti (demo)</title><body style="font-family:sans-serif;padding:24px">
+<h1>e-Cuti (demo pembangunan)</h1><p id="o">Tiada tiket.</p><script>
+const t = decodeURIComponent((location.hash.match(/#sso=(.+)/) || [])[1] || '');
+history.replaceState(null, '', location.pathname);
+if (t) fetch('/ecuti-sahkan', { method: 'POST', body: t }).then(r => r.text()).then(x => { document.getElementById('o').textContent = x; });
+</script>`);
+    return;
+  }
+  if (url === '/ecuti-sahkan' && req.method === 'POST') {
+    let body = ''; req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      const rahsia = ctx.PropertiesService.getScriptProperties().getProperty('ECUTI_SSO_SECRET');
+      const [p, sig] = body.split('.');
+      const ok = require('node:crypto').createHmac('sha256', rahsia).update(p || '').digest('base64url') === sig;
+      const d = ok ? JSON.parse(Buffer.from(p, 'base64url').toString('utf8')) : null;
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(ok ? 'Tiket SAH. Log masuk sebagai ' + d.emel + ' (' + d.kod + '), tamat dalam ' + (d.exp - Math.floor(Date.now() / 1000)) + ' s.' : 'Tiket TIDAK SAH.');
+    });
     return;
   }
   const file = path.normalize(path.join(FRONT, url === '/' ? 'index.html' : url));

@@ -119,6 +119,9 @@ function createEnv(opts = {}) {
       newBlob: (bytes, type, name) => ({ bytes, type, name, getBytes: () => bytes, getContentType: () => type }),
       DigestAlgorithm: { SHA_256: 'sha256' },
       Charset: { UTF_8: 'utf8' },
+      base64EncodeWebSafe: (d) => (typeof d === 'string' ? Buffer.from(d, 'utf8') : Buffer.from(d.map((b) => (b + 256) % 256))).toString('base64').replace(/\+/g, '-').replace(/\//g, '_'),
+      base64DecodeWebSafe: (s) => [...Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64')].map((b) => (b > 127 ? b - 256 : b)),
+      computeHmacSha256Signature: (v, k) => [...crypto.createHmac('sha256', Buffer.from(String(k), 'utf8')).update(String(v), 'utf8').digest()].map((b) => (b > 127 ? b - 256 : b)),
       // Apps Script memulangkan bait bertanda (-128..127)
       computeDigest: (alg, value) => [...crypto.createHash(alg).update(String(value), 'utf8').digest()].map((b) => (b > 127 ? b - 256 : b)),
       // Hanya corak yang digunakan oleh sistem; zon waktu tetap +08:00.

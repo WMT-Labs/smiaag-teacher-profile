@@ -91,6 +91,7 @@ img { max-width: 100%; display: block; }
   text-decoration: none; font-weight: 550; min-height: 44px; }
 .nav a:hover { background: var(--surface-2); color: var(--text); }
 .nav a[aria-current="page"] { background: var(--blue-50); color: var(--blue-700); box-shadow: inset 3px 0 0 var(--green-600); }
+.nav a.nav-luar > .icon:last-child { margin-left: auto; width: 14px; height: 14px; opacity: .55; }
 .userbox { display: flex; align-items: center; gap: 10px; padding: var(--s-3); border-top: 1px solid var(--border); }
 .avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--green-100); color: var(--green-700); display: grid; place-items: center; font-weight: 700; flex: none; }
 .userbox b { display: block; font-size: .875rem; line-height: 1.2; }

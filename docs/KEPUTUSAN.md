@@ -166,3 +166,14 @@ Ukuran pemilik selepas P0: log masuk 6 s, profil 6 s, dashboard 10 s, tukar tahu
   laman sendiri dan Google Apps Script.
 - **Supabase**: kata laluan tidak dipindah (guru tetapkan semula melalui emel); `guru_awam` view untuk nama rakan sekerja;
   pendaftaran awam Supabase Auth dimatikan.
+
+## Integrasi e-Cuti (10/11/2026)
+
+- **Pilihan A (pemilik):** log masuk sekali (SSO); e-Cuti kekal sistem berasingan (Apps Script, Sheet, Netlify sendiri).
+- **Repo e-Cuti tunggal:** `WeBake/e-Cuti-SMIAAG` (private). Netlify `ecutismiaag` disambung ke repo ini; repo
+  `wanmuhammadtaufiq/e-Cuti-SMIAAG` di-archive. `index.html` v2.1 diselaraskan melalui PR WeBake/e-Cuti-SMIAAG#1.
+- **Padanan pengguna = emel** (huruf kecil). Tiket tidak membawa peranan; e-Cuti menentukan peranan sendiri.
+- **Tiket:** HMAC-SHA256 dengan kunci kongsi `ECUTI_SSO_SECRET` (Script Properties kedua-dua projek), sah 60 saat,
+  nonce sekali guna (disemak oleh e-Cuti), dihantar dalam fragmen `#sso=` (tidak masuk log pelayan) dan dibuang
+  daripada bar alamat oleh e-Cuti.
+- **Akaun sistem (ADMIN01) tiada SSO** kerana bukan guru. Staf bukan guru kekal guna log masuk biasa e-Cuti.

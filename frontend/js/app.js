@@ -75,7 +75,8 @@
       { label: 'Bahagian' },
       { key: 'kuri', href: 'kurikulum.html', text: 'Kurikulum', icon: 'i-book' },
       { key: 'koku', href: 'koku.html', text: 'Kokurikulum', icon: 'i-trophy' },
-      { key: 'hem', href: 'hem.html', text: 'HEM', icon: 'i-heart' }
+      { key: 'hem', href: 'hem.html', text: 'HEM', icon: 'i-heart' },
+      { key: 'ecuti', text: 'e-Cuti', icon: 'i-calendar', luar: true, onClick: bukaEcuti }
     ]);
     if (admin) {
       items.push({ label: 'Pentadbiran' });
@@ -94,6 +95,28 @@
     return items;
   }
 
+  /**
+   * e-Cuti: minta tiket log masuk sekali (sah 60 saat) dan buka e-Cuti dalam tab baru.
+   * Tab dibuka SEGERA (sebelum panggilan API) supaya tidak disekat oleh penyekat pop-up.
+   */
+  function bukaEcuti(ev) {
+    ev.preventDefault();
+    var url = (window.APP_CONFIG || {}).ECUTI_URL;
+    if (!url) { UI.toast('Alamat e-Cuti belum ditetapkan (ECUTI_URL dalam js/config.js).'); return; }
+    var w = window.open('', '_blank');
+    if (w) {
+      try { w.opener = null; } catch (e) { /* abaikan */ }
+      try { w.document.title = 'Membuka e-Cuti'; w.document.body.textContent = 'Membuka e-Cuti...'; } catch (e) { /* abaikan */ }
+    }
+    Api.call('ECUTI_TIKET').then(function (r) {
+      var sasaran = url.replace(/#.*$/, '') + '#sso=' + encodeURIComponent(r.tiket);
+      if (w) w.location.replace(sasaran); else window.location.href = sasaran;
+    }).catch(function (e) {
+      if (w) w.close();
+      UI.toast(e.message);
+    });
+  }
+
   /** Bina sidebar + topbar. Pulangkan elemen kandungan untuk diisi oleh halaman. */
   function mount(opt) {
     var sesi = opt.sesi;
@@ -101,6 +124,8 @@
     navItems(sesi.role, sesi.akaun_sistem).forEach(function (it) {
       if (it.label) { nav.appendChild(el('div', { class: 'nav-label' }, it.label)); return; }
       var a = el('a', { href: it.href || '#' }, [icon(it.icon), it.text]);
+      if (it.luar) { a.appendChild(icon('i-external', 14)); a.setAttribute('title', 'Dibuka dalam tab baru'); a.classList.add('nav-luar'); }
+      if (it.onClick) a.addEventListener('click', it.onClick);
       if (it.soon) { a.className = 'soon'; a.setAttribute('aria-disabled', 'true'); a.appendChild(el('span', { class: 'chip' }, it.soon)); }
       if (it.key === opt.active) a.setAttribute('aria-current', 'page');
       nav.appendChild(a);

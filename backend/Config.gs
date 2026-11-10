@@ -12,7 +12,8 @@ var TZ = 'Asia/Kuala_Lumpur';
 /** Nama kunci dalam PropertiesService. */
 var PROP = {
   SS_ID: 'SS_ID',     // ID Google Sheet (diisi automatik oleh setupTemplate)
-  PEPPER: 'PEPPER'    // rahsia tambahan untuk hash kata laluan (dijana oleh setupTemplate)
+  PEPPER: 'PEPPER',   // rahsia tambahan untuk hash kata laluan (dijana oleh setupTemplate)
+  ECUTI_SSO: 'ECUTI_SSO_SECRET' // kunci tandatangan tiket log masuk e-Cuti (dijana setupTemplate; salin ke projek e-Cuti)
 };
 
 /** Had saiz badan permintaan (aksara). Dinaikkan nanti untuk import PDF. */

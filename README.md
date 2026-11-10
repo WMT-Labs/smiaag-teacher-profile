@@ -119,6 +119,18 @@ Masa: kira-kira 15 minit. Anda perlukan akaun Google sekolah atau peribadi yang 
 
 Emel kata laluan sementara dihantar daripada akaun Google yang men-deploy Web App ("Execute as: Me"). Untuk menghantar daripada emel admin baharu, salin projek Apps Script ke akaun itu dan deploy semula dari sana. Had harian: akaun Gmail biasa kira-kira 100 emel, Google Workspace kira-kira 1500 (semak dengan Google untuk akaun anda).
 
+### C3b. Log masuk sekali ke e-Cuti
+
+Menu **e-Cuti** membuka sistem e-Cuti (projek Apps Script dan Sheet berasingan, repo `WeBake/e-Cuti-SMIAAG`) dalam
+tab baru tanpa log masuk semula:
+
+- `setupTemplate` menjana `ECUTI_SSO_SECRET` dalam Script Properties. **Salin nilai yang sama** ke Script Properties
+  projek e-Cuti (nama `ECUTI_SSO_SECRET`). Jangan kongsi nilai ini di tempat lain.
+- Alamat e-Cuti dalam `frontend/js/config.js` (`ECUTI_URL`).
+- Guru mesti ada **emel yang sama** dalam Profil Guru dan dalam tab `Users` e-Cuti. Peranan e-Cuti (ADMIN/GURU/STAF)
+  kekal ditentukan oleh e-Cuti.
+- Tiket sah 60 saat, sekali guna, ditandatangani HMAC-SHA256. Butiran: `backend/Ecuti.gs`.
+
 ### C4. Cache dan suntingan terus dalam Sheet
 
 `setupTemplate` memasang pencetus `panaskanCache` (setiap jam) supaya sistem jarang perlu membaca Sheet.

@@ -7,6 +7,7 @@
  */
 window.APP_CONFIG = {
   API_URL: '',            // contoh: 'https://script.google.com/macros/s/AKfycb.../exec'
+  ECUTI_URL: 'https://ecutismiaag.netlify.app/', // e-Cuti dibuka dalam tab baru dengan log masuk sekali (SSO)
   SESSION_KEY: 'smiaag_session',
   REQUEST_TIMEOUT_MS: 25000
 };
