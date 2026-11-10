@@ -66,4 +66,11 @@ C2 aSc sebenar · C3 relief sendiri · C4 laporan · C5 PWA · C6 sandaran.
 ## Kemajuan
 - [x] **C6** sandaran mingguan Profil Guru (`backend/Sandaran.gs`, 10/11/2026). Perlu pemilik: tampal `dist/Code.gs`, jalankan
   `setupTemplate` (pasang pencetus), kemudian `sandaranMingguan` sekali untuk sandaran pertama.
-- [ ] C6 untuk Sheet e-Cuti (dibuat bersama peringkat 1).
+- [x] Peringkat 1 e-Cuti (PR WeBake/e-Cuti-SMIAAG#5, 10/11/2026, menunggu merge + deploy pratonton oleh pemilik):
+  ujian + harness, **B3**, **B1**, **B4**, **B5** (Kalendar Akademik 2027 Kumpulan B daripada PDF pemilik), **B8**,
+  sandaran e-Cuti (C6). Pemilik perlu: tampal Code.gs, jalankan `pasangPencetus` dan `isiEmelDataGuru`, tambah cuti
+  umum yang tiada dalam pekeliling (Hari Pekerja, Hari Malaysia, cuti negeri, cuti ganti 8 Feb 2027 dll.).
+- [ ] **B2** CSP + pustaka dihos sendiri (PR berasingan, seterusnya).
+- [ ] **B7** (disahkan pemilik): e-Cuti kekal cuti tahunan sahaja; jenis lain (cuti sakit, kursus, program, cuti tanpa
+  gaji, cuti ehsan) direkod sebagai jenis ketidakhadiran dalam Guru ganti Profil Guru. Dibina dalam Profil Guru
+  (lajur `jenis` pada `ketidakhadiran_guru`), sebelum A1.
