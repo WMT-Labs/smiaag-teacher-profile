@@ -137,6 +137,18 @@ tab baru tanpa log masuk semula:
 Perubahan melalui sistem kelihatan serta-merta. Jika anda menyunting Sheet **secara terus**, jalankan
 `segarkanCache` dalam editor Apps Script supaya perubahan kelihatan serta-merta (jika tidak, maksimum ~1 jam).
 
+### C5. Sandaran dan pemulihan
+
+`setupTemplate` memasang pencetus `sandaranMingguan` (Ahad, 2 pagi). Ia menyalin semua tab (kecuali `sessions`) ke
+Spreadsheet berasingan bernama "SANDARAN Profil Guru SMIAAG <tarikh>" dalam Drive anda, dan menyimpan 4 salinan terakhir
+secara bergilir. Jalankan `sandaranMingguan` secara manual sebelum perubahan besar; `senaraiSandaran` memaparkan pautan fail.
+
+- Fail sandaran mengandungi data guru dan hash kata laluan: **jangan kongsi**, sama seperti Sheet utama.
+- Pulih satu tab: buka fail sandaran, salin baris yang diperlukan ke tab yang sama dalam Sheet utama, kemudian jalankan
+  `setupTemplate` (membetulkan format tarikh) dan `segarkanCache`.
+- Pulih semua: tetapkan Script Property `SS_ID` kepada ID fail sandaran, jalankan `setupTemplate` (mencipta semula tab
+  `sessions` dan tab paparan), kemudian semua pengguna log masuk semula.
+
 ### D. Hubungkan frontend
 
 1. Buka `frontend/js/config.js`, isi `API_URL` dengan URL tadi.

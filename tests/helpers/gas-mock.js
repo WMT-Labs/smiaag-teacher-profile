@@ -20,6 +20,8 @@ class FakeSheet {
   insertRowsAfter() { this.maxRows++; }
   deleteRow(n) { this.grid.splice(n - 1, 1); }
   deleteRows(n, k) { this.grid.splice(n - 1, k); }
+  getName() { return this.name; }
+  setName(n) { if (this.induk) { this.induk.sheets.delete(this.name); this.induk.sheets.set(n, this); } this.name = n; return this; }
   setFrozenRows() {} setTabColor() {}
   getRange(r, c, nr = 1, nc = 1) {
     const sh = this;
@@ -53,13 +55,15 @@ class FakeSheet {
 }
 
 class FakeSpreadsheet {
-  constructor() { this.sheets = new Map(); this.id = 'ss-contoh'; this.sheets.set('Sheet1', new FakeSheet('Sheet1')); }
+  constructor(id, nama) { this.sheets = new Map(); this.id = id || 'ss-contoh'; this.nama = nama || 'Sheet Contoh'; this.sheets.set('Sheet1', new FakeSheet('Sheet1')); }
   getId() { return this.id; }
-  getName() { return 'Sheet Contoh'; }
+  getName() { return this.nama; }
+  rename(n) { this.nama = n; }
+  getUrl() { return 'https://docs.google.com/spreadsheets/d/' + this.id; }
   setSpreadsheetTimeZone(tz) { this.tz = tz; }
   getSheets() { return [...this.sheets.values()]; }
   getSheetByName(n) { return this.sheets.get(n) || null; }
-  insertSheet(n) { const s = new FakeSheet(n); this.sheets.set(n, s); return s; }
+  insertSheet(n) { const s = new FakeSheet(n); s.induk = this; this.sheets.set(n, s); return s; }
   deleteSheet(s) { this.sheets.delete(s.name); }
 }
 
@@ -87,7 +91,12 @@ function createEnv(opts = {}) {
     advance(ms) { clock = new Date(clock.getTime() + ms); },
     console,
     Logger: { log: (m) => logs.push(m) },
-    SpreadsheetApp: { getActiveSpreadsheet: () => ss, openById: () => ss },
+    fail: new Map(),
+    SpreadsheetApp: {
+      getActiveSpreadsheet: () => ss,
+      openById: (id) => { if (env.fail.has(id)) return env.fail.get(id); return ss; },
+      create: (nama) => { const f = new FakeSpreadsheet('sandaran-' + (env.fail.size + 1), nama); env.fail.set(f.id, f); return f; }
+    },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => props[k] || null, setProperty: (k, v) => { props[k] = v; }, deleteProperty: (k) => { delete props[k]; } }) },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     cache,
@@ -108,8 +117,9 @@ function createEnv(opts = {}) {
       putAll: (obj, ttl = 600) => { Object.keys(obj).forEach((k) => cache.set(k, { v: String(obj[k]), until: now() + Math.min(ttl, 21600) * 1000 })); }
     }) },
     ScriptApp: {
+      WeekDay: { SUNDAY: 'SUNDAY' },
       getProjectTriggers: () => env.pencetus.map((h) => ({ getHandlerFunction: () => h })),
-      newTrigger: (h) => { const b = { everyHours: () => b, everyDays: () => b, atHour: () => b, create: () => { env.pencetus.push(h); } }; return { timeBased: () => b }; }
+      newTrigger: (h) => { const b = { everyHours: () => b, everyDays: () => b, atHour: () => b, onWeekDay: () => b, create: () => { env.pencetus.push(h); } }; return { timeBased: () => b }; }
     },
     ContentService: { MimeType: { JSON: 'JSON' }, createTextOutput: (t) => ({ text: t, setMimeType() { return this; } }) },
     Utilities: {

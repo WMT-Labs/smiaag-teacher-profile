@@ -62,3 +62,8 @@ A1 cuti lulus -> Guru ganti · A2 satu senarai guru · A3 baki cuti dalam Profil
 A5 borang cuti guna jadual sebenar · B1 baki ikut emel · B2 CSP + pustaka sendiri · B3 kata laluan · B4 kelajuan ·
 B5 cuti umum · B6 notifikasi pentadbir · B7 jenis cuti · B8 privasi/simpanan lampiran · C1 cache pelayar ·
 C2 aSc sebenar · C3 relief sendiri · C4 laporan · C5 PWA · C6 sandaran.
+
+## Kemajuan
+- [x] **C6** sandaran mingguan Profil Guru (`backend/Sandaran.gs`, 10/11/2026). Perlu pemilik: tampal `dist/Code.gs`, jalankan
+  `setupTemplate` (pasang pencetus), kemudian `sandaranMingguan` sekali untuk sandaran pertama.
+- [ ] C6 untuk Sheet e-Cuti (dibuat bersama peringkat 1).

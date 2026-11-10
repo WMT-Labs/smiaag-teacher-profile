@@ -69,9 +69,10 @@ function _pasangPencetusCache() {
   try {
     var a = _pasangPencetus('panaskanCache', function (b) { return b.everyHours(1); });
     var h = _pasangPencetus('penyelenggaraanHarian', function (b) { return b.everyDays(1).atHour(3); });
+    var sd = _pasangPencetus('sandaranMingguan', function (b) { return b.onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(2); });
     panaskanCache();
     return 'Pencetus: cache setiap jam ' + (a ? 'sudah wujud' : 'dipasang') + '; penyelenggaraan harian (3 pagi) ' +
-      (h ? 'sudah wujud' : 'dipasang') + '. Cache diisi.';
+      (h ? 'sudah wujud' : 'dipasang') + '; sandaran mingguan (Ahad 2 pagi) ' + (sd ? 'sudah wujud' : 'dipasang') + '. Cache diisi.';
   } catch (e) {
     return 'Pencetus GAGAL dipasang (' + e.message + '). Sistem tetap berfungsi, cuma bacaan pertama lebih perlahan.';
   }
