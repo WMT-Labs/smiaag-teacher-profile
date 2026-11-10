@@ -17,10 +17,13 @@
     (padam manual oleh superadmin); pencetus harian `penyelenggaraanHarian` (sesi tamat + audit_log > 2 tahun).
   - `docs/PELAN-KEBOCORAN-DATA.md`, `docs/MIGRASI-SUPABASE.md`, `docs/supabase/schema.sql` (dijana `npm run sql`,
     diuji pada PostgreSQL tempatan dengan `docs/supabase/ujian-rls.sql`).
-- **Integrasi e-Cuti (SSO, pilihan A) sedang dibina:** bahagian Profil Guru siap (`backend/Ecuti.gs`, aksi
-  `ECUTI_TIKET`, menu e-Cuti, `tests/ecuti.test.js`). Bahagian e-Cuti (aksi `SSO_LOGIN` + bacaan `#sso=` dalam
-  `public/index.html`, repo `WeBake/e-Cuti-SMIAAG`) menunggu pemilik mengesahkan sama ada `Code.gs` dalam repo
-  e-Cuti sama dengan yang sedang di-deploy (index.html v2.1 menjangka medan `versi` daripada server, tiada dalam repo).
+- **Integrasi e-Cuti (SSO, pilihan A): kod siap kedua-dua belah, menunggu deploy oleh pemilik.**
+  - Profil Guru: `backend/Ecuti.gs` (`ECUTI_TIKET`), menu e-Cuti; sudah di-deploy pemilik (menu buka tab baru).
+  - e-Cuti (repo `WeBake/e-Cuti-SMIAAG`): PR #3 `SSO_LOGIN` + `#sso=` dalam index.html v2.2; PR #2 workflow pratonton
+    GitHub Pages (variable `GAS_URL` untuk deployment Apps Script pratonton). Ujian silang Ecuti.gs -> Code.gs lulus.
+  - Netlify e-Cuti: kredit hampir habis (deploy `main@5c55440` gagal); pemilik akan guna GitHub Pages untuk pratonton,
+    hentikan builds Netlify, dan hidupkan semula di hujung kerja. Repo e-Cuti akan dijadikan public sementara.
+  - Pratonton Profil Guru: GitHub Pages `wmt-labs.github.io/smiaag-teacher-profile` (variable `API_URL`, `ECUTI_URL`).
 - Selepas pemilik sahkan Fasa 7: semua fasa dalam dokumen arahan selesai. Kerja seterusnya ikut permintaan pemilik
   (contoh cache pelayar untuk kelajuan, fail aSc sebenar, migrasi Supabase).
 
