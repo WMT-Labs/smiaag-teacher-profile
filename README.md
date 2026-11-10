@@ -146,6 +146,24 @@ Perubahan melalui sistem kelihatan serta-merta. Jika anda menyunting Sheet **sec
    - **GitHub Pages**: *Settings > Pages > Source: GitHub Actions*, kemudian jalankan workflow *Terbit frontend*.
 3. Buka laman dan log masuk dengan akaun superadmin. Anda akan dibawa ke notis privasi, kemudian diminta menetapkan kata laluan sendiri.
 
+### Pratonton di GitHub Pages (pilihan, percuma)
+
+Untuk menguji tanpa menggunakan kredit Netlify. Workflow `.github/workflows/pages.yml` menerbitkan `frontend/`
+setiap kali branch `main` atau branch kerja dikemas kini.
+
+1. **Settings > Pages > Build and deployment > Source: GitHub Actions.**
+2. **Settings > Secrets and variables > Actions > tab Variables > New repository variable:**
+   - `API_URL` = URL Web App (`https://script.google.com/macros/s/.../exec`). URL ini bukan rahsia, tetapi tidak
+     disimpan dalam repo awam; ia dimasukkan ke `js/config.js` semasa terbit.
+   - `ECUTI_URL` (pilihan) = alamat e-Cuti yang mahu dibuka oleh menu e-Cuti.
+3. **Settings > Environments > github-pages > Deployment branches and tags:** tambah `claude/dreamy-einstein-9ucbl7`
+   (secara lalai hanya `main` dibenarkan).
+4. **Actions > Terbit frontend > Run workflow**, pilih branch, Run. Alamat laman: `https://wmt-labs.github.io/smiaag-teacher-profile/`.
+
+Perbezaan dengan Netlify: GitHub Pages tidak menyokong `_headers`. CSP dimasukkan sebagai `<meta>` (kecuali
+`frame-ancestors`), tetapi `X-Frame-Options` dan header lain tiada. Guna untuk pratonton; laman utama kekal di Netlify.
+Kedua-dua laman bercakap dengan Apps Script dan Sheet yang SAMA, jadi data yang dimasukkan semasa pratonton adalah sebenar.
+
 ### Cuba di komputer sendiri tanpa Google (pilihan)
 
 ```bash

@@ -1,11 +1,16 @@
 name: Terbit frontend
 
-# Menerbitkan folder frontend/ ke GitHub Pages. Aktifkan dahulu: Settings > Pages > Source: GitHub Actions.
+# Menerbitkan folder frontend/ ke GitHub Pages (pratonton percuma; Netlify kekal sebagai laman utama).
+# Sediakan sekali (lihat README, bahagian "Pratonton di GitHub Pages"):
+#   1. Settings > Pages > Source: GitHub Actions
+#   2. Settings > Secrets and variables > Actions > Variables: API_URL (URL Web App /exec), ECUTI_URL (pilihan)
+#   3. Settings > Environments > github-pages > Deployment branches: tambah branch kerja jika bukan main
+# URL Web App BUKAN rahsia, tetapi tidak disimpan dalam repo awam ini; ia dimasukkan semasa terbit.
 on:
   workflow_dispatch:
   push:
-    branches: [main]
-    paths: ['frontend/**']
+    branches: [main, claude/dreamy-einstein-9ucbl7]
+    paths: ['frontend/**', '.github/workflows/pages.yml']
 
 permissions:
   contents: read
@@ -24,9 +29,17 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Sediakan fail (URL API dan CSP)
+        env:
+          API_URL: ${{ vars.API_URL }}
+          ECUTI_URL: ${{ vars.ECUTI_URL }}
+        run: node scripts/sedia-pages.js _site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: frontend
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
