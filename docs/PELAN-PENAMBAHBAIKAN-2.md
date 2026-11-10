@@ -1,6 +1,6 @@
 # Pelan penambahbaikan 2: Profil Guru + e-Cuti
 
-> Dicadangkan 10/11/2026. Status: **menunggu persetujuan pemilik; belum dimulakan.**
+> Dicadangkan 10/11/2026. Status: **DIPERSETUJUI pemilik 10/11/2026; sedang dilaksanakan ikut urutan.**
 > Pemilik mahu semua item A–C; kumpulan D (hos, akaun sekolah, domain, Supabase) selepas A–C selesai.
 > Kod item merujuk senarai idea dalam perbualan 10/11/2026 (ringkasan di bawah).
 
@@ -22,7 +22,7 @@
 
 ### Peringkat 1: e-Cuti, pembaikan dalaman (tiada kebergantungan pada Profil Guru)
 Urutan: ujian tambahan untuk kod sedia ada -> **B3** kata laluan -> **B1** padanan baki ikut emel -> **B4** kelajuan (cache sesi)
--> **B5** cuti umum -> **B6** notifikasi pentadbir -> **B8** notis privasi dan simpanan lampiran -> **B2** CSP + pustaka dihos
+-> **B5** cuti umum -> ~~B6~~ (dibatalkan) -> **B8** notis privasi dan simpanan lampiran -> **B2** CSP + pustaka dihos
 sendiri (paling berisiko pada rupa, jadi terakhir dan diuji visual) -> **B7** jenis cuti (ubah model data; mesti siap
 SEBELUM peringkat 3 supaya sambungan dibina sekali sahaja).
 
@@ -42,14 +42,20 @@ Asas dahulu: saluran pelayan-ke-pelayan bertandatangan (kunci kongsi, seperti SS
 D1 hos tanpa kredit, D2 akaun Google sekolah, D3 domain, D4 Supabase (A2 lebih mudah jika digabung dengan D4;
 pemilik boleh memilih untuk menangguhkan A2 ke D4).
 
-## Keputusan yang diperlukan daripada pemilik sebelum item berkenaan
-- B5: senarai cuti umum diisi admin setiap tahun, atau termasuk cuti penggal sekolah?
-- B6: siapa menerima emel permohonan baharu (semua ADMIN e-Cuti atau alamat tertentu)?
-- B7: jenis cuti dan kuota setiap jenis; adakah had 3 orang sehari terpakai untuk semua jenis?
-- B8: tempoh simpanan lampiran (cadangan: sama seperti Profil Guru, 2 tahun).
-- A1: hanya cuti DILULUSKAN, atau termasuk yang masih dalam semakan? Siapa yang mengagih relief?
-- A2: sekarang atau bersama Supabase (D4)?
-- STAF bukan guru: kekal dalam e-Cuti sahaja, atau didaftarkan dalam Profil Guru sebagai jenis kakitangan baharu?
+## Keputusan pemilik (10/11/2026)
+- **Urutan dipersetujui.** Netlify kekal dihentikan sehingga semua kemas kini siap; pratonton di GitHub Pages.
+- **B5:** masukkan automatik cuti umum Kumpulan B (Selangor) daripada PDF cuti yang akan diberi pemilik; admin boleh
+  menambah cuti tambahan kemudian. (PDF belum diterima dalam sesi ini.)
+- **B6: DIBATALKAN.** Tiada emel kepada admin; guru memaklumkan Pengetua melalui WhatsApp sendiri.
+- **B7:** jenis lain = cuti sakit, kursus, program, cuti tanpa gaji, cuti ehsan. TIDAK terpakai had 3 orang sehari
+  (had itu khas cuti tahunan) dan TIDAK dipaparkan dalam kalendar utama e-Cuti. Tujuannya hanya membantu mencari
+  relief dalam Profil Guru. Tafsiran: e-Cuti kekal untuk cuti tahunan sahaja; jenis lain direkod sebagai jenis
+  ketidakhadiran dalam Guru ganti (Profil Guru). Sahkan dengan pemilik sebelum bina.
+- **B8:** lampiran disimpan 2 tahun.
+- **A1:** hanya cuti yang DILULUSKAN.
+- **A2: DITANGGUHKAN** (bersama D4 Supabase).
+- **Staf bukan guru: didaftarkan juga dalam Profil Guru** (perlu jenis kakitangan baharu yang dikecualikan daripada
+  senarai/kiraan guru mengajar, seperti akaun sistem; dibina sebelum A3).
 
 ## Ringkasan item
 A1 cuti lulus -> Guru ganti · A2 satu senarai guru · A3 baki cuti dalam Profil Guru · A4 cuti dalam dashboard ·
