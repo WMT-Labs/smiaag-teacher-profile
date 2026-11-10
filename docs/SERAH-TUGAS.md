@@ -28,6 +28,8 @@
   - Netlify e-Cuti: kredit hampir habis (deploy `main@5c55440` gagal); pemilik akan guna GitHub Pages untuk pratonton,
     hentikan builds Netlify, dan hidupkan semula di hujung kerja. Repo e-Cuti akan dijadikan public sementara.
   - Pratonton Profil Guru: GitHub Pages `wmt-labs.github.io/smiaag-teacher-profile` (variable `API_URL`, `ECUTI_URL`).
+- **Pelan seterusnya:** `docs/PELAN-PENAMBAHBAIKAN-2.md` (item A–C ikut peringkat; menunggu persetujuan pemilik). PR e-Cuti #4
+  (tutup laluan awam PUBLIC_GHOST) menunggu merge.
 - Selepas pemilik sahkan Fasa 7: semua fasa dalam dokumen arahan selesai. Kerja seterusnya ikut permintaan pemilik
   (contoh cache pelayar untuk kelajuan, fail aSc sebenar, migrasi Supabase).
 
