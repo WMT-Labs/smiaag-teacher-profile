@@ -17,7 +17,11 @@
     (padam manual oleh superadmin); pencetus harian `penyelenggaraanHarian` (sesi tamat + audit_log > 2 tahun).
   - `docs/PELAN-KEBOCORAN-DATA.md`, `docs/MIGRASI-SUPABASE.md`, `docs/supabase/schema.sql` (dijana `npm run sql`,
     diuji pada PostgreSQL tempatan dengan `docs/supabase/ujian-rls.sql`).
-- **Integrasi e-Cuti (SSO, pilihan A): kod siap kedua-dua belah, menunggu deploy oleh pemilik.**
+- **Integrasi e-Cuti (SSO, pilihan A): BERFUNGSI dalam pratonton (10/11/2026).** Pemilik sahkan menu e-Cuti terus masuk
+  tanpa log masuk (Profil Guru Pages -> e-Cuti Pages, server e-Cuti v2.2 melalui deployment Apps Script BAHARU dalam
+  variable `GAS_URL`). Belum dibuat (langkah akhir): kemas kini deployment UTAMA Apps Script e-Cuti, pulihkan laman
+  Netlify `ecutismiaag` (memaparkan "Site not found", punca belum disahkan; kredit habis), hidupkan builds Netlify,
+  jadikan repo e-Cuti private semula. Soalan terbuka: tutup laluan awam `PUBLIC_GHOST` e-Cuti?
   - Profil Guru: `backend/Ecuti.gs` (`ECUTI_TIKET`), menu e-Cuti; sudah di-deploy pemilik (menu buka tab baru).
   - e-Cuti (repo `WeBake/e-Cuti-SMIAAG`): PR #3 `SSO_LOGIN` + `#sso=` dalam index.html v2.2; PR #2 workflow pratonton
     GitHub Pages (variable `GAS_URL` untuk deployment Apps Script pratonton). Ujian silang Ecuti.gs -> Code.gs lulus.
