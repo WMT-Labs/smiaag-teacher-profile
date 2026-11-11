@@ -123,7 +123,8 @@ test('jenis ketidakhadiran: lalai lain-lain, boleh ditetapkan dan ditukar, nilai
   const hari = call('GANTI_HARI', { tarikh: T }, ADM.token).data;
   assert.deepEqual([...hari.ref.jenis_ketidakhadiran.map((j) => j.kod)], ['cuti_tahunan', 'cuti_sakit', 'kursus', 'program', 'cuti_tanpa_gaji', 'cuti_ehsan', 'lain_lain']);
   const baris = (id) => hari.tidak_hadir.find((t) => t.id === id);
-  assert.equal(baris(d.id).jenis_label, 'Cuti sakit');
+  assert.equal(baris(d.id).jenis_label, 'MC (cuti sakit)');
+  assert.equal(baris(d.id).sebab_hebahan, 'MC');
   // tukar jenis dan catatan; catatan sahaja mengekalkan jenis
   call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: T, id: a.id, jenis: 'kursus', sebab: 'Tamrin WAFA' }, ADM.token);
   call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: T, id: a.id, sebab: 'Tamrin WAFA 2' }, ADM.token);
@@ -131,18 +132,22 @@ test('jenis ketidakhadiran: lalai lain-lain, boleh ditetapkan dan ditukar, nilai
   assert.equal(r.jenis, 'kursus'); assert.equal(r.sebab, 'Tamrin WAFA 2');
 });
 
-test('hebahan: catatan diutamakan; tanpa catatan guna jenis; jenis peribadi dihebahkan sebagai "Cuti" sahaja', () => {
+test('hebahan: catatan diutamakan; tanpa catatan guna jenis dengan singkatan MC, CTG dan CE', () => {
   const { ctx } = dunia();
-  const L = { cuti_tahunan: 'Cuti tahunan', cuti_sakit: 'Cuti sakit', kursus: 'Kursus', program: 'Program', cuti_tanpa_gaji: 'Cuti tanpa gaji', cuti_ehsan: 'Cuti ehsan', lain_lain: 'Lain-lain' };
+  const L = Object.fromEntries(ctx.REF_SEEDS.ref_jenis_ketidakhadiran.map((p) => [p[0], p[1]]));
   assert.equal(ctx.sebabHebahan('kursus', 'Tamrin WAFA', L), 'Tamrin WAFA');
+  assert.equal(ctx.sebabHebahan('cuti_sakit', 'Demam', L), 'Demam', 'catatan mengatasi singkatan');
   assert.equal(ctx.sebabHebahan('kursus', null, L), 'Kursus');
+  assert.equal(ctx.sebabHebahan('program', null, L), 'Program');
   assert.equal(ctx.sebabHebahan('cuti_tahunan', '', L), 'Cuti tahunan');
-  ['cuti_sakit', 'cuti_tanpa_gaji', 'cuti_ehsan'].forEach((j) => assert.equal(ctx.sebabHebahan(j, null, L), 'Cuti', j + ' tidak didedahkan dalam kumpulan WhatsApp'));
+  assert.equal(ctx.sebabHebahan('cuti_sakit', null, L), 'MC');
+  assert.equal(ctx.sebabHebahan('cuti_tanpa_gaji', null, L), 'CTG');
+  assert.equal(ctx.sebabHebahan('cuti_ehsan', null, L), 'CE');
   assert.equal(ctx.sebabHebahan('lain_lain', null, L), '');
   assert.equal(ctx.sebabHebahan(undefined, null, L), '', 'rekod lama tanpa jenis');
   // modul hebahan frontend menggunakan sebab_hebahan daripada server
-  const teks = H.jana({ tarikh: '2026-11-05', tidak_hadir: [{ guru: { panggilan: 'Irfan' }, sebab: null, sebab_hebahan: 'Cuti', slot: [{ masa_mula: '07:30', masa_akhir: '08:30', subjek: 'DQH', kelas: '3 Suyuthi', ganti: { guru: { panggilan: 'Nuaimah' } } }] }] });
-  assert.ok(teks.includes('1. Irfan (Cuti)'));
+  const teks = H.jana({ tarikh: '2026-11-05', tidak_hadir: [{ guru: { panggilan: 'Irfan' }, sebab: null, sebab_hebahan: 'MC', slot: [{ masa_mula: '07:30', masa_akhir: '08:30', subjek: 'DQH', kelas: '3 Suyuthi', ganti: { guru: { panggilan: 'Nuaimah' } } }] }] });
+  assert.ok(teks.includes('1. Irfan (MC)'));
 });
 
 test('rekod lama tanpa lajur jenis (sebelum kemas kini) masih dibaca dan boleh dikemas kini', () => {

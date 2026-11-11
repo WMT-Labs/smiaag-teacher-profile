@@ -413,8 +413,8 @@ var REF_SEEDS = {
   ref_jabatan: [['KURI', 'Kurikulum'], ['HEM', 'Hal Ehwal Murid'], ['KOKU', 'Kokurikulum'], ['lain_lain', 'Lain-lain']],
   ref_hari: [['isnin', 'Isnin'], ['selasa', 'Selasa'], ['rabu', 'Rabu'], ['khamis', 'Khamis'], ['jumaat', 'Jumaat'], ['sabtu', 'Sabtu'], ['ahad', 'Ahad']],
   ref_sumber_slot: [['asc', 'Import aSc'], ['pdf', 'Import PDF'], ['manual', 'Manual']],
-  ref_jenis_ketidakhadiran: [['cuti_tahunan', 'Cuti tahunan'], ['cuti_sakit', 'Cuti sakit'], ['kursus', 'Kursus'], ['program', 'Program'],
-    ['cuti_tanpa_gaji', 'Cuti tanpa gaji'], ['cuti_ehsan', 'Cuti ehsan'], ['lain_lain', 'Lain-lain']],
+  ref_jenis_ketidakhadiran: [['cuti_tahunan', 'Cuti tahunan'], ['cuti_sakit', 'MC (cuti sakit)'], ['kursus', 'Kursus'], ['program', 'Program'],
+    ['cuti_tanpa_gaji', 'CTG (cuti tanpa gaji)'], ['cuti_ehsan', 'CE (cuti ehsan)'], ['lain_lain', 'Lain-lain']],
   ref_jenis_unit: [['badan_beruniform', 'Badan beruniform (Syabab)'], ['kelab_persatuan', 'Kelab / persatuan'], ['pasukan_sekolah', 'Pasukan sekolah']],
   ref_jawatan_unit: [['penasihat', 'Penasihat'], ['penyelaras', 'Penyelaras'], ['ajk', 'AJK'], ['lain_lain', 'Lain-lain']],
   ref_peringkat_pertandingan: [['sekolah', 'Sekolah'], ['daerah', 'Daerah'], ['negeri', 'Negeri'], ['kebangsaan', 'Kebangsaan']],
@@ -3660,15 +3660,14 @@ function aksiGantiHari(ctx, params) {
 }
 
 /**
- * Teks dalam kurungan pada hebahan WhatsApp. Catatan pentadbir (sebab) diutamakan. Jika kosong, guna jenis;
- * jenis yang bersifat peribadi (sakit, tanpa gaji, ehsan) dihebahkan sebagai "Cuti" sahaja.
+ * Teks dalam kurungan pada hebahan WhatsApp. Catatan pentadbir (sebab) diutamakan. Jika kosong, guna jenis:
+ * singkatan sekolah untuk MC / CTG / CE (keputusan pemilik 11/11/2026), label penuh untuk jenis lain.
  */
-var JENIS_HEBAH_CUTI_SAHAJA = ['cuti_sakit', 'cuti_tanpa_gaji', 'cuti_ehsan'];
+var SINGKATAN_HEBAHAN = { cuti_sakit: 'MC', cuti_tanpa_gaji: 'CTG', cuti_ehsan: 'CE' };
 function sebabHebahan(jenis, sebab, labelJenis) {
   if (sebab) return sebab;
   if (!jenis || jenis === 'lain_lain') return '';
-  if (JENIS_HEBAH_CUTI_SAHAJA.indexOf(jenis) !== -1) return 'Cuti';
-  return labelJenis[jenis] || '';
+  return SINGKATAN_HEBAHAN[jenis] || labelJenis[jenis] || '';
 }
 
 function aksiGantiTidakHadirSimpan(ctx, params) {

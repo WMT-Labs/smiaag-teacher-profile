@@ -74,6 +74,6 @@ C2 aSc sebenar · C3 relief sendiri · C4 laporan · C5 PWA · C6 sandaran.
   `SsoSahaja`, tiada kata laluan e-Cuti. Sebahagian kecil A2 yang selamat dibuat awal.
 - [x] **B2** CSP + pustaka dihos sendiri, kelayakan lalai 12 hari (PR e-Cuti #7, menunggu merge + deploy pratonton).
 - [x] **B7** jenis ketidakhadiran dalam Guru ganti Profil Guru (11/11/2026): lajur `ketidakhadiran_guru.jenis`,
-  `ref_jenis_ketidakhadiran`; hebahan memaparkan catatan, atau jenis (sakit/tanpa gaji/ehsan dihebahkan "Cuti" sahaja).
+  `ref_jenis_ketidakhadiran`; hebahan memaparkan catatan, atau jenis (MC, CTG, CE untuk cuti sakit, tanpa gaji, ehsan).
   Pemilik perlu: tampal `dist/Code.gs`, `setupTemplate` (tambah lajur + tab rujukan), deploy New version.
 - [ ] Seterusnya: Peringkat 2 (C3, C1, C5, C4), kemudian staf bukan guru dalam Profil Guru, kemudian Peringkat 3 (A3, A4, A5, A1).

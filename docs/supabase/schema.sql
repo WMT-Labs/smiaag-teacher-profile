@@ -632,7 +632,7 @@ insert into ref_kumpulan_tugasan (kod, label, susunan) values ('subjek', 'Subjek
 insert into ref_jabatan (kod, label, susunan) values ('KURI', 'Kurikulum', 1), ('HEM', 'Hal Ehwal Murid', 2), ('KOKU', 'Kokurikulum', 3), ('lain_lain', 'Lain-lain', 4);
 insert into ref_hari (kod, label, susunan) values ('isnin', 'Isnin', 1), ('selasa', 'Selasa', 2), ('rabu', 'Rabu', 3), ('khamis', 'Khamis', 4), ('jumaat', 'Jumaat', 5), ('sabtu', 'Sabtu', 6), ('ahad', 'Ahad', 7);
 insert into ref_sumber_slot (kod, label, susunan) values ('asc', 'Import aSc', 1), ('pdf', 'Import PDF', 2), ('manual', 'Manual', 3);
-insert into ref_jenis_ketidakhadiran (kod, label, susunan) values ('cuti_tahunan', 'Cuti tahunan', 1), ('cuti_sakit', 'Cuti sakit', 2), ('kursus', 'Kursus', 3), ('program', 'Program', 4), ('cuti_tanpa_gaji', 'Cuti tanpa gaji', 5), ('cuti_ehsan', 'Cuti ehsan', 6), ('lain_lain', 'Lain-lain', 7);
+insert into ref_jenis_ketidakhadiran (kod, label, susunan) values ('cuti_tahunan', 'Cuti tahunan', 1), ('cuti_sakit', 'MC (cuti sakit)', 2), ('kursus', 'Kursus', 3), ('program', 'Program', 4), ('cuti_tanpa_gaji', 'CTG (cuti tanpa gaji)', 5), ('cuti_ehsan', 'CE (cuti ehsan)', 6), ('lain_lain', 'Lain-lain', 7);
 insert into ref_jenis_unit (kod, label, susunan) values ('badan_beruniform', 'Badan beruniform (Syabab)', 1), ('kelab_persatuan', 'Kelab / persatuan', 2), ('pasukan_sekolah', 'Pasukan sekolah', 3);
 insert into ref_jawatan_unit (kod, label, susunan) values ('penasihat', 'Penasihat', 1), ('penyelaras', 'Penyelaras', 2), ('ajk', 'AJK', 3), ('lain_lain', 'Lain-lain', 4);
 insert into ref_peringkat_pertandingan (kod, label, susunan) values ('sekolah', 'Sekolah', 1), ('daerah', 'Daerah', 2), ('negeri', 'Negeri', 3), ('kebangsaan', 'Kebangsaan', 4);

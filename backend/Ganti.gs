@@ -89,15 +89,14 @@ function aksiGantiHari(ctx, params) {
 }
 
 /**
- * Teks dalam kurungan pada hebahan WhatsApp. Catatan pentadbir (sebab) diutamakan. Jika kosong, guna jenis;
- * jenis yang bersifat peribadi (sakit, tanpa gaji, ehsan) dihebahkan sebagai "Cuti" sahaja.
+ * Teks dalam kurungan pada hebahan WhatsApp. Catatan pentadbir (sebab) diutamakan. Jika kosong, guna jenis:
+ * singkatan sekolah untuk MC / CTG / CE (keputusan pemilik 11/11/2026), label penuh untuk jenis lain.
  */
-var JENIS_HEBAH_CUTI_SAHAJA = ['cuti_sakit', 'cuti_tanpa_gaji', 'cuti_ehsan'];
+var SINGKATAN_HEBAHAN = { cuti_sakit: 'MC', cuti_tanpa_gaji: 'CTG', cuti_ehsan: 'CE' };
 function sebabHebahan(jenis, sebab, labelJenis) {
   if (sebab) return sebab;
   if (!jenis || jenis === 'lain_lain') return '';
-  if (JENIS_HEBAH_CUTI_SAHAJA.indexOf(jenis) !== -1) return 'Cuti';
-  return labelJenis[jenis] || '';
+  return SINGKATAN_HEBAHAN[jenis] || labelJenis[jenis] || '';
 }
 
 function aksiGantiTidakHadirSimpan(ctx, params) {
