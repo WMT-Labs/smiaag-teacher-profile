@@ -90,9 +90,9 @@ function aksiGantiHari(ctx, params) {
 
 /**
  * Teks dalam kurungan pada hebahan WhatsApp. Catatan pentadbir (sebab) diutamakan. Jika kosong, guna jenis:
- * singkatan sekolah untuk MC / CTG / CE (keputusan pemilik 11/11/2026), label penuh untuk jenis lain.
+ * singkatan sekolah CT / MC / CTG / CE (keputusan pemilik 11/11/2026), label penuh untuk jenis lain.
  */
-var SINGKATAN_HEBAHAN = { cuti_sakit: 'MC', cuti_tanpa_gaji: 'CTG', cuti_ehsan: 'CE' };
+var SINGKATAN_HEBAHAN = { cuti_tahunan: 'CT', cuti_sakit: 'MC', cuti_tanpa_gaji: 'CTG', cuti_ehsan: 'CE' };
 function sebabHebahan(jenis, sebab, labelJenis) {
   if (sebab) return sebab;
   if (!jenis || jenis === 'lain_lain') return '';

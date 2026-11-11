@@ -413,7 +413,7 @@ var REF_SEEDS = {
   ref_jabatan: [['KURI', 'Kurikulum'], ['HEM', 'Hal Ehwal Murid'], ['KOKU', 'Kokurikulum'], ['lain_lain', 'Lain-lain']],
   ref_hari: [['isnin', 'Isnin'], ['selasa', 'Selasa'], ['rabu', 'Rabu'], ['khamis', 'Khamis'], ['jumaat', 'Jumaat'], ['sabtu', 'Sabtu'], ['ahad', 'Ahad']],
   ref_sumber_slot: [['asc', 'Import aSc'], ['pdf', 'Import PDF'], ['manual', 'Manual']],
-  ref_jenis_ketidakhadiran: [['cuti_tahunan', 'Cuti tahunan'], ['cuti_sakit', 'MC (cuti sakit)'], ['kursus', 'Kursus'], ['program', 'Program'],
+  ref_jenis_ketidakhadiran: [['cuti_tahunan', 'CT (cuti tahunan)'], ['cuti_sakit', 'MC (cuti sakit)'], ['kursus', 'Kursus'], ['program', 'Program'],
     ['cuti_tanpa_gaji', 'CTG (cuti tanpa gaji)'], ['cuti_ehsan', 'CE (cuti ehsan)'], ['lain_lain', 'Lain-lain']],
   ref_jenis_unit: [['badan_beruniform', 'Badan beruniform (Syabab)'], ['kelab_persatuan', 'Kelab / persatuan'], ['pasukan_sekolah', 'Pasukan sekolah']],
   ref_jawatan_unit: [['penasihat', 'Penasihat'], ['penyelaras', 'Penyelaras'], ['ajk', 'AJK'], ['lain_lain', 'Lain-lain']],
@@ -3661,9 +3661,9 @@ function aksiGantiHari(ctx, params) {
 
 /**
  * Teks dalam kurungan pada hebahan WhatsApp. Catatan pentadbir (sebab) diutamakan. Jika kosong, guna jenis:
- * singkatan sekolah untuk MC / CTG / CE (keputusan pemilik 11/11/2026), label penuh untuk jenis lain.
+ * singkatan sekolah CT / MC / CTG / CE (keputusan pemilik 11/11/2026), label penuh untuk jenis lain.
  */
-var SINGKATAN_HEBAHAN = { cuti_sakit: 'MC', cuti_tanpa_gaji: 'CTG', cuti_ehsan: 'CE' };
+var SINGKATAN_HEBAHAN = { cuti_tahunan: 'CT', cuti_sakit: 'MC', cuti_tanpa_gaji: 'CTG', cuti_ehsan: 'CE' };
 function sebabHebahan(jenis, sebab, labelJenis) {
   if (sebab) return sebab;
   if (!jenis || jenis === 'lain_lain') return '';

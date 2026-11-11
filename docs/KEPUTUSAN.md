@@ -186,6 +186,6 @@ Ukuran pemilik selepas P0: log masuk 6 s, profil 6 s, dashboard 10 s, tukar tahu
 - **B7:** e-Cuti kekal cuti tahunan sahaja. Cuti sakit, kursus, program, cuti tanpa gaji dan cuti ehsan direkod pentadbir
   sebagai jenis ketidakhadiran dalam Guru ganti; tiada kuota, tiada kelulusan, tidak dipaparkan dalam kalendar e-Cuti.
 - **Hebahan (keputusan pemilik 11/11/2026):** catatan pentadbir diutamakan dalam kurungan. Tanpa catatan, jenis dipaparkan:
-  cuti sakit = **MC**, cuti tanpa gaji = **CTG**, cuti ehsan = **CE**; jenis lain dengan label penuh (Kursus, Program, Cuti tahunan).
+  cuti tahunan = **CT**, cuti sakit = **MC**, cuti tanpa gaji = **CTG**, cuti ehsan = **CE**; jenis lain dengan label penuh (Kursus, Program).
 - **B5:** hanya tarikh dalam pekeliling Kalendar Akademik 2027 (Kumpulan B) diisi automatik; cuti umum lain ditambah admin.
 - **B6 dibatalkan; A2 ditangguhkan; staf bukan guru akan didaftarkan dalam Profil Guru.**

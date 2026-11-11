@@ -60,7 +60,7 @@
           fields: [
             { name: 'guru_id', label: 'Guru', type: 'select', required: true, options: D.guru.filter(function (g) { return !ada[g.id]; }).map(function (g) { return { value: g.id, label: g.nama + ' (' + g.guru_kod + ')' }; }) },
             medanJenis('lain_lain'),
-            { name: 'sebab', label: 'Catatan (pilihan)', placeholder: 'contoh: Khidmas, Tamrin WAFA', hint: 'Jika diisi, catatan ini dipaparkan dalam kurungan dalam hebahan. Jika kosong, jenis dipaparkan (contoh MC, CTG, CE, Kursus).', attrs: { maxlength: '60' } }
+            { name: 'sebab', label: 'Catatan (pilihan)', placeholder: 'contoh: Khidmas, Tamrin WAFA', hint: 'Jika diisi, catatan ini dipaparkan dalam kurungan dalam hebahan. Jika kosong, jenis dipaparkan (contoh CT, MC, CTG, CE, Kursus).', attrs: { maxlength: '60' } }
           ],
           onSubmit: function (v) { v.tarikh = tarikh; return Api.call('GANTI_TIDAK_HADIR_SIMPAN', v); }
         }).then(function (r) { if (r) { UI.toast('Direkod.'); muat(); } });

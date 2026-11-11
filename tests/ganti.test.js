@@ -132,14 +132,14 @@ test('jenis ketidakhadiran: lalai lain-lain, boleh ditetapkan dan ditukar, nilai
   assert.equal(r.jenis, 'kursus'); assert.equal(r.sebab, 'Tamrin WAFA 2');
 });
 
-test('hebahan: catatan diutamakan; tanpa catatan guna jenis dengan singkatan MC, CTG dan CE', () => {
+test('hebahan: catatan diutamakan; tanpa catatan guna jenis dengan singkatan CT, MC, CTG dan CE', () => {
   const { ctx } = dunia();
   const L = Object.fromEntries(ctx.REF_SEEDS.ref_jenis_ketidakhadiran.map((p) => [p[0], p[1]]));
   assert.equal(ctx.sebabHebahan('kursus', 'Tamrin WAFA', L), 'Tamrin WAFA');
   assert.equal(ctx.sebabHebahan('cuti_sakit', 'Demam', L), 'Demam', 'catatan mengatasi singkatan');
   assert.equal(ctx.sebabHebahan('kursus', null, L), 'Kursus');
   assert.equal(ctx.sebabHebahan('program', null, L), 'Program');
-  assert.equal(ctx.sebabHebahan('cuti_tahunan', '', L), 'Cuti tahunan');
+  assert.equal(ctx.sebabHebahan('cuti_tahunan', '', L), 'CT');
   assert.equal(ctx.sebabHebahan('cuti_sakit', null, L), 'MC');
   assert.equal(ctx.sebabHebahan('cuti_tanpa_gaji', null, L), 'CTG');
   assert.equal(ctx.sebabHebahan('cuti_ehsan', null, L), 'CE');
