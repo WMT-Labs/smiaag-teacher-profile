@@ -205,3 +205,40 @@ function aksiGantiBatal(ctx, params) {
   remove('guru_ganti', id);
   return { dipadam: true };
 }
+
+/**
+ * GANTI_SAYA (semua peranan): relief akan datang bagi guru yang log masuk.
+ *   ganti      : kelas yang SAYA perlu ganti (tarikh, masa, subjek, kelas, nama guru yang digantikan)
+ *   tidak_hadir: hari SAYA direkod tidak hadir dan siapa mengganti kelas saya
+ * Hanya nama guru lain dipulangkan; jenis/sebab ketidakhadiran guru lain TIDAK didedahkan.
+ */
+function aksiGantiSaya(ctx) {
+  var hari = hariIni(), saya = ctx.guruId;
+  var th = query('ketidakhadiran_guru', {}).filter(function (t) { return t.tarikh >= hari; });
+  if (!th.length) return { hari_ini: hari, ganti: [], tidak_hadir: [] };
+  var thById = {};
+  th.forEach(function (t) { thById[t.id] = t; });
+  var gantiSemua = query('guru_ganti', {}).filter(function (x) { return thById[x.ketidakhadiran_id]; });
+  var guruById = {};
+  query('guru', {}).forEach(function (g) { guruById[g.id] = g; });
+  var nama = function (id) { var g = guruById[id]; return g ? namaPanggilan(g) : '(guru dipadam)'; };
+  var ikutMasa = function (a, b) { return a.tarikh === b.tarikh ? minitDari(a.masa_mula) - minitDari(b.masa_mula) : (a.tarikh < b.tarikh ? -1 : 1); };
+
+  var ganti = gantiSemua.filter(function (x) { return x.guru_ganti_id === saya; }).map(function (x) {
+    var t = thById[x.ketidakhadiran_id];
+    return { tarikh: t.tarikh, masa_mula: x.masa_mula, masa_akhir: x.masa_akhir, subjek: x.subjek, kelas: x.kelas, catatan: x.catatan, menggantikan: nama(t.guru_id) };
+  }).sort(ikutMasa);
+
+  var labelJenis = {};
+  _refSenarai('ref_jenis_ketidakhadiran').forEach(function (r) { labelJenis[r.kod] = r.label; });
+  var tidakHadir = th.filter(function (t) { return t.guru_id === saya; }).map(function (t) {
+    return {
+      tarikh: t.tarikh, jenis_label: labelJenis[t.jenis || 'lain_lain'] || '', sebab: t.sebab,
+      slot: gantiSemua.filter(function (x) { return x.ketidakhadiran_id === t.id; }).map(function (x) {
+        return { tarikh: t.tarikh, masa_mula: x.masa_mula, masa_akhir: x.masa_akhir, subjek: x.subjek, kelas: x.kelas, pengganti: nama(x.guru_ganti_id) };
+      }).sort(ikutMasa)
+    };
+  }).sort(function (a, b) { return a.tarikh < b.tarikh ? -1 : 1; });
+  return { hari_ini: hari, ganti: ganti, tidak_hadir: tidakHadir };
+}
+

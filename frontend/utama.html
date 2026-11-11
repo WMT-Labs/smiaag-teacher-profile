@@ -13,6 +13,7 @@
   <script src="js/api.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/hebahan.js"></script>
   <script>
     (function () {
       var sesi = App.guard();
@@ -45,6 +46,36 @@
       if (admin) links.insertBefore(card({ icon: 'i-dashboard', title: 'Dashboard sekolah', href: 'dashboard.html', desc: 'Beban kerja, cerapan, kokurikulum dan HEM seluruh sekolah. Eksport CSV.' }), links.firstChild);
       if (sesi.role === 'superadmin') links.appendChild(card({ icon: 'i-sliders', title: 'Data rujukan', href: 'rujukan.html', desc: 'Subjek, kelas, waktu persekolahan dan had jam kredit.' }));
       c.appendChild(links);
+
+      // Relief saya: kelas yang perlu saya ganti, dan siapa mengganti kelas saya bila saya tidak hadir
+      if (!sesi.akaun_sistem) {
+        Api.call('GANTI_SAYA').then(function (d) {
+          if (!d.ganti.length && !d.tidak_hadir.length) return;
+          var masa = function (x) { return App.fmtMasa(x.masa_mula) + '–' + App.fmtMasa(x.masa_akhir, true); };
+          var bila = function (t) { return (t === d.hari_ini ? 'Hari ini · ' : '') + Hebahan.tarikhPanjang(t); };
+          var kad = [];
+          if (d.ganti.length) {
+            kad.push(el('section', { class: 'card' }, [
+              el('div', { class: 'card-head' }, [el('h2', {}, 'Relief anda'), el('span', { class: 'badge badge-near' }, d.ganti.length + ' kelas')]),
+              el('ul', { class: 'items' }, d.ganti.map(function (g) {
+                return el('li', {}, [
+                  el('div', { class: 'grow' }, [el('b', {}, bila(g.tarikh) + ' · ' + masa(g)),
+                    el('div', { class: 'sub' }, [g.subjek, g.kelas].filter(Boolean).join(', ') + ' · menggantikan ' + g.menggantikan + (g.catatan ? ' · ' + g.catatan : ''))])
+                ]);
+              }))
+            ]));
+          }
+          d.tidak_hadir.forEach(function (t) {
+            kad.push(el('section', { class: 'card' }, [
+              el('div', { class: 'card-head' }, [el('h2', {}, 'Anda direkod tidak hadir'), el('span', { class: 'muted', style: 'font-size:.8125rem' }, bila(t.tarikh) + (t.jenis_label ? ' · ' + t.jenis_label : ''))]),
+              t.slot.length ? el('ul', { class: 'items' }, t.slot.map(function (x) {
+                return el('li', {}, el('div', { class: 'grow' }, [el('b', {}, masa(x) + ' · ' + [x.subjek, x.kelas].filter(Boolean).join(', ')), el('div', { class: 'sub' }, 'Diganti oleh ' + x.pengganti)]));
+              })) : el('p', { class: 'empty-sm' }, 'Belum ada pengganti ditetapkan.')
+            ]));
+          });
+          c.insertBefore(el('section', { class: 'stack', 'aria-label': 'Relief' }, kad), links);
+        }).catch(function () {});
+      }
 
       // Perlu tindakan (pentadbir): guru yang tamat tempoh percubaan 6 bulan
       if (admin) {

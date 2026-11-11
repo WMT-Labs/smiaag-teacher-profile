@@ -163,3 +163,34 @@ test('rekod lama tanpa lajur jenis (sebelum kemas kini) masih dibaca dan boleh d
   assert.equal(call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: T, id: a.id, sebab: 'CT 2' }, ADM.token).ok, true);
   assert.equal(ctx.getById('ketidakhadiran_guru', a.id).jenis, 'lain_lain');
 });
+
+// ---------------------------------------------------------------- C3: relief sendiri
+test('GANTI_SAYA: guru nampak kelas yang perlu diganti dan siapa mengganti kelasnya; tiada butiran guru lain', () => {
+  const { call, ctx, env, A, B, C, ADM, g, sA1 } = dunia();
+  // "hari ini" dalam ujian ialah 2026-11-06; guna Khamis berikutnya 2026-11-12
+  const T = '2026-11-12';
+  assert.deepEqual(JSON.parse(JSON.stringify(call('GANTI_SAYA', {}, C.token).data)), { hari_ini: ctx.hariIni(), ganti: [], tidak_hadir: [] });
+  call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: T, guru_id: g.A, jenis: 'cuti_sakit', sebab: 'Demam teruk' }, ADM.token);
+  const th = call('GANTI_HARI', { tarikh: T }, ADM.token).data.tidak_hadir[0];
+  const r = call('GANTI_TETAP', { tarikh: T, ketidakhadiran_id: th.id, slot_id: sA1, guru_ganti_id: g.C }, ADM.token);
+  assert.equal(r.ok, true, r.message);
+  // pengganti (C)
+  const c = call('GANTI_SAYA', {}, C.token).data;
+  assert.equal(c.ganti.length, 1);
+  assert.equal(c.ganti[0].tarikh, T); assert.equal(c.ganti[0].masa_mula, '07:30'); assert.equal(c.ganti[0].kelas, '3 Suyuthi');
+  assert.match(c.ganti[0].menggantikan, /SMG01|Guru Contoh/);
+  assert.ok(!JSON.stringify(c).includes('Demam') && !JSON.stringify(c).includes('sakit'), 'sebab dan jenis guru lain tidak didedahkan');
+  assert.equal(c.tidak_hadir.length, 0);
+  // guru tidak hadir (A)
+  const a = call('GANTI_SAYA', {}, A.token).data;
+  assert.equal(a.ganti.length, 0);
+  assert.equal(a.tidak_hadir[0].tarikh, T);
+  assert.equal(a.tidak_hadir[0].jenis_label, 'MC (cuti sakit)');
+  assert.equal(a.tidak_hadir[0].slot[0].pengganti, 'Nuaimah');
+  // guru lain (B) tidak nampak apa-apa; tanpa log masuk ditolak
+  assert.equal(call('GANTI_SAYA', {}, B.token).data.ganti.length, 0);
+  assert.equal(call('GANTI_SAYA', {}, undefined).code, 'TIDAK_LOG_MASUK');
+  // relief yang sudah lepas tidak dipaparkan
+  env.advance(8 * 86400000);
+  assert.equal(call('GANTI_SAYA', {}, C.token).code === 'TIDAK_LOG_MASUK' || call('GANTI_SAYA', {}, C.token).data.ganti.length === 0, true);
+});

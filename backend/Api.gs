@@ -101,6 +101,7 @@ function getActions() {
     PDPA_EKSPORT:         { roles: R_SEMUA, handler: aksiPdpaEksport },
     PDPA_SENARAI_TAMAT:   { roles: R_SUPER, handler: aksiPdpaSenaraiTamat },
     PDPA_PADAM:           { roles: R_SUPER, handler: aksiPdpaPadam },
+    GANTI_SAYA:           { roles: R_SEMUA, handler: aksiGantiSaya },   // relief akan datang bagi guru sendiri
     // ---- e-Cuti: log masuk sekali (tiket 60 saat) ----
     ECUTI_TIKET:          { roles: R_SEMUA, handler: aksiEcutiTiket },
     // ---- Dashboard (Fasa 6) ----
