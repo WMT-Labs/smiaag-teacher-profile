@@ -38,7 +38,7 @@ function siapkan(r) {
 if (DEMO_PW) [sa, g1, ad].forEach(siapkan);
 if (typeof seedDemo === 'function') seedDemo(ctx, { sa, g1, ad, g2 });
 
-const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.webmanifest': 'application/manifest+json' };
 
 http.createServer((req, res) => {
   if (req.method === 'POST' && req.url === '/api') {
