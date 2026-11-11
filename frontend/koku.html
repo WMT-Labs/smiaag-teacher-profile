@@ -148,7 +148,7 @@
         c.appendChild(el('div', { class: 'profile-grid' }, K.ref.jenis_unit.map(unit).concat([rumah(), pertandingan()])));
       }
       function muat() {
-        return call('KOKU_LIHAT', { tahun: tahun }).then(function (d) { K = d; render(); }, function (e) { c.textContent = ''; c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message))); });
+        return Api.segar('KOKU_LIHAT', guruId ? { tahun: tahun, guru_id: guruId } : { tahun: tahun }, function (d) { K = d; render(); }).catch(function (e) { c.textContent = ''; c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message))); });
       }
       c.appendChild(App.rangka(3));
       muat();

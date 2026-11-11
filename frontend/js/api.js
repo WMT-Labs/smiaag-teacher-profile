@@ -6,6 +6,13 @@
  *
  * Token disimpan dalam localStorage supaya guru kekal log masuk pada peranti sendiri walaupun tab ditutup.
  * Server tetap menyemak dan boleh membatalkan token pada bila-bila masa (log keluar, reset, nyahaktif).
+ *
+ * Cache pelayar (Api.segar): halaman SENDIRI (profil, kurikulum, koku, HEM, relief) dipaparkan serta-merta daripada
+ * data terakhir, kemudian dikemas kini bila jawapan server tiba. Peraturan:
+ *   - hanya aksi dalam CACHE_BOLEH dan hanya tanpa `guru_id` (data guru LAIN tidak pernah disimpan dalam pelayar);
+ *   - kunci cache mengandungi id akaun, jadi pengguna lain pada pelayar yang sama tidak melihatnya;
+ *   - dibuang semasa log keluar / sesi tamat, selepas sebarang aksi yang menulis, dan selepas CACHE_HARI hari;
+ *   - server tetap sumber kebenaran: data cache hanya paparan sementara.
  */
 (function () {
   'use strict';
@@ -18,7 +25,68 @@
     try { localStorage.setItem(cfg.SESSION_KEY, JSON.stringify(s)); } catch (e) { /* abaikan */ }
   }
   function clearSession() {
+    buangCache();
     try { localStorage.removeItem(cfg.SESSION_KEY); } catch (e) { /* abaikan */ }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cache pelayar untuk halaman sendiri (lihat nota di atas)
+  // ---------------------------------------------------------------------------
+  var CACHE_AWALAN = 'smiaag_cache:';
+  var CACHE_BOLEH = ['PROFIL_LIHAT', 'KURIKULUM_LIHAT', 'KOKU_LIHAT', 'HEM_LIHAT', 'GANTI_SAYA'];
+  var CACHE_HARI = 7;
+  // Aksi yang hanya MEMBACA: tidak membuang cache. Semua aksi lain dianggap menulis.
+  var BACA_SAHAJA = /(_LIHAT|_SENARAI|_SAYA|_HARI|_CALON|_TIKET|_EKSPORT|_SENARAI_TAMAT)$|^(DASHBOARD|LOGIN|LOGOUT)$/;
+  function aksiBaca(action) { return BACA_SAHAJA.test(action); }
+
+  function kunciCache(action, params) {
+    var s = getSession();
+    var akaun = s && s.sesi && s.sesi.akaun_id;
+    if (!akaun || CACHE_BOLEH.indexOf(action) === -1) return null;
+    params = params || {};
+    if (params.guru_id) return null;                    // data guru lain: tidak pernah dicache
+    var p = {};
+    Object.keys(params).sort().forEach(function (k) { if (params[k] !== undefined && params[k] !== null && params[k] !== '') p[k] = params[k]; });
+    return CACHE_AWALAN + akaun + ':' + action + ':' + JSON.stringify(p);
+  }
+  function bacaCache(k) {
+    try {
+      var o = JSON.parse(localStorage.getItem(k) || 'null');
+      if (!o || !(Date.now() - o.t < CACHE_HARI * 86400000)) return null;
+      return o;
+    } catch (e) { return null; }
+  }
+  function simpanCache(k, json) {
+    try { localStorage.setItem(k, '{"t":' + Date.now() + ',"d":' + json + '}'); } catch (e) { /* storan penuh: abaikan */ }
+  }
+  function buangCache() {
+    try {
+      var buang = [];
+      for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf(CACHE_AWALAN) === 0) buang.push(k); }
+      buang.forEach(function (k) { localStorage.removeItem(k); });
+    } catch (e) { /* abaikan */ }
+  }
+
+  /**
+   * Muat data untuk dipaparkan: onData(data, dariCache) dipanggil serta-merta dengan data terakhir (jika ada), dan
+   * sekali lagi dengan data server jika berbeza. Pulangkan Promise data server.
+   * Jika server gagal tetapi data terakhir sudah dipaparkan, paparan kekal dan satu makluman ringkas dipaparkan.
+   */
+  function segar(action, params, onData) {
+    var k = kunciCache(action, params);
+    var lama = k ? bacaCache(k) : null;
+    var jsonLama = lama ? JSON.stringify(lama.d) : null;
+    if (lama) { try { onData(lama.d, true); } catch (e) { lama = null; jsonLama = null; } }
+    return call(action, params).then(function (data) {
+      var json = JSON.stringify(data);
+      if (k) simpanCache(k, json);
+      if (json !== jsonLama) onData(data, false);
+      return data;
+    }, function (err) {
+      if (!lama || err.code === 'TIDAK_LOG_MASUK' || err.code === 'TIADA_KEBENARAN' || err.code === 'PERLU_TINDAKAN') throw err;
+      if (window.UI && UI.toast) UI.toast('Tidak dapat mengemas kini: ' + err.message + ' Memaparkan data terakhir.');
+      return lama.d;
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -85,7 +153,7 @@
     }).then(function (res) {
       return res.json();
     }).then(function (body) {
-      if (body && body.ok) return body.data;
+      if (body && body.ok) { if (!aksiBaca(action)) buangCache(); return body.data; }
       var code = body && body.code ? body.code : 'RALAT_SERVER';
       if (code === 'TIDAK_LOG_MASUK' && action !== 'LOGIN' && action !== 'LOGOUT') {
         clearSession();
@@ -101,5 +169,5 @@
 
   function makeError(code, message) { var e = new Error(message); e.code = code; return e; }
 
-  window.Api = { call: call, getSession: getSession, setSession: setSession, clearSession: clearSession };
+  window.Api = { call: call, segar: segar, getSession: getSession, setSession: setSession, clearSession: clearSession, _aksiBaca: aksiBaca };
 })();

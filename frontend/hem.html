@@ -143,7 +143,7 @@
         c.appendChild(el('div', { class: 'profile-grid' }, [usrahPelajar(), peranan(), usrahGuru(), dibimbing()].filter(Boolean)));
       }
       function muat() {
-        return call('HEM_LIHAT', { tahun: tahun }).then(function (d) { H = d; render(); }, function (e) { c.textContent = ''; c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message))); });
+        return Api.segar('HEM_LIHAT', guruId ? { tahun: tahun, guru_id: guruId } : { tahun: tahun }, function (d) { H = d; render(); }).catch(function (e) { c.textContent = ''; c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message))); });
       }
       c.appendChild(App.rangka(3));
       muat();

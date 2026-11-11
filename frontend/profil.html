@@ -310,7 +310,7 @@
         ]);
       }
       function muat() {
-        return call('PROFIL_LIHAT').then(function (d) { P = d; render(); }, function (e) {
+        return Api.segar('PROFIL_LIHAT', withGuru({}), function (d) { P = d; render(); }).catch(function (e) {
           c.textContent = '';
           c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message)));
         });

@@ -49,7 +49,9 @@
 
       // Relief saya: kelas yang perlu saya ganti, dan siapa mengganti kelas saya bila saya tidak hadir
       if (!sesi.akaun_sistem) {
-        Api.call('GANTI_SAYA').then(function (d) {
+        var kotakRelief = null;
+        Api.segar('GANTI_SAYA', {}, function (d) {
+          if (kotakRelief) { kotakRelief.remove(); kotakRelief = null; }   // dipanggil semula bila data server berbeza daripada cache
           if (!d.ganti.length && !d.tidak_hadir.length) return;
           var masa = function (x) { return App.fmtMasa(x.masa_mula) + '–' + App.fmtMasa(x.masa_akhir, true); };
           var bila = function (t) { return (t === d.hari_ini ? 'Hari ini · ' : '') + Hebahan.tarikhPanjang(t); };
@@ -73,7 +75,8 @@
               })) : el('p', { class: 'empty-sm' }, 'Belum ada pengganti ditetapkan.')
             ]));
           });
-          c.insertBefore(el('section', { class: 'stack', 'aria-label': 'Relief' }, kad), links);
+          kotakRelief = el('section', { class: 'stack', 'aria-label': 'Relief' }, kad);
+          c.insertBefore(kotakRelief, links);
         }).catch(function () {});
       }
 

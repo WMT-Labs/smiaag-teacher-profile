@@ -314,7 +314,7 @@
         c.appendChild(el('div', { class: 'profile-grid' }, [senaraiTugasan('berjadual'), senaraiTugasan('tidak_berjadual'), jadual(), semakan()]));
       }
       function muat() {
-        return call('KURIKULUM_LIHAT', { tahun: tahun }).then(function (d) { K = d; render(); }, function (e) {
+        return Api.segar('KURIKULUM_LIHAT', guruId ? { tahun: tahun, guru_id: guruId } : { tahun: tahun }, function (d) { K = d; render(); }).catch(function (e) {
           c.textContent = ''; c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message)));
         });
       }
