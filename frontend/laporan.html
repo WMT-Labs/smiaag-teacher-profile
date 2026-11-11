@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Laporan guru — Profil Guru SMIAAG</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#00548d">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Profil Guru">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // Laporan satu guru (profil, beban tugas, kokurikulum, HEM) untuk dicetak atau disimpan sebagai PDF (A4 menegak).
+    // Guru: laporan sendiri. Pentadbir: laporan.html?id=<guru_id>. Semakan kebenaran dibuat oleh server pada setiap aksi.
+    (function () {
+      var sesi = App.guard();
+      if (!sesi) return;
+      var el = UI.el;
+      var m = /[?&]id=([0-9a-f-]{36})/i.exec(location.search);
+      var guruId = m && m[1] !== sesi.guru_id ? m[1] : null;
+      var c = App.mount({ sesi: sesi, active: guruId ? 'guru' : 'profil', title: 'Laporan guru' });
+      var tahun = String(new Date().getFullYear());
+      var D = null;
+
+      function p(x) { x = x || {}; if (guruId) x.guru_id = guruId; return x; }
+      function label(list, kod) { return App.labelOf(list, kod); }
+      function tarikh(t) { return t ? UI.fmtDate(t) : '—'; }
+
+      function jadual(kepala, baris, kosong) {
+        if (!baris.length) return el('p', { class: 'lap-kosong' }, kosong);
+        return el('table', { class: 'lap-jadual' }, [
+          el('thead', {}, el('tr', {}, kepala.map(function (h) { return el('th', { class: h.r ? 'r' : '' }, h.t); }))),
+          el('tbody', {}, baris.map(function (b) { return el('tr', {}, b.map(function (v, i) { return el('td', { class: kepala[i].r ? 'r' : '' }, v === null || v === undefined || v === '' ? '—' : String(v)); })); }))
+        ]);
+      }
+      function bahagian(tajuk, isi) { return el('section', { class: 'lap-bahagian' }, [el('h2', {}, tajuk)].concat(isi)); }
+      function kv(pasangan) {
+        var dl = el('dl', { class: 'lap-kv' });
+        pasangan.forEach(function (x) { dl.appendChild(el('dt', {}, x[0])); dl.appendChild(el('dd', {}, x[1] === null || x[1] === undefined || x[1] === '' ? '—' : String(x[1]))); });
+        return dl;
+      }
+
+      function render() {
+        var P = D.profil, K = D.kuri, O = D.koku, H = D.hem, g = P.guru;
+        var hari = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+        c.textContent = '';
+
+        var sel = el('select', { class: 'select', 'aria-label': 'Tahun', style: 'width:auto' });
+        App.senaraiTahun().forEach(function (t) { var o = el('option', { value: String(t) }, 'Tahun ' + t); if (String(t) === tahun) o.selected = true; sel.appendChild(o); });
+        sel.addEventListener('change', function () { tahun = sel.value; muat(); });
+        var cetak = el('button', { class: 'btn', type: 'button' }, 'Cetak / simpan PDF');
+        cetak.addEventListener('click', function () { window.print(); });
+        c.appendChild(el('div', { class: 'row lap-alat', style: 'justify-content:space-between;flex-wrap:wrap' }, [
+          el('a', { class: 'back', href: guruId ? 'profil.html?id=' + encodeURIComponent(guruId) : 'profil.html' }, [App.icon('i-back', 18), 'Kembali ke profil']),
+          el('div', { class: 'row' }, [sel, cetak])
+        ]));
+
+        var tugasBerjadual = K.tugasan.filter(function (t) { return t.jenis_tugasan === 'berjadual'; });
+        var tugasLain = K.tugasan.filter(function (t) { return t.jenis_tugasan !== 'berjadual'; });
+        var barisTugas = function (t) { return [t.nama_tugasan, t.jabatan || (t.bilangan_kelas ? t.bilangan_kelas + ' kelas' : ''), t.jam_kredit]; };
+        var ug = H.usrah_guru;
+
+        c.appendChild(el('article', { class: 'lap card' }, [
+          el('header', { class: 'lap-kepala' }, [
+            el('img', { src: 'assets/logo-96.png', alt: '', width: '64', height: '64' }),
+            el('div', {}, [el('p', { class: 'lap-sekolah' }, 'Sekolah Menengah Islam Al-Amin Gombak'), el('h1', {}, g.nama_penuh), el('p', {}, g.guru_kod + ' · Laporan profil guru ' + tahun)]),
+            el('p', { class: 'lap-tarikh' }, 'Dijana ' + UI.fmtDate(hari))
+          ]),
+
+          bahagian('Maklumat teras', [kv([
+            ['Status lantikan', label(P.ref.status_lantikan, g.status_lantikan)], ['Jawatan', g.jawatan],
+            ['Tarikh lantikan', tarikh(g.tarikh_lantikan)], ['Emel', g.email]
+          ])]),
+
+          bahagian('Kelayakan akademik', [jadual([{ t: 'Tahap' }, { t: 'Bidang' }, { t: 'Institusi' }, { t: 'Tahun', r: 1 }],
+            P.kelayakan.map(function (k) { return [label(P.ref.tahap_kelayakan, k.tahap), k.bidang, k.institusi, k.tahun_tamat]; }), 'Tiada rekod.')]),
+
+          bahagian('Opsyen', [jadual([{ t: 'Jenis' }, { t: 'Subjek' }],
+            P.opsyen.map(function (o) { return [label(P.ref.jenis_opsyen, o.jenis), o.subjek_nama]; }), 'Tiada rekod.')]),
+
+          bahagian('Beban tugas ' + tahun, [
+            kv([['Jam kredit berjadual', K.jam.berjadual + ' / ' + K.had.had_berjadual], ['Jam kredit tidak berjadual', K.jam.tidak_berjadual + ' / ' + K.had.had_tidak_berjadual]]),
+            el('h3', {}, 'Tugasan berjadual'),
+            jadual([{ t: 'Tugasan' }, { t: 'Butiran' }, { t: 'Jam kredit', r: 1 }], tugasBerjadual.map(barisTugas), 'Tiada rekod.'),
+            el('h3', {}, 'Tugasan tidak berjadual'),
+            jadual([{ t: 'Tugasan' }, { t: 'Jabatan' }, { t: 'Jam kredit', r: 1 }], tugasLain.map(barisTugas), 'Tiada rekod.')
+          ]),
+
+          bahagian('Kokurikulum ' + tahun, [
+            jadual([{ t: 'Unit / kelab / pasukan' }, { t: 'Jenis' }, { t: 'Jawatan' }],
+              O.keahlian.map(function (k) { return [k.unit_nama, label(O.ref.jenis_unit, k.jenis), label(O.ref.jawatan_unit, k.jawatan)]; }), 'Tiada rekod.'),
+            kv([['Rumah sukan', O.rumah ? O.rumah.nama + (O.rumah.jawatan ? ' (' + O.rumah.jawatan + ')' : '') : null]]),
+            el('h3', {}, 'Pertandingan'),
+            jadual([{ t: 'Acara' }, { t: 'Peringkat' }, { t: 'Tarikh' }, { t: 'Pencapaian' }],
+              O.pertandingan.map(function (x) { return [x.nama_acara, label(O.ref.peringkat, x.peringkat), tarikh(x.tarikh), x.pencapaian]; }), 'Tiada rekod.')
+          ]),
+
+          bahagian('HEM ' + tahun, [
+            jadual([{ t: 'Peranan' }, { t: 'Kelas / butiran' }],
+              H.peranan.map(function (x) { return [label(H.ref.jenis_peranan, x.jenis), x.kelas_nama || x.butiran]; }), 'Tiada peranan direkod.'),
+            el('h3', {}, 'Usrah'),
+            kv([
+              ['Usrah murabbi pelajar', H.usrah_pelajar.length ? H.usrah_pelajar.map(function (u) { return u.nama_kumpulan; }).join(', ') : null],
+              ['Usrah guru', ug ? ug.nama_kumpulan + (ug.murabbi ? ' (murabbi: ' + (ug.murabbi.nama || ug.murabbi) + ')' : '') : null],
+              ['Kehadiran usrah guru', ug && ug.kehadiran && ug.kehadiran.jumlah ? ug.kehadiran.hadir + ' / ' + ug.kehadiran.jumlah + ' sesi (' + ug.kehadiran.peratus + '%)' : null],
+              ['Kumpulan dibimbing', H.usrah_dibimbing.length ? H.usrah_dibimbing.map(function (u) { return u.nama_kumpulan + ' (' + u.bilangan_ahli + ' ahli)'; }).join(', ') : null]
+            ])
+          ]),
+
+          bahagian('Kursus dan latihan', [jadual([{ t: 'Tajuk' }, { t: 'Penganjur' }, { t: 'Peringkat' }, { t: 'Tarikh' }, { t: 'Jam', r: 1 }],
+            P.kursus.map(function (k) { return [k.tajuk, k.penganjur, label(P.ref.peringkat_kursus, k.tahap), tarikh(k.tarikh_mula), k.jam]; }), 'Tiada rekod.')]),
+
+          bahagian('Cerapan', [jadual([{ t: 'Tahun' }, { t: 'Bilangan dicerap', r: 1 }, { t: 'Pencerap' }],
+            P.cerapan.sejarah.map(function (x) { return [x.tahun_akademik, x.bilangan_dicerap, x.pencerap]; }), 'Tiada rekod.')]),
+
+          el('footer', { class: 'lap-kaki' }, 'Sistem Profil Guru SMIAAG · Dokumen ini mengandungi data peribadi; simpan dan lupuskan dengan cermat.')
+        ]));
+      }
+
+      function muat() {
+        c.textContent = ''; c.appendChild(App.rangka(3));
+        return Promise.all([
+          Api.call('PROFIL_LIHAT', p({})), Api.call('KURIKULUM_LIHAT', p({ tahun: tahun })),
+          Api.call('KOKU_LIHAT', p({ tahun: tahun })), Api.call('HEM_LIHAT', p({ tahun: tahun }))
+        ]).then(function (r) { D = { profil: r[0], kuri: r[1], koku: r[2], hem: r[3] }; render(); }, function (e) {
+          c.textContent = ''; c.appendChild(el('div', { class: 'notice notice-error' }, el('span', {}, e.message)));
+        });
+      }
+      muat();
+    })();
+  </script>
+</body>
+</html>

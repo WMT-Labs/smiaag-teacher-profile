@@ -76,4 +76,9 @@ C2 aSc sebenar · C3 relief sendiri · C4 laporan · C5 PWA · C6 sandaran.
 - [x] **B7** jenis ketidakhadiran dalam Guru ganti Profil Guru (11/11/2026): lajur `ketidakhadiran_guru.jenis`,
   `ref_jenis_ketidakhadiran`; hebahan memaparkan catatan, atau jenis (MC, CTG, CE untuk cuti sakit, tanpa gaji, ehsan).
   Pemilik perlu: tampal `dist/Code.gs`, `setupTemplate` (tambah lajur + tab rujukan), deploy New version.
-- [ ] Seterusnya: Peringkat 2 (C3, C1, C5, C4), kemudian staf bukan guru dalam Profil Guru, kemudian Peringkat 3 (A3, A4, A5, A1).
+- [x] **Peringkat 2 Profil Guru (12/11/2026):** **C3** relief sendiri di laman utama (`GANTI_SAYA`); **C1** cache pelayar
+  untuk halaman sendiri (`Api.segar`; 70 ms berbanding 1.5 s dalam ujian); **C5** boleh dipasang sebagai aplikasi
+  (manifest + ikon, tanpa service worker); **C4** `laporan.html` (profil, beban tugas, koku, HEM; cetak/PDF A4 menegak).
+  Pemilik perlu: tampal `dist/Code.gs` + deploy New version (untuk `GANTI_SAYA`); frontend terbit sendiri di GitHub Pages.
+- [ ] **C2** fail aSc sebenar: menunggu fail daripada pemilik.
+- [ ] Seterusnya: staf bukan guru dalam Profil Guru, kemudian Peringkat 3 (A3, A4, A5, A1).

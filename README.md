@@ -176,6 +176,16 @@ Perbezaan dengan Netlify: GitHub Pages tidak menyokong `_headers`. CSP dimasukka
 `frame-ancestors`), tetapi `X-Frame-Options` dan header lain tiada. Guna untuk pratonton; laman utama kekal di Netlify.
 Kedua-dua laman bercakap dengan Apps Script dan Sheet yang SAMA, jadi data yang dimasukkan semasa pratonton adalah sebenar.
 
+### Ciri pengguna tambahan
+
+- **Laporan guru** (`laporan.html`): profil, beban tugas, kokurikulum dan HEM seorang guru dalam satu halaman A4 menegak.
+  Tekan "Cetak / simpan PDF" dan pilih *Save as PDF* dalam dialog cetak pelayar. Guru: laporan sendiri; pentadbir: mana-mana guru.
+- **Relief saya**: laman utama memaparkan kelas yang perlu diganti dan siapa mengganti kelas sendiri.
+- **Pasang sebagai aplikasi**: di telefon, menu pelayar > *Add to Home screen* / *Install app*. Tiada service worker, jadi
+  kemas kini laman berkuat kuasa serta-merta.
+- **Cache pelayar**: halaman sendiri dipaparkan serta-merta daripada data terakhir dan dikemas kini di belakang. Data guru
+  lain tidak pernah disimpan dalam pelayar; cache dibuang semasa log keluar. Butiran: `frontend/js/api.js`.
+
 ### Cuba di komputer sendiri tanpa Google (pilihan)
 
 ```bash

@@ -296,6 +296,9 @@
             el('a', { class: 'btn btn-secondary btn-sm', href: 'hem.html?id=' + encodeURIComponent(P.guru.id) }, 'HEM')
           ])
         ]));
+        c.appendChild(el('div', { class: 'row', style: 'justify-content:flex-end;margin-bottom:var(--s-3)' }, [
+          el('a', { class: 'btn btn-secondary btn-sm', href: 'laporan.html' + (orangLain ? '?id=' + encodeURIComponent(P.guru.id) : '') }, 'Laporan untuk dicetak')
+        ]));
         c.appendChild(el('div', { class: 'profile-grid' }, [kepala(), teras(), cerapan(), kelayakan(), opsyen(), kursus()]));
         if (!orangLain || sesi.role === 'superadmin') c.appendChild(dataPeribadi());
       }
