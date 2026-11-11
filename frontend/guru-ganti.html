@@ -47,13 +47,20 @@
         ]));
       }
 
+      // Jenis ketidakhadiran: cuti tahunan dimohon melalui e-Cuti; jenis lain direkod di sini untuk mencari relief sahaja
+      function medanJenis(nilai) {
+        return { name: 'jenis', label: 'Jenis', type: 'select', required: true, value: nilai,
+          options: ((D.ref || {}).jenis_ketidakhadiran || []).map(function (j) { return { value: j.kod, label: j.label }; }) };
+      }
+
       function tambahTidakHadir() {
         var ada = {}; D.tidak_hadir.forEach(function (x) { ada[x.guru.id] = true; });
         App.formDialog({
           title: 'Guru tidak hadir · ' + Hebahan.tarikhPanjang(tarikh),
           fields: [
             { name: 'guru_id', label: 'Guru', type: 'select', required: true, options: D.guru.filter(function (g) { return !ada[g.id]; }).map(function (g) { return { value: g.id, label: g.nama + ' (' + g.guru_kod + ')' }; }) },
-            { name: 'sebab', label: 'Sebab', placeholder: 'contoh: CT, Khidmas, Tamrin WAFA, MC', hint: 'Dipaparkan dalam kurungan dalam hebahan.', attrs: { maxlength: '60' } }
+            medanJenis('lain_lain'),
+            { name: 'sebab', label: 'Catatan (pilihan)', placeholder: 'contoh: Khidmas, Tamrin WAFA', hint: 'Jika diisi, catatan ini dipaparkan dalam kurungan dalam hebahan. Jika kosong, jenis dipaparkan (cuti sakit, tanpa gaji dan ehsan dihebahkan sebagai "Cuti" sahaja).', attrs: { maxlength: '60' } }
           ],
           onSubmit: function (v) { v.tarikh = tarikh; return Api.call('GANTI_TIDAK_HADIR_SIMPAN', v); }
         }).then(function (r) { if (r) { UI.toast('Direkod.'); muat(); } });
@@ -99,10 +106,10 @@
               if (ok) Api.call('GANTI_TIDAK_HADIR_PADAM', { id: t.id }).then(function () { muat(); }, function (e) { UI.toast(e.message); });
             });
           });
-          var sebab = el('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Sunting sebab', title: 'Sunting sebab' }, icon('i-edit'));
+          var sebab = el('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Sunting jenis dan catatan', title: 'Sunting jenis dan catatan' }, icon('i-edit'));
           sebab.addEventListener('click', function () {
-            App.formDialog({ title: 'Sebab tidak hadir', fields: [{ name: 'sebab', label: 'Sebab', value: t.sebab, attrs: { maxlength: '60' } }],
-              onSubmit: function (v) { return Api.call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: tarikh, id: t.id, sebab: v.sebab }); } }).then(function (r) { if (r) muat(); });
+            App.formDialog({ title: 'Jenis dan catatan · ' + t.guru.nama, fields: [medanJenis(t.jenis), { name: 'sebab', label: 'Catatan (pilihan)', value: t.sebab, attrs: { maxlength: '60' } }],
+              onSubmit: function (v) { return Api.call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: tarikh, id: t.id, jenis: v.jenis, sebab: v.sebab }); } }).then(function (r) { if (r) muat(); });
           });
           var rows = t.slot.length ? el('ul', { class: 'items' }, t.slot.map(function (s) {
             var kanan;
@@ -117,7 +124,7 @@
             ].concat(kanan));
           })) : el('p', { class: 'empty-sm' }, 'Tiada kelas dalam jadual pada hari ini.');
           senarai.appendChild(el('section', { class: 'card' }, [
-            el('div', { class: 'card-head' }, [el('div', {}, [el('h2', {}, t.guru.nama), el('p', { class: 'muted', style: 'font-size:.8125rem;margin-top:2px' }, t.guru.guru_kod + (t.sebab ? ' · ' + t.sebab : ''))]), el('div', { class: 'row' }, [sebab, buang])]),
+            el('div', { class: 'card-head' }, [el('div', {}, [el('h2', {}, t.guru.nama), el('p', { class: 'muted', style: 'font-size:.8125rem;margin-top:2px' }, t.guru.guru_kod + ' · ' + t.jenis_label + (t.sebab ? ' · ' + t.sebab : ''))]), el('div', { class: 'row' }, [sebab, buang])]),
             rows
           ]));
         });

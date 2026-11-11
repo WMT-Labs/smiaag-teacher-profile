@@ -177,3 +177,15 @@ Ukuran pemilik selepas P0: log masuk 6 s, profil 6 s, dashboard 10 s, tukar tahu
   nonce sekali guna (disemak oleh e-Cuti), dihantar dalam fragmen `#sso=` (tidak masuk log pelayan) dan dibuang
   daripada bar alamat oleh e-Cuti.
 - **Akaun sistem (ADMIN01) tiada SSO** kerana bukan guru. Staf bukan guru kekal guna log masuk biasa e-Cuti.
+
+## Pelan 2: keputusan dan andaian (10–11/11/2026)
+
+- **Akaun e-Cuti automatik (pilihan A):** guru dengan emel dalam Profil Guru mendapat akaun e-Cuti GURU pada klik pertama
+  menu e-Cuti, tanpa kata laluan e-Cuti. Akaun e-Cuti sedia ada kekal dengan kata laluan sendiri.
+- **Kelayakan cuti lalai 12 hari setahun**; pemilik mengubah angka secara manual dalam `DATA_GURU`.
+- **B7:** e-Cuti kekal cuti tahunan sahaja. Cuti sakit, kursus, program, cuti tanpa gaji dan cuti ehsan direkod pentadbir
+  sebagai jenis ketidakhadiran dalam Guru ganti; tiada kuota, tiada kelulusan, tidak dipaparkan dalam kalendar e-Cuti.
+- **Andaian hebahan:** catatan pentadbir diutamakan dalam kurungan. Tanpa catatan, jenis dipaparkan, kecuali cuti sakit,
+  cuti tanpa gaji dan cuti ehsan yang dihebahkan sebagai "Cuti" sahaja (maklumat peribadi tidak disiar dalam kumpulan WhatsApp).
+- **B5:** hanya tarikh dalam pekeliling Kalendar Akademik 2027 (Kumpulan B) diisi automatik; cuti umum lain ditambah admin.
+- **B6 dibatalkan; A2 ditangguhkan; staf bukan guru akan didaftarkan dalam Profil Guru.**

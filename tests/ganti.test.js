@@ -111,3 +111,50 @@ test('guru ganti: pentadbir sahaja; akaun sistem dan guru tidak aktif tidak bole
   assert.equal(call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: 'semalam', guru_id: g.B }, ADM.token).code, 'VALIDASI');
   assert.equal(call('GANTI_CALON', { tarikh: '2026-11-06', ketidakhadiran_id: th.id, slot_id: sA1 }, ADM.token).code, 'TIDAK_JUMPA', 'tarikh berbeza');
 });
+
+// ---------------------------------------------------------------- B7: jenis ketidakhadiran
+test('jenis ketidakhadiran: lalai lain-lain, boleh ditetapkan dan ditukar, nilai tidak sah ditolak', () => {
+  const { call, ctx, ADM, g } = dunia();
+  const T = '2026-11-05';
+  const a = call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: T, guru_id: g.A }, ADM.token).data;
+  assert.equal(ctx.getById('ketidakhadiran_guru', a.id).jenis, 'lain_lain');
+  const d = call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: T, guru_id: g.D, jenis: 'cuti_sakit' }, ADM.token).data;
+  assert.equal(call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: T, guru_id: g.B, jenis: 'bercuti_sakan' }, ADM.token).code, 'VALIDASI');
+  const hari = call('GANTI_HARI', { tarikh: T }, ADM.token).data;
+  assert.deepEqual([...hari.ref.jenis_ketidakhadiran.map((j) => j.kod)], ['cuti_tahunan', 'cuti_sakit', 'kursus', 'program', 'cuti_tanpa_gaji', 'cuti_ehsan', 'lain_lain']);
+  const baris = (id) => hari.tidak_hadir.find((t) => t.id === id);
+  assert.equal(baris(d.id).jenis_label, 'Cuti sakit');
+  // tukar jenis dan catatan; catatan sahaja mengekalkan jenis
+  call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: T, id: a.id, jenis: 'kursus', sebab: 'Tamrin WAFA' }, ADM.token);
+  call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: T, id: a.id, sebab: 'Tamrin WAFA 2' }, ADM.token);
+  const r = ctx.getById('ketidakhadiran_guru', a.id);
+  assert.equal(r.jenis, 'kursus'); assert.equal(r.sebab, 'Tamrin WAFA 2');
+});
+
+test('hebahan: catatan diutamakan; tanpa catatan guna jenis; jenis peribadi dihebahkan sebagai "Cuti" sahaja', () => {
+  const { ctx } = dunia();
+  const L = { cuti_tahunan: 'Cuti tahunan', cuti_sakit: 'Cuti sakit', kursus: 'Kursus', program: 'Program', cuti_tanpa_gaji: 'Cuti tanpa gaji', cuti_ehsan: 'Cuti ehsan', lain_lain: 'Lain-lain' };
+  assert.equal(ctx.sebabHebahan('kursus', 'Tamrin WAFA', L), 'Tamrin WAFA');
+  assert.equal(ctx.sebabHebahan('kursus', null, L), 'Kursus');
+  assert.equal(ctx.sebabHebahan('cuti_tahunan', '', L), 'Cuti tahunan');
+  ['cuti_sakit', 'cuti_tanpa_gaji', 'cuti_ehsan'].forEach((j) => assert.equal(ctx.sebabHebahan(j, null, L), 'Cuti', j + ' tidak didedahkan dalam kumpulan WhatsApp'));
+  assert.equal(ctx.sebabHebahan('lain_lain', null, L), '');
+  assert.equal(ctx.sebabHebahan(undefined, null, L), '', 'rekod lama tanpa jenis');
+  // modul hebahan frontend menggunakan sebab_hebahan daripada server
+  const teks = H.jana({ tarikh: '2026-11-05', tidak_hadir: [{ guru: { panggilan: 'Irfan' }, sebab: null, sebab_hebahan: 'Cuti', slot: [{ masa_mula: '07:30', masa_akhir: '08:30', subjek: 'DQH', kelas: '3 Suyuthi', ganti: { guru: { panggilan: 'Nuaimah' } } }] }] });
+  assert.ok(teks.includes('1. Irfan (Cuti)'));
+});
+
+test('rekod lama tanpa lajur jenis (sebelum kemas kini) masih dibaca dan boleh dikemas kini', () => {
+  const { call, ctx, env, ADM, g } = dunia();
+  const T = '2026-11-05';
+  const a = call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: T, guru_id: g.A, sebab: 'CT' }, ADM.token).data;
+  const sh = env.ss.getSheetByName('ketidakhadiran_guru');
+  const col = sh.grid[0].indexOf('jenis'), row = sh.grid.findIndex((x) => x[0] === a.id);
+  sh.grid[row][col] = '';   // seperti baris yang wujud sebelum lajur ditambah
+  ctx.segarkanCache();
+  const t = call('GANTI_HARI', { tarikh: T }, ADM.token).data.tidak_hadir[0];
+  assert.equal(t.jenis, 'lain_lain'); assert.equal(t.sebab_hebahan, 'CT');
+  assert.equal(call('GANTI_TIDAK_HADIR_SIMPAN', { tarikh: T, id: a.id, sebab: 'CT 2' }, ADM.token).ok, true);
+  assert.equal(ctx.getById('ketidakhadiran_guru', a.id).jenis, 'lain_lain');
+});

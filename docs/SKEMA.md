@@ -171,6 +171,21 @@ Unik: (kod)
 
 Unik: (kod)
 
+### `ref_jenis_ketidakhadiran`
+
+| Lajur | Jenis | Wajib | Rujukan | Lalai |
+|---|---|---|---|---|
+| id (PK) | uuid | ya |  |  |
+| kod | text | ya |  |  |
+| label | text | ya |  |  |
+| susunan | int [0..1000] | ya |  | 0 |
+| aktif | bool | ya |  | true |
+| created_at | datetime |  |  |  |
+| updated_at | datetime |  |  |  |
+| updated_by | text |  |  |  |
+
+Unik: (kod)
+
 ### `ref_jenis_unit`
 
 | Lajur | Jenis | Wajib | Rujukan | Lalai |
@@ -471,6 +486,7 @@ Unik: (guru_id, kunci)
 | tarikh | date | ya |  |  |
 | guru_id | uuid | ya | FK → guru |  |
 | sebab | text |  |  |  |
+| jenis | text | ya | ref → ref_jenis_ketidakhadiran | lain_lain |
 | created_at | datetime |  |  |  |
 | updated_at | datetime |  |  |  |
 | updated_by | text |  |  |  |
@@ -729,6 +745,7 @@ Unik: (guru_id, tahun_akademik, jenis, kelas_id)
 - `ref_jabatan`: KURI, HEM, KOKU, lain_lain
 - `ref_hari`: isnin, selasa, rabu, khamis, jumaat, sabtu, ahad
 - `ref_sumber_slot`: asc, pdf, manual
+- `ref_jenis_ketidakhadiran`: cuti_tahunan, cuti_sakit, kursus, program, cuti_tanpa_gaji, cuti_ehsan, lain_lain
 - `ref_jenis_unit`: badan_beruniform, kelab_persatuan, pasukan_sekolah
 - `ref_jawatan_unit`: penasihat, penyelaras, ajk, lain_lain
 - `ref_peringkat_pertandingan`: sekolah, daerah, negeri, kebangsaan

@@ -136,6 +136,18 @@ create table ref_sumber_slot (
   unique (kod)
 );
 
+create table ref_jenis_ketidakhadiran (
+  id uuid primary key default gen_random_uuid(),
+  kod text not null check (char_length(kod) <= 200),
+  label text not null check (char_length(label) <= 200),
+  susunan integer not null default 0 check (susunan between 0 and 1000),
+  aktif boolean not null default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  updated_by text check (char_length(updated_by) <= 200),
+  unique (kod)
+);
+
 create table ref_jenis_unit (
   id uuid primary key default gen_random_uuid(),
   kod text not null check (char_length(kod) <= 200),
@@ -371,6 +383,7 @@ create table ketidakhadiran_guru (
   tarikh date not null,
   guru_id uuid not null references guru(id),
   sebab text check (char_length(sebab) <= 200),
+  jenis text not null default 'lain_lain' references ref_jenis_ketidakhadiran(kod) on update cascade,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   updated_by text check (char_length(updated_by) <= 200),
@@ -619,6 +632,7 @@ insert into ref_kumpulan_tugasan (kod, label, susunan) values ('subjek', 'Subjek
 insert into ref_jabatan (kod, label, susunan) values ('KURI', 'Kurikulum', 1), ('HEM', 'Hal Ehwal Murid', 2), ('KOKU', 'Kokurikulum', 3), ('lain_lain', 'Lain-lain', 4);
 insert into ref_hari (kod, label, susunan) values ('isnin', 'Isnin', 1), ('selasa', 'Selasa', 2), ('rabu', 'Rabu', 3), ('khamis', 'Khamis', 4), ('jumaat', 'Jumaat', 5), ('sabtu', 'Sabtu', 6), ('ahad', 'Ahad', 7);
 insert into ref_sumber_slot (kod, label, susunan) values ('asc', 'Import aSc', 1), ('pdf', 'Import PDF', 2), ('manual', 'Manual', 3);
+insert into ref_jenis_ketidakhadiran (kod, label, susunan) values ('cuti_tahunan', 'Cuti tahunan', 1), ('cuti_sakit', 'Cuti sakit', 2), ('kursus', 'Kursus', 3), ('program', 'Program', 4), ('cuti_tanpa_gaji', 'Cuti tanpa gaji', 5), ('cuti_ehsan', 'Cuti ehsan', 6), ('lain_lain', 'Lain-lain', 7);
 insert into ref_jenis_unit (kod, label, susunan) values ('badan_beruniform', 'Badan beruniform (Syabab)', 1), ('kelab_persatuan', 'Kelab / persatuan', 2), ('pasukan_sekolah', 'Pasukan sekolah', 3);
 insert into ref_jawatan_unit (kod, label, susunan) values ('penasihat', 'Penasihat', 1), ('penyelaras', 'Penyelaras', 2), ('ajk', 'AJK', 3), ('lain_lain', 'Lain-lain', 4);
 insert into ref_peringkat_pertandingan (kod, label, susunan) values ('sekolah', 'Sekolah', 1), ('daerah', 'Daerah', 2), ('negeri', 'Negeri', 3), ('kebangsaan', 'Kebangsaan', 4);
@@ -646,6 +660,7 @@ alter table ref_kumpulan_tugasan enable row level security;
 alter table ref_jabatan enable row level security;
 alter table ref_hari enable row level security;
 alter table ref_sumber_slot enable row level security;
+alter table ref_jenis_ketidakhadiran enable row level security;
 alter table ref_jenis_unit enable row level security;
 alter table ref_jawatan_unit enable row level security;
 alter table ref_peringkat_pertandingan enable row level security;
@@ -715,6 +730,9 @@ create policy ref_hari_tulis on ref_hari for all to authenticated using (app_rol
 -- ref_sumber_slot: rujukan_super
 create policy ref_sumber_slot_baca on ref_sumber_slot for select to authenticated using (app_guru_id() is not null);
 create policy ref_sumber_slot_tulis on ref_sumber_slot for all to authenticated using (app_role() = 'superadmin') with check (app_role() = 'superadmin');
+-- ref_jenis_ketidakhadiran: rujukan_super
+create policy ref_jenis_ketidakhadiran_baca on ref_jenis_ketidakhadiran for select to authenticated using (app_guru_id() is not null);
+create policy ref_jenis_ketidakhadiran_tulis on ref_jenis_ketidakhadiran for all to authenticated using (app_role() = 'superadmin') with check (app_role() = 'superadmin');
 -- ref_jenis_unit: rujukan_super
 create policy ref_jenis_unit_baca on ref_jenis_unit for select to authenticated using (app_guru_id() is not null);
 create policy ref_jenis_unit_tulis on ref_jenis_unit for all to authenticated using (app_role() = 'superadmin') with check (app_role() = 'superadmin');

@@ -60,6 +60,8 @@ function aksiGantiHari(ctx, params) {
   var D = _dataHari(tarikh);
   var gantiBySlot = {};
   D.ganti.forEach(function (x) { gantiBySlot[x.ketidakhadiran_id + '|' + (x.slot_id || x.id)] = x; });
+  var labelJenis = {};
+  _refSenarai('ref_jenis_ketidakhadiran').forEach(function (r) { labelJenis[r.kod] = r.label; });
   var out = D.tidakHadir.map(function (t) {
     var slots = D.slotHari.filter(function (s) { return s.guru_id === t.guru_id; }).sort(function (a, b) { return minitDari(a.masa_mula) - minitDari(b.masa_mula); });
     var rows = slots.map(function (s) {
@@ -74,22 +76,41 @@ function aksiGantiHari(ctx, params) {
         ganti: { id: x.id, guru: _ringkasGuru(D.guruAll[x.guru_ganti_id]), catatan: x.catatan } });
     });
     rows.sort(function (a, b) { return minitDari(a.masa_mula) - minitDari(b.masa_mula); });
-    return { id: t.id, guru: _ringkasGuru(D.guruAll[t.guru_id]), sebab: t.sebab, slot: rows };
+    var jenis = t.jenis || 'lain_lain'; // rekod sebelum lajur jenis wujud
+    return { id: t.id, guru: _ringkasGuru(D.guruAll[t.guru_id]), sebab: t.sebab, jenis: jenis, jenis_label: labelJenis[jenis] || jenis,
+      sebab_hebahan: sebabHebahan(jenis, t.sebab, labelJenis), slot: rows };
   });
   return {
+    ref: { jenis_ketidakhadiran: _refSenarai('ref_jenis_ketidakhadiran') },
     tarikh: tarikh, hari: D.hari, hari_label: _refSenarai('ref_hari').filter(function (h) { return h.kod === D.hari; }).map(function (h) { return h.label; })[0] || D.hari,
     tidak_hadir: out,
     guru: senaraiGuruMengajar().map(function (g) { return { id: g.id, nama: g.nama_penuh, guru_kod: g.guru_kod }; })
   };
 }
 
+/**
+ * Teks dalam kurungan pada hebahan WhatsApp. Catatan pentadbir (sebab) diutamakan. Jika kosong, guna jenis;
+ * jenis yang bersifat peribadi (sakit, tanpa gaji, ehsan) dihebahkan sebagai "Cuti" sahaja.
+ */
+var JENIS_HEBAH_CUTI_SAHAJA = ['cuti_sakit', 'cuti_tanpa_gaji', 'cuti_ehsan'];
+function sebabHebahan(jenis, sebab, labelJenis) {
+  if (sebab) return sebab;
+  if (!jenis || jenis === 'lain_lain') return '';
+  if (JENIS_HEBAH_CUTI_SAHAJA.indexOf(jenis) !== -1) return 'Cuti';
+  return labelJenis[jenis] || '';
+}
+
 function aksiGantiTidakHadirSimpan(ctx, params) {
   var tarikh = _tarikhParam(params);
   var row = { sebab: pStr(params, 'sebab', { label: 'Sebab', max: 60, optional: true }) };
+  var jenisSah = _refSenarai('ref_jenis_ketidakhadiran').map(function (r) { return r.kod; });
+  if (params.jenis !== undefined && params.jenis !== null && params.jenis !== '') row.jenis = pOneOf(params, 'jenis', jenisSah, 'Jenis');
   var hasil;
   if (params.id) {
     var id = pUuid(params, 'id', 'Rekod');
-    if (!getById('ketidakhadiran_guru', id)) throw new AppError('TIDAK_JUMPA', 'Rekod tidak dijumpai.');
+    var sedia = getById('ketidakhadiran_guru', id);
+    if (!sedia) throw new AppError('TIDAK_JUMPA', 'Rekod tidak dijumpai.');
+    if (!row.jenis) row.jenis = sedia.jenis || 'lain_lain'; // rekod lama tanpa jenis
     hasil = update('ketidakhadiran_guru', id, row, { actorId: ctx.akaunId });
   } else {
     var gid = pUuid(params, 'guru_id', 'Guru');
@@ -99,7 +120,7 @@ function aksiGantiTidakHadirSimpan(ctx, params) {
     try { hasil = insert('ketidakhadiran_guru', row, { actorId: ctx.akaunId }); }
     catch (e) { if (e && e.code === 'DUPLIKAT') throw new AppError('DUPLIKAT', g.nama_penuh + ' sudah direkod tidak hadir pada tarikh ini.'); throw e; }
   }
-  logAudit(ctx.akaunId, 'GANTI_TIDAK_HADIR', tarikh, row.sebab || '');
+  logAudit(ctx.akaunId, 'GANTI_TIDAK_HADIR', tarikh, (hasil.jenis || '') + (row.sebab ? ' · ' + row.sebab : ''));
   return { id: hasil.id };
 }
 

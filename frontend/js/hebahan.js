@@ -46,7 +46,9 @@
       var ada = (t.slot || []).filter(function (s) { return s.ganti && s.ganti.guru; });
       if (!ada.length) return;
       n++;
-      baris.push(n + '. ' + t.guru.panggilan + (t.sebab ? ' (' + t.sebab + ')' : ''));
+      // sebab_hebahan dikira server: catatan pentadbir, atau jenis ketidakhadiran (jenis peribadi dihebahkan sebagai "Cuti")
+      var sebab = t.sebab_hebahan !== undefined ? t.sebab_hebahan : t.sebab;
+      baris.push(n + '. ' + t.guru.panggilan + (sebab ? ' (' + sebab + ')' : ''));
       ada.forEach(function (s) {
         var maklumat = [s.subjek, s.kelas].filter(Boolean).join(', ');
         baris.push('▫️*' + masa(s.masa_mula) + '-' + masa(s.masa_akhir) + '*' + (maklumat ? ' (' + maklumat + ')' : '') + ': Cg ' + s.ganti.guru.panggilan);

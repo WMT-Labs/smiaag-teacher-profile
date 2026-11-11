@@ -95,7 +95,9 @@ var _TABLE_DEFS = {
   },
   ketidakhadiran_guru: {
     // Guru yang tidak hadir pada satu tarikh (untuk agihan guru ganti / relief). sebab: contoh CT, Khidmas, Tamrin WAFA.
-    cols: ['id:uuid!', 'tarikh:date!', 'guru_id:fk(guru)!', 'sebab:text'],
+    // jenis: cuti tahunan datang daripada e-Cuti; jenis lain (cuti sakit, kursus, program, cuti tanpa gaji, cuti ehsan)
+    // direkod pentadbir di sini sahaja, tanpa kuota atau kelulusan, semata-mata untuk mencari relief.
+    cols: ['id:uuid!', 'tarikh:date!', 'guru_id:fk(guru)!', 'sebab:text', 'jenis:enum(ref_jenis_ketidakhadiran)!=lain_lain'],
     unique: [['tarikh', 'guru_id']]
   },
   guru_ganti: {
@@ -196,6 +198,8 @@ var REF_SEEDS = {
   ref_jabatan: [['KURI', 'Kurikulum'], ['HEM', 'Hal Ehwal Murid'], ['KOKU', 'Kokurikulum'], ['lain_lain', 'Lain-lain']],
   ref_hari: [['isnin', 'Isnin'], ['selasa', 'Selasa'], ['rabu', 'Rabu'], ['khamis', 'Khamis'], ['jumaat', 'Jumaat'], ['sabtu', 'Sabtu'], ['ahad', 'Ahad']],
   ref_sumber_slot: [['asc', 'Import aSc'], ['pdf', 'Import PDF'], ['manual', 'Manual']],
+  ref_jenis_ketidakhadiran: [['cuti_tahunan', 'Cuti tahunan'], ['cuti_sakit', 'Cuti sakit'], ['kursus', 'Kursus'], ['program', 'Program'],
+    ['cuti_tanpa_gaji', 'Cuti tanpa gaji'], ['cuti_ehsan', 'Cuti ehsan'], ['lain_lain', 'Lain-lain']],
   ref_jenis_unit: [['badan_beruniform', 'Badan beruniform (Syabab)'], ['kelab_persatuan', 'Kelab / persatuan'], ['pasukan_sekolah', 'Pasukan sekolah']],
   ref_jawatan_unit: [['penasihat', 'Penasihat'], ['penyelaras', 'Penyelaras'], ['ajk', 'AJK'], ['lain_lain', 'Lain-lain']],
   ref_peringkat_pertandingan: [['sekolah', 'Sekolah'], ['daerah', 'Daerah'], ['negeri', 'Negeri'], ['kebangsaan', 'Kebangsaan']],

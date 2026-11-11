@@ -70,7 +70,10 @@ C2 aSc sebenar · C3 relief sendiri · C4 laporan · C5 PWA · C6 sandaran.
   ujian + harness, **B3**, **B1**, **B4**, **B5** (Kalendar Akademik 2027 Kumpulan B daripada PDF pemilik), **B8**,
   sandaran e-Cuti (C6). Pemilik perlu: tampal Code.gs, jalankan `pasangPencetus` dan `isiEmelDataGuru`, tambah cuti
   umum yang tiada dalam pekeliling (Hari Pekerja, Hari Malaysia, cuti negeri, cuti ganti 8 Feb 2027 dll.).
-- [ ] **B2** CSP + pustaka dihos sendiri (PR berasingan, seterusnya).
-- [ ] **B7** (disahkan pemilik): e-Cuti kekal cuti tahunan sahaja; jenis lain (cuti sakit, kursus, program, cuti tanpa
-  gaji, cuti ehsan) direkod sebagai jenis ketidakhadiran dalam Guru ganti Profil Guru. Dibina dalam Profil Guru
-  (lajur `jenis` pada `ketidakhadiran_guru`), sebelum A1.
+- [x] Akaun e-Cuti automatik daripada Profil Guru (PR e-Cuti #6, dimerge 11/11/2026): pilihan A pemilik; akaun baharu
+  `SsoSahaja`, tiada kata laluan e-Cuti. Sebahagian kecil A2 yang selamat dibuat awal.
+- [x] **B2** CSP + pustaka dihos sendiri, kelayakan lalai 12 hari (PR e-Cuti #7, menunggu merge + deploy pratonton).
+- [x] **B7** jenis ketidakhadiran dalam Guru ganti Profil Guru (11/11/2026): lajur `ketidakhadiran_guru.jenis`,
+  `ref_jenis_ketidakhadiran`; hebahan memaparkan catatan, atau jenis (sakit/tanpa gaji/ehsan dihebahkan "Cuti" sahaja).
+  Pemilik perlu: tampal `dist/Code.gs`, `setupTemplate` (tambah lajur + tab rujukan), deploy New version.
+- [ ] Seterusnya: Peringkat 2 (C3, C1, C5, C4), kemudian staf bukan guru dalam Profil Guru, kemudian Peringkat 3 (A3, A4, A5, A1).
